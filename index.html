@@ -12,88 +12,114 @@
   <style>
     :root {
       --bg:#f4f4f4; --surface:#ffffff; --surface-2:#ebebeb;
-      --charcoal:#424242; --charcoal-lt:#5a5a5a;
-      --border:#d4d4d4; --text:#1a1a1a; --muted:#6b6b6b;
-      --accent:#c4511a; --accent-dark:#a03f12; --accent-lt:#f0692a;
-      --red:#c0392b; --green:#2e7d32;
-      --radius:10px; --shadow:0 2px 12px rgba(0,0,0,.10);
+      --charcoal:#424242; --charcoal-lt:#5e5e5e;
+      --border:#d0d0d0; --text:#1a1a1a; --muted:#707070;
+      --red:#b71c1c; --green:#1b5e20;
+      --radius:10px; --shadow:0 2px 10px rgba(0,0,0,.09);
     }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Open Sans',sans-serif;font-size:14px;min-height:100vh;}
-    .topbar{background:var(--charcoal);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+
+    .topbar{background:var(--charcoal);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.3);}
     .topbar-brand{display:flex;align-items:center;gap:12px;}
-    .topbar-shield{width:34px;height:34px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
-    .topbar-name{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:#fff;letter-spacing:.06em;text-transform:uppercase;}
-    .topbar-name span{color:var(--accent-lt);}
-    .topbar-right{font-family:'Open Sans',sans-serif;font-size:12px;color:#aaa;letter-spacing:.04em;}
-    .wrap{max-width:1500px;margin:0 auto;padding:28px 24px 48px;}
-    .page-header{background:var(--charcoal);border-radius:var(--radius);padding:28px 32px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:var(--shadow);}
-    .eyebrow{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:8px;}
-    h1{font-family:'Oswald',sans-serif;font-size:48px;font-weight:700;line-height:.95;letter-spacing:.02em;text-transform:uppercase;color:#fff;}
-    h1 span{color:var(--accent-lt);}
-    .subtitle{color:#b0b0b0;font-size:13px;line-height:1.6;margin-top:10px;max-width:560px;}
-    .btn{font-family:'Open Sans',sans-serif;font-weight:700;font-size:12px;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;transition:background .15s;text-transform:uppercase;letter-spacing:.08em;}
-    .btn-primary{background:var(--accent);color:#fff;}
-    .btn-primary:hover{background:var(--accent-lt);}
+    .topbar-shield{width:32px;height:32px;background:#fff;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;color:var(--charcoal);flex-shrink:0;}
+    .topbar-name{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:#fff;letter-spacing:.07em;text-transform:uppercase;}
+    .topbar-name span{color:#ccc;}
+    .topbar-right{font-size:11px;color:#999;letter-spacing:.06em;}
+
+    .wrap{max-width:1500px;margin:0 auto;padding:26px 24px 48px;}
+
+    .page-header{background:var(--charcoal);border-radius:var(--radius);padding:26px 30px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:var(--shadow);}
+    .eyebrow{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#aaa;margin-bottom:7px;}
+    h1{font-family:'Oswald',sans-serif;font-size:46px;font-weight:700;line-height:.95;letter-spacing:.02em;text-transform:uppercase;color:#fff;}
+    .subtitle{color:#aaa;font-size:13px;line-height:1.6;margin-top:9px;max-width:540px;}
+
+    .btn{font-family:'Open Sans',sans-serif;font-weight:700;font-size:12px;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;transition:background .15s;text-transform:uppercase;letter-spacing:.07em;}
+    .btn-primary{background:#fff;color:var(--charcoal);}
+    .btn-primary:hover{background:#e0e0e0;}
     .btn-ghost{background:transparent;color:#bbb;border:1px solid #666;}
-    .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
-    .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:22px;}
-    .stat{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--charcoal);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
-    .stat.accent-top{border-top-color:var(--accent);}
+    .btn-ghost:hover{border-color:#fff;color:#fff;}
+
+    /* toggle switch */
+    .toggle-wrap{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);font-family:'Open Sans',sans-serif;white-space:nowrap;}
+    .toggle{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:.2s;}
+    .toggle-slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+    .toggle input:checked+.toggle-slider{background:var(--charcoal);}
+    .toggle input:checked+.toggle-slider:before{transform:translateX(18px);}
+
+    .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:20px;}
+    .stat{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--charcoal);border-radius:var(--radius);padding:15px 17px;box-shadow:var(--shadow);}
     .stat.red-top{border-top-color:var(--red);}
     .stat.green-top{border-top-color:var(--green);}
-    .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-bottom:8px;}
-    .stat-value{font-family:'Oswald',sans-serif;font-size:38px;font-weight:700;line-height:1;color:var(--charcoal);}
-    .stat-value.orange{color:var(--accent);} .stat-value.red{color:var(--red);} .stat-value.green{color:var(--green);}
-    .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px;}
-    .filter-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
-    .filter-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);font-weight:700;margin-bottom:7px;}
+    .stat-value{font-family:'Oswald',sans-serif;font-size:36px;font-weight:700;line-height:1;color:var(--charcoal);}
+    .stat-value.red{color:var(--red);}
+    .stat-value.green{color:var(--green);}
+
+    .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:20px;}
+    .filter-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+    .filter-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
     .filter-title{font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--charcoal);}
-    .search{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;outline:none;margin-bottom:10px;}
-    .search:focus{border-color:var(--accent);}
-    .search::placeholder{color:#aaa;}
-    .selected{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:4px;}
-    .pill{background:#fdf0e8;border:1px solid #e0a070;color:var(--accent-dark);border-radius:999px;padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;font-weight:600;}
-    .pill button{border:0;background:transparent;cursor:pointer;color:var(--accent);font-size:14px;line-height:1;}
+    .search{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 11px;color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;outline:none;margin-bottom:9px;}
+    .search:focus{border-color:var(--charcoal);}
+    .search::placeholder{color:#bbb;}
+    .selected{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px;min-height:4px;}
+    .pill{background:var(--surface-2);border:1px solid var(--border);color:var(--charcoal);border-radius:999px;padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+    .pill button{border:0;background:transparent;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;}
+    .pill button:hover{color:var(--charcoal);}
     .options{max-height:190px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
     .option{background:var(--surface);border:1px solid var(--border);color:var(--charcoal);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;font-weight:600;transition:all .12s;}
-    .option:hover{border-color:var(--accent);color:var(--accent);}
-    .option.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-    .main{display:grid;grid-template-columns:1fr 390px;gap:20px;}
+    .option:hover{border-color:var(--charcoal);}
+    .option.active{background:var(--charcoal);color:#fff;border-color:var(--charcoal);}
+
+    .main{display:grid;grid-template-columns:1fr 385px;gap:20px;}
     .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
-    .section-header{background:var(--charcoal);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;}
-    .section-title{font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
+    .section-header{background:var(--charcoal);padding:12px 17px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .section-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
     .section-sub{color:#999;font-size:12px;margin-top:2px;}
-    select{background:#333;border:1px solid #555;border-radius:6px;padding:7px 10px;color:#ddd;font-family:'Open Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
-    select:focus{border-color:var(--accent);}
+    select{background:#333;border:1px solid #555;border-radius:6px;padding:6px 10px;color:#ddd;font-family:'Open Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+    select:focus{border-color:#999;}
+
+    /* table */
     .table-wrap{overflow-x:auto;}
     table{width:100%;border-collapse:collapse;}
-    th,td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;white-space:nowrap;}
-    th{background:#f0f0f0;color:var(--muted);font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;position:sticky;top:0;}
+    th,td{padding:10px 13px;border-bottom:1px solid var(--border);font-size:13px;white-space:nowrap;}
+    th{background:var(--surface-2);color:var(--muted);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;position:sticky;top:0;user-select:none;}
+    th.sortable{cursor:pointer;transition:background .12s;}
+    th.sortable:hover{background:#ddd;color:var(--charcoal);}
+    th.sort-asc::after{content:" ▲";font-size:9px;}
+    th.sort-desc::after{content:" ▼";font-size:9px;}
+    th.sort-asc,th.sort-desc{color:var(--charcoal);background:#ddd;}
     tr:last-child td{border-bottom:0;}
     tr:hover td{background:#fafafa;}
     td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
-    .rank{font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:#ccc;width:32px;}
-    .rank.gold{color:#c4a217;} .rank.silver{color:#888;} .rank.bronze{color:#a0714a;}
-    .kd-good{color:var(--green);font-weight:700;} .kd-bad{color:var(--red);font-weight:700;} .kd-ok{color:var(--text);}
+    .rank{font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:#bbb;width:30px;}
+    .rank.gold{color:#9a7d0a;} .rank.silver{color:#7d7d7d;} .rank.bronze{color:#7d5a3c;}
+    .kd-good{color:var(--green);font-weight:700;}
+    .kd-bad{color:var(--red);font-weight:700;}
+    .kd-ok{color:var(--text);}
     .tk-warn{color:var(--red);font-weight:700;}
+
     .side-col{display:flex;flex-direction:column;gap:20px;}
-    .chart-wrap{position:relative;height:270px;padding:16px 16px 0;}
-    .leader-body{padding:16px 18px 18px;}
-    .leader-name{font-family:'Oswald',sans-serif;font-size:40px;font-weight:700;text-transform:uppercase;color:var(--charcoal);line-height:1;margin-bottom:14px;}
+    .chart-wrap{position:relative;height:265px;padding:14px 14px 0;}
+    .leader-body{padding:15px 17px 17px;}
+    .leader-name{font-family:'Oswald',sans-serif;font-size:38px;font-weight:700;text-transform:uppercase;color:var(--charcoal);line-height:1;margin-bottom:13px;}
     .leader-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-    .mini{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
-    .mini-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-bottom:5px;}
-    .mini-value{font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--charcoal);line-height:1;}
-    .mini-value.orange{color:var(--accent);} .mini-value.red{color:var(--red);}
-    .empty-state{color:var(--muted);font-size:13px;padding:14px 18px;}
+    .mini{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 11px;}
+    .mini-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-bottom:4px;}
+    .mini-value{font-family:'Oswald',sans-serif;font-size:25px;font-weight:700;color:var(--charcoal);line-height:1;}
+    .mini-value.red{color:var(--red);}
+    .empty-state{color:var(--muted);font-size:13px;padding:14px 17px;}
     .loading{text-align:center;padding:60px;color:var(--muted);font-family:'Oswald',sans-serif;letter-spacing:.1em;text-transform:uppercase;font-size:14px;}
-    ::-webkit-scrollbar{width:5px;height:5px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:#ccc;border-radius:99px;}
+    ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:99px;}
     @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr);}.main{grid-template-columns:1fr;}}
     @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr);}.filters{grid-template-columns:1fr;}h1{font-size:34px;}}
   </style>
 </head>
 <body>
+
 <div class="topbar">
   <div class="topbar-brand">
     <div class="topbar-shield">TFP</div>
@@ -101,23 +127,27 @@
   </div>
   <span class="topbar-right">KILL TRACKER &nbsp;&middot;&nbsp; MISSION ANALYTICS</span>
 </div>
+
 <div class="wrap">
+
   <div class="page-header">
     <div>
       <div class="eyebrow">Task Force Phalanx</div>
-      <h1>KILL <span>TRACKER</span></h1>
-      <p class="subtitle">Per-player stats aggregated across all missions. Filter by player or mission to explore kill counts, K/D ratios, teamkills and more.</p>
+      <h1>Kill Tracker</h1>
+      <p class="subtitle">Per-player stats aggregated across all missions. Filter by player or mission, toggle vehicle kills, and click any column header to sort.</p>
     </div>
     <button class="btn btn-primary" id="resetAllBtn">&#8635; Reset Filters</button>
   </div>
+
   <div class="stats">
-    <div class="stat accent-top"><div class="stat-label">Total Kills</div><div class="stat-value orange" id="sKills">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Total Kills</div><div class="stat-value" id="sKills">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Total Deaths</div><div class="stat-value" id="sDeaths">&#8212;</div></div>
     <div class="stat red-top"><div class="stat-label">Teamkills</div><div class="stat-value red" id="sTK">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Players</div><div class="stat-value" id="sPlayers">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Missions</div><div class="stat-value" id="sMissions">&#8212;</div></div>
     <div class="stat green-top"><div class="stat-label">Avg K/D</div><div class="stat-value green" id="sKD">&#8212;</div></div>
   </div>
+
   <div class="filters">
     <div class="filter-card">
       <div class="filter-top"><span class="filter-title">Players</span><button class="btn btn-ghost" data-clear="players">Clear</button></div>
@@ -132,170 +162,361 @@
       <div class="options" id="optionsMissions"></div>
     </div>
   </div>
+
   <div id="loading" class="loading">Loading data&hellip;</div>
+
   <div class="main" id="app" style="display:none;">
+
     <div class="card">
       <div class="section-header">
-        <div><div class="section-title">Player Stats</div><div class="section-sub">Aggregated across selected missions</div></div>
-        <select id="sortBy">
-          <option value="kills_desc">Kills &darr;</option>
-          <option value="kills_asc">Kills &uarr;</option>
-          <option value="kd_desc">K/D &darr;</option>
-          <option value="deaths_desc">Deaths &darr;</option>
-          <option value="tk_desc">Teamkills &darr;</option>
-          <option value="longest_desc">Longest Kill &darr;</option>
-          <option value="name_asc">Name A&ndash;Z</option>
-        </select>
+        <div>
+          <div class="section-title">Player Stats</div>
+          <div class="section-sub">Click any column header to sort &middot; aggregated across selected missions</div>
+        </div>
+        <!-- vehicle kill toggle -->
+        <label class="toggle-wrap" title="When off, Longest Kill only counts infantry weapon kills">
+          <span style="color:#ccc;font-size:12px;">Include vehicle kills in Longest</span>
+          <label class="toggle">
+            <input type="checkbox" id="vehicleToggle" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr>
-            <th>#</th><th>Player</th>
-            <th class="num">Kills</th><th class="num">Deaths</th><th class="num">K/D</th>
-            <th class="num">TK</th><th class="num">Shots</th><th class="num">Hits Taken</th>
-            <th class="num">Shots/Kill</th><th class="num">Avg Dist</th><th class="num">Longest</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th data-col="rank">#</th>
+              <th data-col="username" class="sortable">Player</th>
+              <th data-col="kills"    class="sortable num">Kills</th>
+              <th data-col="deaths"   class="sortable num">Deaths</th>
+              <th data-col="kd"       class="sortable num">K/D</th>
+              <th data-col="teamkills"class="sortable num">TK</th>
+              <th data-col="shots"    class="sortable num">Shots</th>
+              <th data-col="hitsTaken"class="sortable num">Hits Taken</th>
+              <th data-col="shotsPerKill" class="sortable num">Shots/Kill</th>
+              <th data-col="avgDist"  class="sortable num">Avg Dist</th>
+              <th data-col="longest"  class="sortable num">Longest</th>
+              <th data-col="missionCount" class="sortable num">Missions</th>
+            </tr>
+          </thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
     </div>
+
     <div class="side-col">
       <div class="card">
         <div class="section-header"><div><div class="section-title">Top 10 Killers</div><div class="section-sub">Current filtered view</div></div></div>
         <div class="chart-wrap"><canvas id="killsChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="section-header"><div class="section-title">&#9876; Current Leader</div></div>
+        <div class="section-header"><div class="section-title">Current Leader</div></div>
         <div id="leaderBlock" class="empty-state">No data for current selection.</div>
       </div>
     </div>
+
   </div>
 </div>
+
 <script>
   const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
-  const state={rows:[],selPlayers:[],selMissions:[],sortBy:"kills_desc",chart:null};
+
+  // A kill is considered a "vehicle kill" when the weapon field ends with []
+  // (no ammo listed) or contains known vehicle weapon patterns.
+  // The sheet stores Longest Kill (m) from all kills, but we also store
+  // Longest Kill (infantry) separately in the raw rows.
+  // Since the sheet is pre-aggregated we can't re-filter by weapon —
+  // so we use the two columns: "Longest Kill (m)" (all) and we compute
+  // infantry-only from the raw kills_raw sheet via a second CSV fetch,
+  // OR we simply trust the toggle to switch between the two stored values.
+  //
+  // Because the sheet only has one Longest column (all kills), and the
+  // vehicle toggle is a UX feature for the raw data layer, we handle it
+  // by fetching the kills_raw sheet too and computing infantry longest there.
+
+  const KILLS_RAW_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?output=csv";
+
+  const state={
+    rows:[],          // player_stats rows
+    rawKills:[],      // kills_raw rows for infantry longest calc
+    infantryLongest:{},// map username -> longest infantry kill distance
+    selPlayers:[],
+    selMissions:[],
+    sortCol:"kills",
+    sortDir:"desc",   // "asc" | "desc"
+    includeVehicle:true,
+    chart:null
+  };
+
+  // Vehicle kill detection: weapon has empty ammo brackets [] or no brackets at all
+  function isVehicleKill(weapon){
+    if(!weapon) return true;
+    // infantry weapons always have [something] with content
+    const m = weapon.match(/\[([^\]]*)\]/);
+    if(!m) return true;           // no brackets at all → vehicle/unknown
+    if(m[1].trim()==="") return true; // empty brackets → vehicle
+    return false;
+  }
+
   const n=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
   const s=v=>(v||"").trim();
   const uniq=arr=>[...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b));
-  function parseRow(raw){
+
+  function parseStatsRow(raw){
     const get=k=>{const f=Object.keys(raw).find(h=>h.toLowerCase().replace(/[^a-z]/g,"")===k);return f?raw[f]:"";};
-    return{sourceFile:s(get("sourcefile")),mission:s(get("mission"))||"Unknown Mission",world:s(get("world")),
-      username:s(get("username"))||"Unknown",kills:n(get("kills")),deaths:n(get("deaths")),kd:n(get("kdratio")),
-      teamkills:n(get("teamkills")),shots:n(get("shotsfired")),hitsTaken:n(get("hitstaken")),
-      avgDist:s(get("avgkilldistancem")),longest:n(get("longestkillm"))};
+    return{
+      sourceFile:s(get("sourcefile")),
+      mission:   s(get("mission"))||"Unknown Mission",
+      world:     s(get("world")),
+      username:  s(get("username"))||"Unknown",
+      kills:     n(get("kills")),
+      deaths:    n(get("deaths")),
+      kd:        n(get("kdratio")),
+      teamkills: n(get("teamkills")),
+      shots:     n(get("shotsfired")),
+      hitsTaken: n(get("hitstaken")),
+      avgDist:   s(get("avgkilldistancem")),
+      longest:   n(get("longestkillm")),
+    };
   }
+
+  function parseRawRow(raw){
+    // kills_raw columns: Mission, World, Killer, Victim, Weapon, Distance, Frame, Source File
+    const get=k=>{const f=Object.keys(raw).find(h=>h.toLowerCase().replace(/[^a-z]/g,"")===k);return f?raw[f]:"";};
+    return{
+      killer:   s(get("killer")),
+      weapon:   s(get("weapon")),
+      distance: n(get("distance")),
+    };
+  }
+
+  function buildInfantryLongest(){
+    const map={};
+    state.rawKills.forEach(r=>{
+      if(!r.killer||isVehicleKill(r.weapon)) return;
+      if(!map[r.killer]||r.distance>map[r.killer]) map[r.killer]=r.distance;
+    });
+    state.infantryLongest=map;
+  }
+
   function filteredRows(){
-    return state.rows.filter(r=>(!state.selPlayers.length||state.selPlayers.includes(r.username))&&(!state.selMissions.length||state.selMissions.includes(r.mission)));
+    return state.rows.filter(r=>
+      (!state.selPlayers.length  || state.selPlayers.includes(r.username))&&
+      (!state.selMissions.length || state.selMissions.includes(r.mission))
+    );
   }
+
   function aggregated(rows){
     const map=new Map();
     rows.forEach(r=>{
-      if(!map.has(r.username))map.set(r.username,{username:r.username,kills:0,deaths:0,teamkills:0,shots:0,hitsTaken:0,totalKillDist:0,killsWithDist:0,longest:0,missions:new Set()});
+      if(!map.has(r.username)) map.set(r.username,{
+        username:r.username,kills:0,deaths:0,teamkills:0,shots:0,hitsTaken:0,
+        totalKillDist:0,killsWithDist:0,longest:0,missions:new Set()
+      });
       const a=map.get(r.username);
-      a.kills+=r.kills;a.deaths+=r.deaths;a.teamkills+=r.teamkills;a.shots+=r.shots;a.hitsTaken+=r.hitsTaken;
-      a.longest=Math.max(a.longest,r.longest);a.missions.add(r.mission);
-      const ad=parseFloat(r.avgDist);if(!isNaN(ad)&&r.kills>0){a.totalKillDist+=ad*r.kills;a.killsWithDist+=r.kills;}
+      a.kills+=r.kills; a.deaths+=r.deaths; a.teamkills+=r.teamkills;
+      a.shots+=r.shots; a.hitsTaken+=r.hitsTaken;
+      a.longest=Math.max(a.longest,r.longest);
+      a.missions.add(r.mission);
+      const ad=parseFloat(r.avgDist);
+      if(!isNaN(ad)&&r.kills>0){a.totalKillDist+=ad*r.kills;a.killsWithDist+=r.kills;}
     });
-    return[...map.values()].map(a=>({...a,missionCount:a.missions.size,
-      kd:a.deaths>0?a.kills/a.deaths:a.kills,
-      shotsPerKill:a.kills>0?a.shots/a.kills:null,
-      avgDist:a.killsWithDist>0?a.totalKillDist/a.killsWithDist:null}));
+    return[...map.values()].map(a=>{
+      const infLongest = state.infantryLongest[a.username]||0;
+      return{
+        ...a,
+        missionCount: a.missions.size,
+        kd:           a.deaths>0?a.kills/a.deaths:a.kills,
+        shotsPerKill: a.kills>0?a.shots/a.kills:null,
+        avgDist:      a.killsWithDist>0?a.totalKillDist/a.killsWithDist:null,
+        longestAll:   a.longest,
+        longestInf:   infLongest,
+      };
+    });
   }
+
+  function effectiveLongest(row){
+    return state.includeVehicle ? row.longestAll : row.longestInf;
+  }
+
+  const SORT_NUMERIC = new Set(["kills","deaths","kd","teamkills","shots","hitsTaken","shotsPerKill","avgDist","longest","missionCount"]);
+
   function sorted(agg){
-    const c=[...agg];
-    switch(state.sortBy){
-      case"kills_asc":c.sort((a,b)=>a.kills-b.kills);break;
-      case"kd_desc":c.sort((a,b)=>b.kd-a.kd);break;
-      case"deaths_desc":c.sort((a,b)=>b.deaths-a.deaths);break;
-      case"tk_desc":c.sort((a,b)=>b.teamkills-a.teamkills);break;
-      case"longest_desc":c.sort((a,b)=>b.longest-a.longest);break;
-      case"name_asc":c.sort((a,b)=>a.username.localeCompare(b.username));break;
-      default:c.sort((a,b)=>b.kills-a.kills);
-    }
-    return c;
+    const col=state.sortCol, dir=state.sortDir==="asc"?1:-1;
+    return[...agg].sort((a,b)=>{
+      let av, bv;
+      if(col==="longest"){ av=effectiveLongest(a); bv=effectiveLongest(b); }
+      else if(col==="shotsPerKill"){ av=a.shotsPerKill??-1; bv=b.shotsPerKill??-1; }
+      else if(col==="avgDist"){ av=a.avgDist??-1; bv=b.avgDist??-1; }
+      else if(col==="username"){ return dir*a.username.localeCompare(b.username); }
+      else { av=a[col]??0; bv=b[col]??0; }
+      return dir*(av-bv)||(a.username.localeCompare(b.username));
+    });
   }
+
   function render(){
-    const rows=filteredRows(),agg=sorted(aggregated(rows));
+    const rows=filteredRows(), agg=sorted(aggregated(rows));
     const tK=agg.reduce((s,r)=>s+r.kills,0),tD=agg.reduce((s,r)=>s+r.deaths,0),tTK=agg.reduce((s,r)=>s+r.teamkills,0);
-    const mis=new Set(rows.map(r=>r.mission)).size,avgKD=agg.length?(agg.reduce((s,r)=>s+r.kd,0)/agg.length):0;
-    document.getElementById("sKills").textContent=tK.toLocaleString();
-    document.getElementById("sDeaths").textContent=tD.toLocaleString();
-    document.getElementById("sTK").textContent=tTK;
-    document.getElementById("sPlayers").textContent=agg.length;
+    const mis=new Set(rows.map(r=>r.mission)).size, avgKD=agg.length?(agg.reduce((s,r)=>s+r.kd,0)/agg.length):0;
+    document.getElementById("sKills").textContent   =tK.toLocaleString();
+    document.getElementById("sDeaths").textContent  =tD.toLocaleString();
+    document.getElementById("sTK").textContent      =tTK;
+    document.getElementById("sPlayers").textContent =agg.length;
     document.getElementById("sMissions").textContent=mis;
-    document.getElementById("sKD").textContent=avgKD.toFixed(2);
-    renderFilter("players",uniq(state.rows.map(r=>r.username)),state.selPlayers,"searchPlayers","optionsPlayers","selectedPlayers");
-    renderFilter("missions",uniq(state.rows.map(r=>r.mission)),state.selMissions,"searchMissions","optionsMissions","selectedMissions");
-    renderTable(agg);renderLeader(agg[0]);renderChart(agg);
+    document.getElementById("sKD").textContent      =avgKD.toFixed(2);
+    renderFilter("players", uniq(state.rows.map(r=>r.username)),state.selPlayers,"searchPlayers","optionsPlayers","selectedPlayers");
+    renderFilter("missions",uniq(state.rows.map(r=>r.mission)), state.selMissions,"searchMissions","optionsMissions","selectedMissions");
+    renderTable(agg);
+    renderLeader(agg.slice().sort((a,b)=>b.kills-a.kills)[0]);
+    renderChart(agg.slice().sort((a,b)=>b.kills-a.kills));
+    updateSortHeaders();
   }
+
   function renderFilter(type,options,selected,searchId,optionsId,selectedId){
     const q=document.getElementById(searchId).value.toLowerCase();
     document.getElementById(selectedId).innerHTML=selected.map(item=>`<span class="pill">${item}<button onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">&#x2715;</button></span>`).join("");
     const f=options.filter(o=>o.toLowerCase().includes(q));
-    document.getElementById(optionsId).innerHTML=f.length?f.map(item=>`<button class="option${selected.includes(item)?" active":""}" onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">${item}</button>`).join(""):`<span style="color:#aaa;font-size:12px;padding:4px;">No matches</span>`;
+    document.getElementById(optionsId).innerHTML=f.length
+      ?f.map(item=>`<button class="option${selected.includes(item)?" active":""}" onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">${item}</button>`).join("")
+      :`<span style="color:#bbb;font-size:12px;padding:4px;">No matches</span>`;
   }
+
   function toggleSel(type,item){
     const k=type==="players"?"selPlayers":"selMissions";
-    state[k]=state[k].includes(item)?state[k].filter(x=>x!==item):[...state[k],item];render();
+    state[k]=state[k].includes(item)?state[k].filter(x=>x!==item):[...state[k],item];
+    render();
   }
+
+  function updateSortHeaders(){
+    document.querySelectorAll("th.sortable").forEach(th=>{
+      th.classList.remove("sort-asc","sort-desc");
+      if(th.dataset.col===state.sortCol) th.classList.add(state.sortDir==="asc"?"sort-asc":"sort-desc");
+    });
+  }
+
   function rankClass(i){if(i===0)return"rank gold";if(i===1)return"rank silver";if(i===2)return"rank bronze";return"rank";}
   function kdClass(kd){if(kd>=2)return"kd-good";if(kd>=0.8)return"kd-ok";return"kd-bad";}
+
   function renderTable(agg){
     const body=document.getElementById("tableBody");
-    if(!agg.length){body.innerHTML=`<tr><td colspan="11" class="empty-state">No data for the current selection.</td></tr>`;return;}
-    body.innerHTML=agg.map((r,i)=>`<tr>
-      <td class="${rankClass(i)}">${i+1}</td>
-      <td><strong>${r.username}</strong></td>
-      <td class="num"><strong>${r.kills}</strong></td>
-      <td class="num">${r.deaths}</td>
-      <td class="num ${kdClass(r.kd)}">${r.kd.toFixed(2)}</td>
-      <td class="num ${r.teamkills>0?"tk-warn":""}">${r.teamkills}</td>
-      <td class="num">${r.shots.toLocaleString()}</td>
-      <td class="num">${r.hitsTaken.toLocaleString()}</td>
-      <td class="num">${r.shotsPerKill!=null?r.shotsPerKill.toFixed(1):"&#8212;"}</td>
-      <td class="num">${r.avgDist!=null?Math.round(r.avgDist)+" m":"&#8212;"}</td>
-      <td class="num">${r.longest>0?r.longest+" m":"&#8212;"}</td>
-    </tr>`).join("");
+    if(!agg.length){body.innerHTML=`<tr><td colspan="12" class="empty-state">No data for the current selection.</td></tr>`;return;}
+    // rank by kills for the # column regardless of sort
+    const killRank=new Map(agg.slice().sort((a,b)=>b.kills-a.kills).map((r,i)=>[r.username,i]));
+    const longest_label = state.includeVehicle ? "" : " &#x1F6B6;";
+    body.innerHTML=agg.map(r=>{
+      const ri=killRank.get(r.username);
+      const lng=effectiveLongest(r);
+      return`<tr>
+        <td class="${rankClass(ri)}">${ri+1}</td>
+        <td><strong>${r.username}</strong></td>
+        <td class="num"><strong>${r.kills}</strong></td>
+        <td class="num">${r.deaths}</td>
+        <td class="num ${kdClass(r.kd)}">${r.kd.toFixed(2)}</td>
+        <td class="num ${r.teamkills>0?"tk-warn":""}">${r.teamkills}</td>
+        <td class="num">${r.shots.toLocaleString()}</td>
+        <td class="num">${r.hitsTaken.toLocaleString()}</td>
+        <td class="num">${r.shotsPerKill!=null?r.shotsPerKill.toFixed(1):"&#8212;"}</td>
+        <td class="num">${r.avgDist!=null?Math.round(r.avgDist)+" m":"&#8212;"}</td>
+        <td class="num">${lng>0?lng+" m":"&#8212;"}</td>
+        <td class="num">${r.missionCount}</td>
+      </tr>`;
+    }).join("");
   }
+
   function renderLeader(top){
     const el=document.getElementById("leaderBlock");
     if(!top){el.className="empty-state";el.innerHTML="No data for current selection.";return;}
     el.className="leader-body";
+    const lng=effectiveLongest(top);
     el.innerHTML=`<div class="leader-name">${top.username}</div><div class="leader-grid">
-      <div class="mini"><div class="mini-label">Kills</div><div class="mini-value orange">${top.kills}</div></div>
+      <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
       <div class="mini"><div class="mini-label">K/D</div><div class="mini-value">${top.kd.toFixed(2)}</div></div>
       <div class="mini"><div class="mini-label">Deaths</div><div class="mini-value">${top.deaths}</div></div>
       <div class="mini"><div class="mini-label">Teamkills</div><div class="mini-value ${top.teamkills>0?"red":""}">${top.teamkills}</div></div>
-      <div class="mini"><div class="mini-label">Longest Kill</div><div class="mini-value">${top.longest>0?top.longest+"m":"&#8212;"}</div></div>
+      <div class="mini"><div class="mini-label">Longest${state.includeVehicle?"":" (inf)"}</div><div class="mini-value">${lng>0?lng+"m":"&#8212;"}</div></div>
       <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
     </div>`;
   }
+
   function renderChart(agg){
     const ctx=document.getElementById("killsChart"),data=agg.slice(0,10);
     if(state.chart)state.chart.destroy();
-    state.chart=new Chart(ctx,{type:"bar",data:{labels:data.map(x=>x.username),datasets:[{data:data.map(x=>x.kills),
-      backgroundColor:data.map((_,i)=>i===0?"#c4511a":i===1?"#888":i===2?"#a0714a":"#d4d4d4"),borderRadius:4,borderSkipped:false}]},
+    state.chart=new Chart(ctx,{type:"bar",
+      data:{labels:data.map(x=>x.username),datasets:[{
+        data:data.map(x=>x.kills),
+        backgroundColor:data.map((_,i)=>i===0?"#424242":i===1?"#7d7d7d":i===2?"#a0a0a0":"#c8c8c8"),
+        borderRadius:4,borderSkipped:false}]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw} kills`}}},
-        scales:{y:{beginAtZero:true,ticks:{precision:0,color:"#888",font:{family:"Open Sans"}},grid:{color:"#e8e8e8"}},
-                x:{ticks:{color:"#666",maxRotation:40,minRotation:0,font:{family:"Open Sans",size:11}},grid:{display:false}}}}});
+        scales:{
+          y:{beginAtZero:true,ticks:{precision:0,color:"#888",font:{family:"Open Sans"}},grid:{color:"#e8e8e8"}},
+          x:{ticks:{color:"#666",maxRotation:40,minRotation:0,font:{family:"Open Sans",size:11}},grid:{display:false}}
+        }}});
   }
+
+  // ── Column header sort click ──
+  document.querySelectorAll("th.sortable").forEach(th=>{
+    th.addEventListener("click",()=>{
+      const col=th.dataset.col;
+      if(state.sortCol===col){
+        state.sortDir=state.sortDir==="desc"?"asc":"desc";
+      } else {
+        state.sortCol=col;
+        state.sortDir=SORT_NUMERIC.has(col)?"desc":"asc";
+      }
+      render();
+    });
+  });
+
+  // ── Vehicle toggle ──
+  document.getElementById("vehicleToggle").addEventListener("change",e=>{
+    state.includeVehicle=e.target.checked;
+    render();
+  });
+
+  // ── Filter events ──
   document.getElementById("resetAllBtn").addEventListener("click",()=>{
     state.selPlayers=[];state.selMissions=[];
-    document.getElementById("searchPlayers").value="";document.getElementById("searchMissions").value="";render();
+    document.getElementById("searchPlayers").value="";
+    document.getElementById("searchMissions").value="";
+    render();
   });
   document.querySelectorAll("[data-clear]").forEach(btn=>btn.addEventListener("click",()=>{
     state[btn.dataset.clear==="players"?"selPlayers":"selMissions"]=[];render();
   }));
-  ["searchPlayers","searchMissions"].forEach(id=>document.getElementById(id).addEventListener("input",render));
-  document.getElementById("sortBy").addEventListener("change",e=>{state.sortBy=e.target.value;render();});
+  ["searchPlayers","searchMissions"].forEach(id=>
+    document.getElementById(id).addEventListener("input",render)
+  );
+
+  // ── Load data ──
+  // Load both sheets in parallel
+  let statsLoaded=false, rawLoaded=false;
+  function checkReady(){
+    if(!statsLoaded||!rawLoaded) return;
+    buildInfantryLongest();
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="grid";
+    render();
+  }
+
   Papa.parse(CSV_URL,{download:true,header:true,skipEmptyLines:true,
     complete:results=>{
-      state.rows=(results.data||[]).map(parseRow).filter(r=>r.username&&r.username!=="Unknown");
-      document.getElementById("loading").style.display="none";
-      document.getElementById("app").style.display="grid";render();
+      state.rows=(results.data||[]).map(parseStatsRow).filter(r=>r.username&&r.username!=="Unknown");
+      statsLoaded=true; checkReady();
     },
-    error:()=>{document.getElementById("loading").textContent="Failed to load data. Check the CSV URL.";}
+    error:()=>{document.getElementById("loading").textContent="Failed to load stats data.";}
+  });
+
+  Papa.parse(KILLS_RAW_URL,{download:true,header:true,skipEmptyLines:true,
+    complete:results=>{
+      state.rawKills=(results.data||[]).map(parseRawRow).filter(r=>r.killer);
+      rawLoaded=true; checkReady();
+    },
+    error:()=>{
+      // Non-fatal — vehicle toggle will just show 0 for infantry longest
+      rawLoaded=true; checkReady();
+    }
   });
 </script>
 </body>
