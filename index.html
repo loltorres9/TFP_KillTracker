@@ -4,639 +4,846 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TFP Kill Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #eef2f5;
-      --panel: #ffffff;
-      --panel-2: #f7f9fb;
-      --text: #12202b;
-      --muted: #607080;
-      --border: #dbe3ea;
-      --accent: #1f2937;
-      --accent-2: #2f3f52;
-      --shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
-      --radius: 22px;
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface-2: #1c2330;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --accent:    #e8c44a;
+      --accent-dim:#b8972e;
+      --red:       #f85149;
+      --green:     #3fb950;
+      --blue:      #58a6ff;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      margin: 0;
-      font-family: Inter, Segoe UI, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+    }
+
+    /* ─── noise texture overlay ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
     }
 
     .wrap {
-      max-width: 1450px;
+      position: relative;
+      z-index: 1;
+      max-width: 1460px;
       margin: 0 auto;
-      padding: 24px;
+      padding: 28px 24px;
     }
 
-    .hero, .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .hero {
-      padding: 28px 30px;
-      margin-bottom: 22px;
+    /* ─── header ─── */
+    .header {
       display: flex;
       justify-content: space-between;
-      gap: 20px;
-      align-items: end;
+      align-items: flex-end;
+      margin-bottom: 28px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border);
     }
 
     .eyebrow {
-      font-size: 12px;
-      letter-spacing: .18em;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px;
+      letter-spacing: .22em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--accent);
       font-weight: 700;
+      margin-bottom: 6px;
     }
 
     h1 {
-      margin: 10px 0 8px;
-      font-size: 40px;
-      line-height: 1.05;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 52px;
+      font-weight: 800;
+      line-height: .95;
+      letter-spacing: -.02em;
+      color: var(--text);
     }
+
+    h1 span { color: var(--accent); }
 
     .subtitle {
-      margin: 0;
       color: var(--muted);
-      max-width: 760px;
-      line-height: 1.5;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-top: 10px;
+      max-width: 560px;
     }
 
+    /* ─── buttons ─── */
     .btn {
-      border: 0;
-      background: var(--accent);
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 14px;
-      cursor: pointer;
+      font-family: 'Barlow', sans-serif;
       font-weight: 600;
+      font-size: 13px;
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: opacity .15s;
     }
+    .btn:hover { opacity: .8; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-ghost   { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
-    .btn.secondary {
-      background: #edf2f7;
-      color: var(--accent);
-    }
-
+    /* ─── stat bar ─── */
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
     }
 
     .stat {
-      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
     }
 
     .stat-label {
-      font-size: 13px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
       color: var(--muted);
       margin-bottom: 8px;
     }
 
     .stat-value {
-      font-size: 38px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 36px;
       font-weight: 800;
       line-height: 1;
-      margin-bottom: 8px;
+      color: var(--accent);
     }
 
-    .stat-sub {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .stat-value.neutral { color: var(--text); }
+    .stat-value.red     { color: var(--red);  }
 
+    /* ─── filters ─── */
     .filters {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 14px;
+      margin-bottom: 24px;
     }
 
     .filter-card {
-      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
     }
 
     .filter-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
       margin-bottom: 12px;
     }
 
     .filter-title {
-      font-size: 17px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 15px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
     }
 
     .search {
       width: 100%;
+      background: var(--bg);
       border: 1px solid var(--border);
-      background: var(--panel-2);
-      border-radius: 14px;
-      padding: 11px 12px;
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: 13px;
       outline: none;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
+    .search::placeholder { color: var(--muted); }
+    .search:focus { border-color: var(--accent); }
 
     .selected {
       display: flex;
-      gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 12px;
-      min-height: 10px;
+      gap: 6px;
+      margin-bottom: 10px;
+      min-height: 6px;
     }
 
     .pill {
-      background: #eef2f7;
+      background: #2a2000;
+      border: 1px solid var(--accent-dim);
       color: var(--accent);
       border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 13px;
+      padding: 5px 10px;
+      font-size: 12px;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .pill button {
       border: 0;
       background: transparent;
       cursor: pointer;
-      color: inherit;
-      font-size: 14px;
+      color: var(--accent-dim);
+      font-size: 13px;
+      line-height: 1;
     }
 
     .options {
-      max-height: 250px;
-      overflow: auto;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      align-content: flex-start;
+      gap: 6px;
+      padding: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
     }
 
     .option {
-      border: 0;
-      background: #fff;
-      color: var(--accent-2);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
       border-radius: 999px;
-      padding: 9px 12px;
+      padding: 6px 12px;
+      font-size: 12px;
       cursor: pointer;
-      font-size: 13px;
+      font-family: 'Barlow', sans-serif;
+      transition: all .12s;
     }
+    .option:hover  { border-color: var(--accent); color: var(--accent); }
+    .option.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
 
-    .option.active {
-      background: var(--accent);
-      color: #fff;
-    }
-
+    /* ─── main layout ─── */
     .main {
       display: grid;
-      grid-template-columns: 1.35fr 0.85fr;
+      grid-template-columns: 1fr 380px;
       gap: 20px;
     }
 
-    .table-card, .side-col .card {
-      padding: 20px;
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
 
-    .table-header, .chart-header {
+    .card-pad { padding: 20px; }
+
+    /* ─── table ─── */
+    .table-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
       margin-bottom: 14px;
     }
 
     .section-title {
-      font-size: 20px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 22px;
       font-weight: 800;
-      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
 
     .section-sub {
-      margin: 4px 0 0;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      margin-top: 3px;
     }
 
     select {
+      background: var(--bg);
       border: 1px solid var(--border);
-      background: var(--panel-2);
-      border-radius: 12px;
-      padding: 10px 12px;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 13px;
       outline: none;
+      cursor: pointer;
     }
+    select:focus { border-color: var(--accent); }
 
     .table-wrap {
-      overflow: auto;
+      overflow-x: auto;
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 10px;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-    }
+    table { width: 100%; border-collapse: collapse; }
 
     th, td {
-      padding: 14px 16px;
+      padding: 11px 14px;
       border-bottom: 1px solid var(--border);
-      text-align: left;
-      font-size: 14px;
+      font-size: 13px;
+      white-space: nowrap;
     }
 
     th {
-      background: var(--panel-2);
+      background: var(--surface-2);
       color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
       font-weight: 700;
       position: sticky;
       top: 0;
     }
 
-    td.num, th.num { text-align: right; }
+    tr:last-child td { border-bottom: 0; }
 
-    .side-col {
-      display: grid;
-      gap: 20px;
+    tr:hover td { background: rgba(255,255,255,.03); }
+
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .rank {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--border);
+      width: 32px;
+    }
+
+    .rank.gold   { color: var(--accent); }
+    .rank.silver { color: #8b949e; }
+    .rank.bronze { color: #b08060; }
+
+    .kd-good { color: var(--green); font-weight: 600; }
+    .kd-bad  { color: var(--red);   font-weight: 600; }
+    .kd-ok   { color: var(--text);  }
+
+    .tk-warn { color: var(--red); font-weight: 600; }
+
+    /* ─── side column ─── */
+    .side-col { display: flex; flex-direction: column; gap: 20px; }
+
+    /* chart */
+    .chart-wrap {
+      position: relative;
+      height: 280px;
+    }
+
+    /* leader card */
+    .leader-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      margin: 12px 0 16px;
     }
 
     .leader-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 8px;
     }
 
     .mini {
-      background: var(--panel-2);
-      border-radius: 18px;
-      padding: 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
     }
 
     .mini-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
       color: var(--muted);
-      font-size: 12px;
       margin-bottom: 6px;
     }
 
     .mini-value {
-      font-size: 24px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 26px;
       font-weight: 800;
+      line-height: 1;
     }
 
-    .empty {
+    .empty-state {
       color: var(--muted);
-      padding: 22px 8px;
+      font-size: 13px;
+      padding: 16px 0;
     }
 
     .loading {
-      padding: 40px;
       text-align: center;
+      padding: 60px;
       color: var(--muted);
+      font-size: 14px;
+      letter-spacing: .08em;
     }
 
+    /* ─── scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
     @media (max-width: 1100px) {
-      .stats, .filters, .main { grid-template-columns: 1fr; }
-      .hero { flex-direction: column; align-items: start; }
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .main  { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .stats   { grid-template-columns: repeat(2, 1fr); }
+      .filters { grid-template-columns: 1fr; }
+      h1       { font-size: 36px; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="hero">
-      <div>
-        <div class="eyebrow">Task Force Phalanx</div>
-        <h1>Mission Kill Tracker</h1>
-        <p class="subtitle">
-          Filter kills by user and mission, then explore overall kill counts, rankings and the current top killer.
-        </p>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div>
+      <div class="eyebrow">Task Force Phalanx</div>
+      <h1>KILL <span>TRACKER</span></h1>
+      <p class="subtitle">Per-player stats aggregated across all missions. Filter by player or mission to explore kill counts, K/D ratios, teamkills and more.</p>
+    </div>
+    <button class="btn btn-primary" id="resetAllBtn">Reset all filters</button>
+  </header>
+
+  <!-- STAT BAR -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total Kills</div><div class="stat-value" id="sKills">—</div></div>
+    <div class="stat"><div class="stat-label">Total Deaths</div><div class="stat-value neutral" id="sDeaths">—</div></div>
+    <div class="stat"><div class="stat-label">Teamkills</div><div class="stat-value red" id="sTK">—</div></div>
+    <div class="stat"><div class="stat-label">Players</div><div class="stat-value neutral" id="sPlayers">—</div></div>
+    <div class="stat"><div class="stat-label">Missions</div><div class="stat-value neutral" id="sMissions">—</div></div>
+    <div class="stat"><div class="stat-label">Avg K/D</div><div class="stat-value" id="sKD">—</div></div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <div class="filter-card">
+      <div class="filter-top">
+        <span class="filter-title">Players</span>
+        <button class="btn btn-ghost" data-clear="players">Clear</button>
       </div>
-      <button class="btn" id="resetAllBtn">Reset all filters</button>
+      <input id="searchPlayers" class="search" placeholder="Search players…" />
+      <div class="selected" id="selectedPlayers"></div>
+      <div class="options" id="optionsPlayers"></div>
     </div>
 
-    <div class="stats">
-      <div class="card stat"><div class="stat-label">Filtered Kills</div><div class="stat-value" id="statKills">0</div><div class="stat-sub">Kill rows in the current view</div></div>
-      <div class="card stat"><div class="stat-label">Players</div><div class="stat-value" id="statPlayers">0</div><div class="stat-sub">Players in the current view</div></div>
-      <div class="card stat"><div class="stat-label">Missions</div><div class="stat-value" id="statMissions">0</div><div class="stat-sub">Missions in the current view</div></div>
-    </div>
-
-    <div class="filters">
-      <div class="card filter-card">
-        <div class="filter-top"><div class="filter-title">Users</div><button class="btn secondary" data-clear="users">Reset</button></div>
-        <input id="searchUsers" class="search" placeholder="Search users..." />
-        <div class="selected" id="selectedUsers"></div>
-        <div class="options" id="optionsUsers"></div>
+    <div class="filter-card">
+      <div class="filter-top">
+        <span class="filter-title">Missions</span>
+        <button class="btn btn-ghost" data-clear="missions">Clear</button>
       </div>
-
-      <div class="card filter-card">
-        <div class="filter-top"><div class="filter-title">Missions</div><button class="btn secondary" data-clear="missions">Reset</button></div>
-        <input id="searchMissions" class="search" placeholder="Search missions..." />
-        <div class="selected" id="selectedMissions"></div>
-        <div class="options" id="optionsMissions"></div>
-      </div>
-    </div>
-
-    <div id="loading" class="loading">Loading CSV…</div>
-
-    <div class="main" id="app" style="display:none;">
-      <div class="card table-card">
-        <div class="table-header">
-          <div>
-            <h2 class="section-title">Kills by User</h2>
-            <p class="section-sub">Grouped results based on the active filters</p>
-          </div>
-          <select id="sortBy">
-            <option value="kills_desc">Kills ↓</option>
-            <option value="kills_asc">Kills ↑</option>
-            <option value="name_asc">Name A–Z</option>
-            <option value="name_desc">Name Z–A</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th class="num">Kills</th>
-                <th class="num">Missions</th>
-                <th class="num">Longest</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="side-col">
-        <div class="card">
-          <div class="chart-header">
-            <div>
-              <h2 class="section-title">Top 10 Killers</h2>
-              <p class="section-sub">Current filtered view</p>
-            </div>
-          </div>
-          <canvas id="killsChart" height="260"></canvas>
-        </div>
-
-        <div class="card">
-          <div>
-            <h2 class="section-title">Current Leader</h2>
-          </div>
-          <div id="leaderBlock" class="empty">No data available for the current selection.</div>
-        </div>
-      </div>
+      <input id="searchMissions" class="search" placeholder="Search missions…" />
+      <div class="selected" id="selectedMissions"></div>
+      <div class="options" id="optionsMissions"></div>
     </div>
   </div>
 
-  <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?output=csv";
+  <div id="loading" class="loading">Loading data…</div>
 
-    const state = {
-      rows: [],
-      selectedUsers: [],
-      selectedMissions: [],
-      sortBy: "kills_desc",
-      chart: null,
-    };
+  <!-- MAIN -->
+  <div class="main" id="app" style="display:none;">
 
-    function cleanName(name) {
-      if (!name) return "Unknown";
-      return name.replace(/^\[(.*?)\]\s*/, "").trim() || "Unknown";
-    }
-
-    function uniq(arr) {
-      return [...new Set(arr)].sort((a, b) => a.localeCompare(b));
-    }
-
-    function matchesSearch(value, query) {
-      return value.toLowerCase().includes(query.toLowerCase());
-    }
-
-    function filteredRows() {
-      return state.rows.filter(row => {
-        const userMatch = !state.selectedUsers.length || state.selectedUsers.includes(row.killer);
-        const missionMatch = !state.selectedMissions.length || state.selectedMissions.includes(row.mission);
-        return userMatch && missionMatch;
-      });
-    }
-
-    function groupedKills(rows) {
-      const map = new Map();
-      rows.forEach(row => {
-        const key = row.killer;
-        if (!map.has(key)) {
-          map.set(key, {
-            killer: row.killer,
-            kills: 0,
-            missions: new Set(),
-            longestKill: 0,
-          });
-        }
-        const item = map.get(key);
-        item.kills += 1;
-        item.missions.add(row.mission);
-        item.longestKill = Math.max(item.longestKill, row.distance || 0);
-      });
-
-      const result = [...map.values()].map(x => ({
-        killer: x.killer,
-        kills: x.kills,
-        missionCount: x.missions.size,
-        longestKill: x.longestKill,
-      }));
-
-      switch (state.sortBy) {
-        case "kills_asc":
-          result.sort((a, b) => a.kills - b.kills || a.killer.localeCompare(b.killer));
-          break;
-        case "name_asc":
-          result.sort((a, b) => a.killer.localeCompare(b.killer));
-          break;
-        case "name_desc":
-          result.sort((a, b) => b.killer.localeCompare(a.killer));
-          break;
-        default:
-          result.sort((a, b) => b.kills - a.kills || a.killer.localeCompare(b.killer));
-      }
-      return result;
-    }
-
-    function renderFilter(type, options, selected, searchId, optionsId, selectedId) {
-      const query = document.getElementById(searchId).value.trim();
-      const optionsEl = document.getElementById(optionsId);
-      const selectedEl = document.getElementById(selectedId);
-
-      selectedEl.innerHTML = selected.map(item => `
-        <span class="pill">${item}<button onclick="toggleSelection('${type}', ${JSON.stringify(item)})">✕</button></span>
-      `).join("");
-
-      const filtered = options.filter(o => matchesSearch(o, query));
-      optionsEl.innerHTML = filtered.length
-        ? filtered.map(item => `
-            <button class="option ${selected.includes(item) ? 'active' : ''}" onclick="toggleSelection('${type}', ${JSON.stringify(item)})">${item}</button>
-          `).join("")
-        : `<div class="empty">No matches found.</div>`;
-    }
-
-    function toggleSelection(type, item) {
-      const key = type === 'users' ? 'selectedUsers' : 'selectedMissions';
-      if (state[key].includes(item)) {
-        state[key] = state[key].filter(x => x !== item);
-      } else {
-        state[key] = [...state[key], item];
-      }
-      render();
-    }
-
-    function renderTable(grouped) {
-      const body = document.getElementById('tableBody');
-      if (!grouped.length) {
-        body.innerHTML = `<tr><td colspan="4" class="empty">No kills found for the selected filter combination.</td></tr>`;
-        return;
-      }
-      body.innerHTML = grouped.map(row => `
-        <tr>
-          <td><strong>${row.killer}</strong></td>
-          <td class="num"><strong>${row.kills}</strong></td>
-          <td class="num">${row.missionCount}</td>
-          <td class="num">${row.longestKill} m</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderLeader(top) {
-      const el = document.getElementById('leaderBlock');
-      if (!top) {
-        el.className = 'empty';
-        el.innerHTML = 'No data available for the current selection.';
-        return;
-      }
-      el.className = '';
-      el.innerHTML = `
-        <div style="font-size:30px;font-weight:800;margin-top:12px;">${top.killer}</div>
-        <div class="leader-grid">
-          <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
-          <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
-          <div class="mini"><div class="mini-label">Longest</div><div class="mini-value">${top.longestKill}m</div></div>
+    <!-- TABLE -->
+    <div class="card card-pad">
+      <div class="table-header">
+        <div>
+          <h2 class="section-title">Player Stats</h2>
+          <p class="section-sub">Aggregated across selected missions</p>
         </div>
-      `;
-    }
+        <select id="sortBy">
+          <option value="kills_desc">Kills ↓</option>
+          <option value="kills_asc">Kills ↑</option>
+          <option value="kd_desc">K/D ↓</option>
+          <option value="deaths_desc">Deaths ↓</option>
+          <option value="tk_desc">Teamkills ↓</option>
+          <option value="longest_desc">Longest Kill ↓</option>
+          <option value="name_asc">Name A–Z</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th class="num">Kills</th>
+              <th class="num">Deaths</th>
+              <th class="num">K/D</th>
+              <th class="num">TK</th>
+              <th class="num">Shots</th>
+              <th class="num">Hits Taken</th>
+              <th class="num">Shots/Kill</th>
+              <th class="num">Avg Dist</th>
+              <th class="num">Longest</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
 
-    function renderChart(grouped) {
-      const ctx = document.getElementById('killsChart');
-      const data = grouped.slice(0, 10);
-      const labels = data.map(x => x.killer);
-      const values = data.map(x => x.kills);
+    <!-- SIDE -->
+    <div class="side-col">
 
-      if (state.chart) state.chart.destroy();
-      state.chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{ data: values, borderRadius: 8 }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } },
-            x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
-          }
-        }
-      });
-    }
+      <div class="card card-pad">
+        <div>
+          <h2 class="section-title">Top 10 Killers</h2>
+          <p class="section-sub">Current filtered view</p>
+        </div>
+        <div class="chart-wrap" style="margin-top:14px;">
+          <canvas id="killsChart"></canvas>
+        </div>
+      </div>
 
-    function render() {
-      const rows = filteredRows();
-      const grouped = groupedKills(rows);
+      <div class="card card-pad">
+        <h2 class="section-title">Current Leader</h2>
+        <div id="leaderBlock" class="empty-state">No data for current selection.</div>
+      </div>
 
-      document.getElementById('statKills').textContent = rows.length;
-      document.getElementById('statPlayers').textContent = grouped.length;
-      document.getElementById('statMissions').textContent = new Set(rows.map(r => r.mission)).size;
+    </div>
+  </div><!-- /main -->
 
-      renderFilter('users', uniq(state.rows.map(r => r.killer)), state.selectedUsers, 'searchUsers', 'optionsUsers', 'selectedUsers');
-      renderFilter('missions', uniq(state.rows.map(r => r.mission)), state.selectedMissions, 'searchMissions', 'optionsMissions', 'selectedMissions');
+</div><!-- /wrap -->
 
-      renderTable(grouped);
-      renderLeader(grouped[0]);
-      renderChart(grouped);
-    }
+<script>
+  // ── UPDATE THIS URL to your player_stats sheet published CSV ──
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=YOUR_SHEET_GID&single=true&output=csv";
 
-    function initEvents() {
-      ['searchUsers', 'searchMissions'].forEach(id => {
-        document.getElementById(id).addEventListener('input', render);
-      });
+  // ── Column names from player_stats sheet (case-insensitive match) ──
+  // "Source File","Mission","World","Username","Kills","Deaths","K/D Ratio",
+  // "Teamkills","Shots Fired","Hits Taken","Shots per Kill",
+  // "Avg Kill Distance (m)","Longest Kill (m)"
 
-      document.querySelectorAll('[data-clear]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.clear;
-          if (type === 'users') state.selectedUsers = [];
-          if (type === 'missions') state.selectedMissions = [];
-          render();
+  const state = {
+    rows: [],            // raw parsed rows
+    selPlayers: [],
+    selMissions: [],
+    sortBy: "kills_desc",
+    chart: null,
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function n(v)   { const x = parseFloat(v); return isNaN(x) ? 0 : x; }
+  function s(v)   { return (v || "").trim(); }
+  function uniq(arr) { return [...new Set(arr)].filter(Boolean).sort((a,b) => a.localeCompare(b)); }
+  function fmt(v, dec=1) {
+    if (v === "" || v === null || v === undefined) return "—";
+    const x = parseFloat(v);
+    return isNaN(x) ? "—" : x.toFixed(dec);
+  }
+
+  function parseRow(raw) {
+    // Normalise headers to lowercase-no-spaces for safety
+    const get = (k) => {
+      const found = Object.keys(raw).find(h => h.toLowerCase().replace(/[^a-z]/g,"") === k);
+      return found ? raw[found] : "";
+    };
+    return {
+      sourceFile: s(get("sourcefile")),
+      mission:    s(get("mission"))   || "Unknown Mission",
+      world:      s(get("world")),
+      username:   s(get("username"))  || "Unknown",
+      kills:      n(get("kills")),
+      deaths:     n(get("deaths")),
+      kd:         n(get("kdratio")),
+      teamkills:  n(get("teamkills")),
+      shots:      n(get("shotsfired")),
+      hitsTaken:  n(get("hitstaken")),
+      shotsPerKill: s(get("shotsperkill")),
+      avgDist:    s(get("avgkilldistancem")),
+      longest:    n(get("longestkillm")),
+    };
+  }
+
+  // ── Filter & aggregate ──────────────────────────────────────────────────
+
+  function filteredRows() {
+    return state.rows.filter(r => {
+      const pm = !state.selPlayers.length  || state.selPlayers.includes(r.username);
+      const mm = !state.selMissions.length || state.selMissions.includes(r.mission);
+      return pm && mm;
+    });
+  }
+
+  // Aggregate multiple rows per player (same player can appear in multiple missions)
+  function aggregated(rows) {
+    const map = new Map();
+    rows.forEach(r => {
+      if (!map.has(r.username)) {
+        map.set(r.username, {
+          username: r.username,
+          kills: 0, deaths: 0, teamkills: 0,
+          shots: 0, hitsTaken: 0,
+          totalKillDist: 0, killsWithDist: 0,
+          longest: 0,
+          missions: new Set(),
         });
-      });
+      }
+      const a = map.get(r.username);
+      a.kills     += r.kills;
+      a.deaths    += r.deaths;
+      a.teamkills += r.teamkills;
+      a.shots     += r.shots;
+      a.hitsTaken += r.hitsTaken;
+      a.longest    = Math.max(a.longest, r.longest);
+      a.missions.add(r.mission);
 
-      document.getElementById('resetAllBtn').addEventListener('click', () => {
-        state.selectedUsers = [];
-        state.selectedMissions = [];
-        document.getElementById('searchUsers').value = '';
-        document.getElementById('searchMissions').value = '';
-        render();
-      });
-
-      document.getElementById('sortBy').addEventListener('change', (e) => {
-        state.sortBy = e.target.value;
-        render();
-      });
-    }
-
-    Papa.parse(CSV_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        state.rows = (results.data || [])
-          .filter(row => row.killer || row.victim || row.mission)
-          .map(row => {
-            const rawKiller = (row.killer || '').trim();
-            return {
-              mission: (row.mission || 'Unknown Mission').trim(),
-              map: (row.map || 'Unknown Map').trim(),
-              killer: cleanName(rawKiller),
-              victim: (row.victim || 'Unknown').trim(),
-              weapon: (row.weapon || 'Unknown').trim(),
-              distance: Number(row.distance || 0),
-              timestamp: Number(row.timestamp || 0),
-              sourceFile: (row.source_file || '').trim()
-            };
-          });
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('app').style.display = 'grid';
-        initEvents();
-        render();
-      },
-      error: () => {
-        document.getElementById('loading').textContent = 'Failed to load the CSV.';
+      // Reconstruct avg kill distance total
+      const ad = parseFloat(r.avgDist);
+      if (!isNaN(ad) && r.kills > 0) {
+        a.totalKillDist  += ad * r.kills;
+        a.killsWithDist  += r.kills;
       }
     });
-  </script>
+
+    return [...map.values()].map(a => ({
+      ...a,
+      missionCount: a.missions.size,
+      kd:          a.deaths > 0 ? a.kills / a.deaths : a.kills,
+      shotsPerKill: a.kills > 0 ? a.shots / a.kills : null,
+      avgDist:     a.killsWithDist > 0 ? a.totalKillDist / a.killsWithDist : null,
+    }));
+  }
+
+  function sorted(agg) {
+    const copy = [...agg];
+    switch (state.sortBy) {
+      case "kills_asc":   copy.sort((a,b) => a.kills - b.kills); break;
+      case "kd_desc":     copy.sort((a,b) => b.kd - a.kd); break;
+      case "deaths_desc": copy.sort((a,b) => b.deaths - a.deaths); break;
+      case "tk_desc":     copy.sort((a,b) => b.teamkills - a.teamkills); break;
+      case "longest_desc":copy.sort((a,b) => b.longest - a.longest); break;
+      case "name_asc":    copy.sort((a,b) => a.username.localeCompare(b.username)); break;
+      default:            copy.sort((a,b) => b.kills - a.kills);
+    }
+    return copy;
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  function render() {
+    const rows = filteredRows();
+    const agg  = sorted(aggregated(rows));
+
+    // Stats bar
+    const totalKills   = agg.reduce((s,r) => s + r.kills, 0);
+    const totalDeaths  = agg.reduce((s,r) => s + r.deaths, 0);
+    const totalTK      = agg.reduce((s,r) => s + r.teamkills, 0);
+    const missions     = new Set(rows.map(r => r.mission)).size;
+    const avgKD        = agg.length ? (agg.reduce((s,r) => s + r.kd, 0) / agg.length) : 0;
+
+    document.getElementById("sKills").textContent   = totalKills;
+    document.getElementById("sDeaths").textContent  = totalDeaths;
+    document.getElementById("sTK").textContent      = totalTK;
+    document.getElementById("sPlayers").textContent = agg.length;
+    document.getElementById("sMissions").textContent = missions;
+    document.getElementById("sKD").textContent      = avgKD.toFixed(2);
+
+    // Filters
+    renderFilter(
+      "players",
+      uniq(state.rows.map(r => r.username)),
+      state.selPlayers,
+      "searchPlayers", "optionsPlayers", "selectedPlayers"
+    );
+    renderFilter(
+      "missions",
+      uniq(state.rows.map(r => r.mission)),
+      state.selMissions,
+      "searchMissions", "optionsMissions", "selectedMissions"
+    );
+
+    renderTable(agg);
+    renderLeader(agg[0]);
+    renderChart(agg);
+  }
+
+  function renderFilter(type, options, selected, searchId, optionsId, selectedId) {
+    const q = document.getElementById(searchId).value.toLowerCase();
+    document.getElementById(selectedId).innerHTML = selected.map(item => `
+      <span class="pill">${item}
+        <button onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">✕</button>
+      </span>`).join("");
+
+    const filtered = options.filter(o => o.toLowerCase().includes(q));
+    document.getElementById(optionsId).innerHTML = filtered.length
+      ? filtered.map(item => `
+          <button class="option${selected.includes(item) ? " active" : ""}"
+            onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">${item}</button>`).join("")
+      : `<span style="color:var(--muted);font-size:12px;padding:4px;">No matches</span>`;
+  }
+
+  function toggleSel(type, item) {
+    const key = type === "players" ? "selPlayers" : "selMissions";
+    state[key] = state[key].includes(item)
+      ? state[key].filter(x => x !== item)
+      : [...state[key], item];
+    render();
+  }
+
+  function rankClass(i) {
+    if (i === 0) return "rank gold";
+    if (i === 1) return "rank silver";
+    if (i === 2) return "rank bronze";
+    return "rank";
+  }
+
+  function kdClass(kd) {
+    if (kd >= 2)   return "kd-good";
+    if (kd >= 0.8) return "kd-ok";
+    return "kd-bad";
+  }
+
+  function renderTable(agg) {
+    const body = document.getElementById("tableBody");
+    if (!agg.length) {
+      body.innerHTML = `<tr><td colspan="11" class="empty-state" style="padding:20px 14px;">No data for the current selection.</td></tr>`;
+      return;
+    }
+    body.innerHTML = agg.map((r, i) => `
+      <tr>
+        <td class="${rankClass(i)}">${i + 1}</td>
+        <td><strong>${r.username}</strong></td>
+        <td class="num"><strong>${r.kills}</strong></td>
+        <td class="num">${r.deaths}</td>
+        <td class="num ${kdClass(r.kd)}">${r.kd.toFixed(2)}</td>
+        <td class="num ${r.teamkills > 0 ? "tk-warn" : ""}">${r.teamkills}</td>
+        <td class="num">${r.shots.toLocaleString()}</td>
+        <td class="num">${r.hitsTaken.toLocaleString()}</td>
+        <td class="num">${r.shotsPerKill != null ? r.shotsPerKill.toFixed(1) : "—"}</td>
+        <td class="num">${r.avgDist != null ? Math.round(r.avgDist) + " m" : "—"}</td>
+        <td class="num">${r.longest > 0 ? r.longest + " m" : "—"}</td>
+      </tr>`).join("");
+  }
+
+  function renderLeader(top) {
+    const el = document.getElementById("leaderBlock");
+    if (!top) {
+      el.className = "empty-state";
+      el.innerHTML = "No data for current selection.";
+      return;
+    }
+    el.className = "";
+    el.innerHTML = `
+      <div class="leader-name">${top.username}</div>
+      <div class="leader-grid">
+        <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
+        <div class="mini"><div class="mini-label">K/D</div><div class="mini-value">${top.kd.toFixed(2)}</div></div>
+        <div class="mini"><div class="mini-label">Deaths</div><div class="mini-value">${top.deaths}</div></div>
+        <div class="mini"><div class="mini-label">Teamkills</div><div class="mini-value" style="${top.teamkills>0?"color:var(--red)":""}">${top.teamkills}</div></div>
+        <div class="mini"><div class="mini-label">Longest Kill</div><div class="mini-value">${top.longest > 0 ? top.longest + "m" : "—"}</div></div>
+        <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
+      </div>`;
+  }
+
+  function renderChart(agg) {
+    const ctx  = document.getElementById("killsChart");
+    const data = agg.slice(0, 10);
+    if (state.chart) state.chart.destroy();
+    state.chart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: data.map(x => x.username),
+        datasets: [{
+          data: data.map(x => x.kills),
+          backgroundColor: data.map((_, i) =>
+            i === 0 ? "#e8c44a" : i === 1 ? "#8b949e" : i === 2 ? "#b08060" : "#30363d"),
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: ctx => ` ${ctx.raw} kills` }
+        }},
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: "#7d8590" },
+            grid:  { color: "#21262d" }
+          },
+          x: {
+            ticks: { color: "#7d8590", maxRotation: 40, minRotation: 0, font: { family: "Barlow" } },
+            grid:  { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+
+  document.getElementById("resetAllBtn").addEventListener("click", () => {
+    state.selPlayers  = [];
+    state.selMissions = [];
+    document.getElementById("searchPlayers").value  = "";
+    document.getElementById("searchMissions").value = "";
+    render();
+  });
+
+  document.querySelectorAll("[data-clear]").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const k = btn.dataset.clear === "players" ? "selPlayers" : "selMissions";
+      state[k] = [];
+      render();
+    })
+  );
+
+  ["searchPlayers","searchMissions"].forEach(id =>
+    document.getElementById(id).addEventListener("input", render)
+  );
+
+  document.getElementById("sortBy").addEventListener("change", e => {
+    state.sortBy = e.target.value;
+    render();
+  });
+
+  Papa.parse(CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: results => {
+      state.rows = (results.data || []).map(parseRow).filter(r => r.username && r.username !== "Unknown");
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("app").style.display     = "grid";
+      render();
+    },
+    error: () => {
+      document.getElementById("loading").textContent = "Failed to load data. Check the CSV URL.";
+    }
+  });
+</script>
 </body>
 </html>
