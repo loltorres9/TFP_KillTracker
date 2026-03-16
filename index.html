@@ -6,843 +6,296 @@
   <title>TFP Kill Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --surface-2: #1c2330;
-      --border:    #30363d;
-      --text:      #e6edf3;
-      --muted:     #7d8590;
-      --accent:    #e8c44a;
-      --accent-dim:#b8972e;
-      --red:       #f85149;
-      --green:     #3fb950;
-      --blue:      #58a6ff;
-      --radius:    12px;
-      --shadow:    0 4px 24px rgba(0,0,0,.45);
+      --bg:#f4f4f4; --surface:#ffffff; --surface-2:#ebebeb;
+      --charcoal:#424242; --charcoal-lt:#5a5a5a;
+      --border:#d4d4d4; --text:#1a1a1a; --muted:#6b6b6b;
+      --accent:#c4511a; --accent-dark:#a03f12; --accent-lt:#f0692a;
+      --red:#c0392b; --green:#2e7d32;
+      --radius:10px; --shadow:0 2px 12px rgba(0,0,0,.10);
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Barlow', sans-serif;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-
-    /* ─── noise texture overlay ─── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .wrap {
-      position: relative;
-      z-index: 1;
-      max-width: 1460px;
-      margin: 0 auto;
-      padding: 28px 24px;
-    }
-
-    /* ─── header ─── */
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      margin-bottom: 28px;
-      padding-bottom: 22px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .eyebrow {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 11px;
-      letter-spacing: .22em;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    h1 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 52px;
-      font-weight: 800;
-      line-height: .95;
-      letter-spacing: -.02em;
-      color: var(--text);
-    }
-
-    h1 span { color: var(--accent); }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.6;
-      margin-top: 10px;
-      max-width: 560px;
-    }
-
-    /* ─── buttons ─── */
-    .btn {
-      font-family: 'Barlow', sans-serif;
-      font-weight: 600;
-      font-size: 13px;
-      border: 0;
-      border-radius: 8px;
-      padding: 9px 14px;
-      cursor: pointer;
-      transition: opacity .15s;
-    }
-    .btn:hover { opacity: .8; }
-    .btn-primary { background: var(--accent); color: #000; }
-    .btn-ghost   { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
-
-    /* ─── stat bar ─── */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .stat {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-    }
-
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .stat-value {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 36px;
-      font-weight: 800;
-      line-height: 1;
-      color: var(--accent);
-    }
-
-    .stat-value.neutral { color: var(--text); }
-    .stat-value.red     { color: var(--red);  }
-
-    /* ─── filters ─── */
-    .filters {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
-    }
-
-    .filter-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-    }
-
-    .filter-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .filter-title {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--muted);
-    }
-
-    .search {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 12px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      margin-bottom: 10px;
-    }
-    .search::placeholder { color: var(--muted); }
-    .search:focus { border-color: var(--accent); }
-
-    .selected {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
-      min-height: 6px;
-    }
-
-    .pill {
-      background: #2a2000;
-      border: 1px solid var(--accent-dim);
-      color: var(--accent);
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .pill button {
-      border: 0;
-      background: transparent;
-      cursor: pointer;
-      color: var(--accent-dim);
-      font-size: 13px;
-      line-height: 1;
-    }
-
-    .options {
-      max-height: 200px;
-      overflow-y: auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 6px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-
-    .option {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: 'Barlow', sans-serif;
-      transition: all .12s;
-    }
-    .option:hover  { border-color: var(--accent); color: var(--accent); }
-    .option.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
-
-    /* ─── main layout ─── */
-    .main {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 20px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-
-    .card-pad { padding: 20px; }
-
-    /* ─── table ─── */
-    .table-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .section-title {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 22px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-
-    .section-sub {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 3px;
-    }
-
-    select {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--text);
-      font-family: 'Barlow', sans-serif;
-      font-size: 13px;
-      outline: none;
-      cursor: pointer;
-    }
-    select:focus { border-color: var(--accent); }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-
-    table { width: 100%; border-collapse: collapse; }
-
-    th, td {
-      padding: 11px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    th {
-      background: var(--surface-2);
-      color: var(--muted);
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 12px;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      font-weight: 700;
-      position: sticky;
-      top: 0;
-    }
-
-    tr:last-child td { border-bottom: 0; }
-
-    tr:hover td { background: rgba(255,255,255,.03); }
-
-    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-
-    .rank {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--border);
-      width: 32px;
-    }
-
-    .rank.gold   { color: var(--accent); }
-    .rank.silver { color: #8b949e; }
-    .rank.bronze { color: #b08060; }
-
-    .kd-good { color: var(--green); font-weight: 600; }
-    .kd-bad  { color: var(--red);   font-weight: 600; }
-    .kd-ok   { color: var(--text);  }
-
-    .tk-warn { color: var(--red); font-weight: 600; }
-
-    /* ─── side column ─── */
-    .side-col { display: flex; flex-direction: column; gap: 20px; }
-
-    /* chart */
-    .chart-wrap {
-      position: relative;
-      height: 280px;
-    }
-
-    /* leader card */
-    .leader-name {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 42px;
-      font-weight: 800;
-      line-height: 1;
-      color: var(--accent);
-      margin: 12px 0 16px;
-    }
-
-    .leader-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 8px;
-    }
-
-    .mini {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
-    }
-
-    .mini-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .mini-value {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .empty-state {
-      color: var(--muted);
-      font-size: 13px;
-      padding: 16px 0;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 60px;
-      color: var(--muted);
-      font-size: 14px;
-      letter-spacing: .08em;
-    }
-
-    /* ─── scrollbar ─── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-
-    @media (max-width: 1100px) {
-      .stats { grid-template-columns: repeat(3, 1fr); }
-      .main  { grid-template-columns: 1fr; }
-    }
-
-    @media (max-width: 640px) {
-      .stats   { grid-template-columns: repeat(2, 1fr); }
-      .filters { grid-template-columns: 1fr; }
-      h1       { font-size: 36px; }
-    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'Open Sans',sans-serif;font-size:14px;min-height:100vh;}
+    .topbar{background:var(--charcoal);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+    .topbar-brand{display:flex;align-items:center;gap:12px;}
+    .topbar-shield{width:34px;height:34px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+    .topbar-name{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:#fff;letter-spacing:.06em;text-transform:uppercase;}
+    .topbar-name span{color:var(--accent-lt);}
+    .topbar-right{font-family:'Open Sans',sans-serif;font-size:12px;color:#aaa;letter-spacing:.04em;}
+    .wrap{max-width:1500px;margin:0 auto;padding:28px 24px 48px;}
+    .page-header{background:var(--charcoal);border-radius:var(--radius);padding:28px 32px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:var(--shadow);}
+    .eyebrow{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:8px;}
+    h1{font-family:'Oswald',sans-serif;font-size:48px;font-weight:700;line-height:.95;letter-spacing:.02em;text-transform:uppercase;color:#fff;}
+    h1 span{color:var(--accent-lt);}
+    .subtitle{color:#b0b0b0;font-size:13px;line-height:1.6;margin-top:10px;max-width:560px;}
+    .btn{font-family:'Open Sans',sans-serif;font-weight:700;font-size:12px;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;transition:background .15s;text-transform:uppercase;letter-spacing:.08em;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-primary:hover{background:var(--accent-lt);}
+    .btn-ghost{background:transparent;color:#bbb;border:1px solid #666;}
+    .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+    .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:22px;}
+    .stat{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--charcoal);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+    .stat.accent-top{border-top-color:var(--accent);}
+    .stat.red-top{border-top-color:var(--red);}
+    .stat.green-top{border-top-color:var(--green);}
+    .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-bottom:8px;}
+    .stat-value{font-family:'Oswald',sans-serif;font-size:38px;font-weight:700;line-height:1;color:var(--charcoal);}
+    .stat-value.orange{color:var(--accent);} .stat-value.red{color:var(--red);} .stat-value.green{color:var(--green);}
+    .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px;}
+    .filter-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+    .filter-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .filter-title{font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--charcoal);}
+    .search{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;outline:none;margin-bottom:10px;}
+    .search:focus{border-color:var(--accent);}
+    .search::placeholder{color:#aaa;}
+    .selected{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:4px;}
+    .pill{background:#fdf0e8;border:1px solid #e0a070;color:var(--accent-dark);border-radius:999px;padding:5px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+    .pill button{border:0;background:transparent;cursor:pointer;color:var(--accent);font-size:14px;line-height:1;}
+    .options{max-height:190px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+    .option{background:var(--surface);border:1px solid var(--border);color:var(--charcoal);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;font-weight:600;transition:all .12s;}
+    .option:hover{border-color:var(--accent);color:var(--accent);}
+    .option.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .main{display:grid;grid-template-columns:1fr 390px;gap:20px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+    .section-header{background:var(--charcoal);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;}
+    .section-title{font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
+    .section-sub{color:#999;font-size:12px;margin-top:2px;}
+    select{background:#333;border:1px solid #555;border-radius:6px;padding:7px 10px;color:#ddd;font-family:'Open Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+    select:focus{border-color:var(--accent);}
+    .table-wrap{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;}
+    th,td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;white-space:nowrap;}
+    th{background:#f0f0f0;color:var(--muted);font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;position:sticky;top:0;}
+    tr:last-child td{border-bottom:0;}
+    tr:hover td{background:#fafafa;}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+    .rank{font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:#ccc;width:32px;}
+    .rank.gold{color:#c4a217;} .rank.silver{color:#888;} .rank.bronze{color:#a0714a;}
+    .kd-good{color:var(--green);font-weight:700;} .kd-bad{color:var(--red);font-weight:700;} .kd-ok{color:var(--text);}
+    .tk-warn{color:var(--red);font-weight:700;}
+    .side-col{display:flex;flex-direction:column;gap:20px;}
+    .chart-wrap{position:relative;height:270px;padding:16px 16px 0;}
+    .leader-body{padding:16px 18px 18px;}
+    .leader-name{font-family:'Oswald',sans-serif;font-size:40px;font-weight:700;text-transform:uppercase;color:var(--charcoal);line-height:1;margin-bottom:14px;}
+    .leader-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .mini{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+    .mini-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-bottom:5px;}
+    .mini-value{font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--charcoal);line-height:1;}
+    .mini-value.orange{color:var(--accent);} .mini-value.red{color:var(--red);}
+    .empty-state{color:var(--muted);font-size:13px;padding:14px 18px;}
+    .loading{text-align:center;padding:60px;color:var(--muted);font-family:'Oswald',sans-serif;letter-spacing:.1em;text-transform:uppercase;font-size:14px;}
+    ::-webkit-scrollbar{width:5px;height:5px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:#ccc;border-radius:99px;}
+    @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr);}.main{grid-template-columns:1fr;}}
+    @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr);}.filters{grid-template-columns:1fr;}h1{font-size:34px;}}
   </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-shield">TFP</div>
+    <span class="topbar-name">Task Force <span>Phalanx</span></span>
+  </div>
+  <span class="topbar-right">KILL TRACKER &nbsp;&middot;&nbsp; MISSION ANALYTICS</span>
+</div>
 <div class="wrap">
-
-  <!-- HEADER -->
-  <header class="header">
+  <div class="page-header">
     <div>
       <div class="eyebrow">Task Force Phalanx</div>
       <h1>KILL <span>TRACKER</span></h1>
       <p class="subtitle">Per-player stats aggregated across all missions. Filter by player or mission to explore kill counts, K/D ratios, teamkills and more.</p>
     </div>
-    <button class="btn btn-primary" id="resetAllBtn">Reset all filters</button>
-  </header>
-
-  <!-- STAT BAR -->
-  <div class="stats">
-    <div class="stat"><div class="stat-label">Total Kills</div><div class="stat-value" id="sKills">—</div></div>
-    <div class="stat"><div class="stat-label">Total Deaths</div><div class="stat-value neutral" id="sDeaths">—</div></div>
-    <div class="stat"><div class="stat-label">Teamkills</div><div class="stat-value red" id="sTK">—</div></div>
-    <div class="stat"><div class="stat-label">Players</div><div class="stat-value neutral" id="sPlayers">—</div></div>
-    <div class="stat"><div class="stat-label">Missions</div><div class="stat-value neutral" id="sMissions">—</div></div>
-    <div class="stat"><div class="stat-label">Avg K/D</div><div class="stat-value" id="sKD">—</div></div>
+    <button class="btn btn-primary" id="resetAllBtn">&#8635; Reset Filters</button>
   </div>
-
-  <!-- FILTERS -->
+  <div class="stats">
+    <div class="stat accent-top"><div class="stat-label">Total Kills</div><div class="stat-value orange" id="sKills">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Total Deaths</div><div class="stat-value" id="sDeaths">&#8212;</div></div>
+    <div class="stat red-top"><div class="stat-label">Teamkills</div><div class="stat-value red" id="sTK">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Players</div><div class="stat-value" id="sPlayers">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Missions</div><div class="stat-value" id="sMissions">&#8212;</div></div>
+    <div class="stat green-top"><div class="stat-label">Avg K/D</div><div class="stat-value green" id="sKD">&#8212;</div></div>
+  </div>
   <div class="filters">
     <div class="filter-card">
-      <div class="filter-top">
-        <span class="filter-title">Players</span>
-        <button class="btn btn-ghost" data-clear="players">Clear</button>
-      </div>
-      <input id="searchPlayers" class="search" placeholder="Search players…" />
+      <div class="filter-top"><span class="filter-title">Players</span><button class="btn btn-ghost" data-clear="players">Clear</button></div>
+      <input id="searchPlayers" class="search" placeholder="Search players&hellip;" />
       <div class="selected" id="selectedPlayers"></div>
       <div class="options" id="optionsPlayers"></div>
     </div>
-
     <div class="filter-card">
-      <div class="filter-top">
-        <span class="filter-title">Missions</span>
-        <button class="btn btn-ghost" data-clear="missions">Clear</button>
-      </div>
-      <input id="searchMissions" class="search" placeholder="Search missions…" />
+      <div class="filter-top"><span class="filter-title">Missions</span><button class="btn btn-ghost" data-clear="missions">Clear</button></div>
+      <input id="searchMissions" class="search" placeholder="Search missions&hellip;" />
       <div class="selected" id="selectedMissions"></div>
       <div class="options" id="optionsMissions"></div>
     </div>
   </div>
-
-  <div id="loading" class="loading">Loading data…</div>
-
-  <!-- MAIN -->
+  <div id="loading" class="loading">Loading data&hellip;</div>
   <div class="main" id="app" style="display:none;">
-
-    <!-- TABLE -->
-    <div class="card card-pad">
-      <div class="table-header">
-        <div>
-          <h2 class="section-title">Player Stats</h2>
-          <p class="section-sub">Aggregated across selected missions</p>
-        </div>
+    <div class="card">
+      <div class="section-header">
+        <div><div class="section-title">Player Stats</div><div class="section-sub">Aggregated across selected missions</div></div>
         <select id="sortBy">
-          <option value="kills_desc">Kills ↓</option>
-          <option value="kills_asc">Kills ↑</option>
-          <option value="kd_desc">K/D ↓</option>
-          <option value="deaths_desc">Deaths ↓</option>
-          <option value="tk_desc">Teamkills ↓</option>
-          <option value="longest_desc">Longest Kill ↓</option>
-          <option value="name_asc">Name A–Z</option>
+          <option value="kills_desc">Kills &darr;</option>
+          <option value="kills_asc">Kills &uarr;</option>
+          <option value="kd_desc">K/D &darr;</option>
+          <option value="deaths_desc">Deaths &darr;</option>
+          <option value="tk_desc">Teamkills &darr;</option>
+          <option value="longest_desc">Longest Kill &darr;</option>
+          <option value="name_asc">Name A&ndash;Z</option>
         </select>
       </div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th class="num">Kills</th>
-              <th class="num">Deaths</th>
-              <th class="num">K/D</th>
-              <th class="num">TK</th>
-              <th class="num">Shots</th>
-              <th class="num">Hits Taken</th>
-              <th class="num">Shots/Kill</th>
-              <th class="num">Avg Dist</th>
-              <th class="num">Longest</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th>#</th><th>Player</th>
+            <th class="num">Kills</th><th class="num">Deaths</th><th class="num">K/D</th>
+            <th class="num">TK</th><th class="num">Shots</th><th class="num">Hits Taken</th>
+            <th class="num">Shots/Kill</th><th class="num">Avg Dist</th><th class="num">Longest</th>
+          </tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
     </div>
-
-    <!-- SIDE -->
     <div class="side-col">
-
-      <div class="card card-pad">
-        <div>
-          <h2 class="section-title">Top 10 Killers</h2>
-          <p class="section-sub">Current filtered view</p>
-        </div>
-        <div class="chart-wrap" style="margin-top:14px;">
-          <canvas id="killsChart"></canvas>
-        </div>
+      <div class="card">
+        <div class="section-header"><div><div class="section-title">Top 10 Killers</div><div class="section-sub">Current filtered view</div></div></div>
+        <div class="chart-wrap"><canvas id="killsChart"></canvas></div>
       </div>
-
-      <div class="card card-pad">
-        <h2 class="section-title">Current Leader</h2>
+      <div class="card">
+        <div class="section-header"><div class="section-title">&#9876; Current Leader</div></div>
         <div id="leaderBlock" class="empty-state">No data for current selection.</div>
       </div>
-
     </div>
-  </div><!-- /main -->
-
-</div><!-- /wrap -->
-
+  </div>
+</div>
 <script>
-  // ── UPDATE THIS URL to your player_stats sheet published CSV ──
-  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=YOUR_SHEET_GID&single=true&output=csv";
-
-  // ── Column names from player_stats sheet (case-insensitive match) ──
-  // "Source File","Mission","World","Username","Kills","Deaths","K/D Ratio",
-  // "Teamkills","Shots Fired","Hits Taken","Shots per Kill",
-  // "Avg Kill Distance (m)","Longest Kill (m)"
-
-  const state = {
-    rows: [],            // raw parsed rows
-    selPlayers: [],
-    selMissions: [],
-    sortBy: "kills_desc",
-    chart: null,
-  };
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  function n(v)   { const x = parseFloat(v); return isNaN(x) ? 0 : x; }
-  function s(v)   { return (v || "").trim(); }
-  function uniq(arr) { return [...new Set(arr)].filter(Boolean).sort((a,b) => a.localeCompare(b)); }
-  function fmt(v, dec=1) {
-    if (v === "" || v === null || v === undefined) return "—";
-    const x = parseFloat(v);
-    return isNaN(x) ? "—" : x.toFixed(dec);
+  const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=YOUR_SHEET_GID&single=true&output=csv";
+  const state={rows:[],selPlayers:[],selMissions:[],sortBy:"kills_desc",chart:null};
+  const n=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
+  const s=v=>(v||"").trim();
+  const uniq=arr=>[...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  function parseRow(raw){
+    const get=k=>{const f=Object.keys(raw).find(h=>h.toLowerCase().replace(/[^a-z]/g,"")===k);return f?raw[f]:"";};
+    return{sourceFile:s(get("sourcefile")),mission:s(get("mission"))||"Unknown Mission",world:s(get("world")),
+      username:s(get("username"))||"Unknown",kills:n(get("kills")),deaths:n(get("deaths")),kd:n(get("kdratio")),
+      teamkills:n(get("teamkills")),shots:n(get("shotsfired")),hitsTaken:n(get("hitstaken")),
+      avgDist:s(get("avgkilldistancem")),longest:n(get("longestkillm"))};
   }
-
-  function parseRow(raw) {
-    // Normalise headers to lowercase-no-spaces for safety
-    const get = (k) => {
-      const found = Object.keys(raw).find(h => h.toLowerCase().replace(/[^a-z]/g,"") === k);
-      return found ? raw[found] : "";
-    };
-    return {
-      sourceFile: s(get("sourcefile")),
-      mission:    s(get("mission"))   || "Unknown Mission",
-      world:      s(get("world")),
-      username:   s(get("username"))  || "Unknown",
-      kills:      n(get("kills")),
-      deaths:     n(get("deaths")),
-      kd:         n(get("kdratio")),
-      teamkills:  n(get("teamkills")),
-      shots:      n(get("shotsfired")),
-      hitsTaken:  n(get("hitstaken")),
-      shotsPerKill: s(get("shotsperkill")),
-      avgDist:    s(get("avgkilldistancem")),
-      longest:    n(get("longestkillm")),
-    };
+  function filteredRows(){
+    return state.rows.filter(r=>(!state.selPlayers.length||state.selPlayers.includes(r.username))&&(!state.selMissions.length||state.selMissions.includes(r.mission)));
   }
-
-  // ── Filter & aggregate ──────────────────────────────────────────────────
-
-  function filteredRows() {
-    return state.rows.filter(r => {
-      const pm = !state.selPlayers.length  || state.selPlayers.includes(r.username);
-      const mm = !state.selMissions.length || state.selMissions.includes(r.mission);
-      return pm && mm;
+  function aggregated(rows){
+    const map=new Map();
+    rows.forEach(r=>{
+      if(!map.has(r.username))map.set(r.username,{username:r.username,kills:0,deaths:0,teamkills:0,shots:0,hitsTaken:0,totalKillDist:0,killsWithDist:0,longest:0,missions:new Set()});
+      const a=map.get(r.username);
+      a.kills+=r.kills;a.deaths+=r.deaths;a.teamkills+=r.teamkills;a.shots+=r.shots;a.hitsTaken+=r.hitsTaken;
+      a.longest=Math.max(a.longest,r.longest);a.missions.add(r.mission);
+      const ad=parseFloat(r.avgDist);if(!isNaN(ad)&&r.kills>0){a.totalKillDist+=ad*r.kills;a.killsWithDist+=r.kills;}
     });
+    return[...map.values()].map(a=>({...a,missionCount:a.missions.size,
+      kd:a.deaths>0?a.kills/a.deaths:a.kills,
+      shotsPerKill:a.kills>0?a.shots/a.kills:null,
+      avgDist:a.killsWithDist>0?a.totalKillDist/a.killsWithDist:null}));
   }
-
-  // Aggregate multiple rows per player (same player can appear in multiple missions)
-  function aggregated(rows) {
-    const map = new Map();
-    rows.forEach(r => {
-      if (!map.has(r.username)) {
-        map.set(r.username, {
-          username: r.username,
-          kills: 0, deaths: 0, teamkills: 0,
-          shots: 0, hitsTaken: 0,
-          totalKillDist: 0, killsWithDist: 0,
-          longest: 0,
-          missions: new Set(),
-        });
-      }
-      const a = map.get(r.username);
-      a.kills     += r.kills;
-      a.deaths    += r.deaths;
-      a.teamkills += r.teamkills;
-      a.shots     += r.shots;
-      a.hitsTaken += r.hitsTaken;
-      a.longest    = Math.max(a.longest, r.longest);
-      a.missions.add(r.mission);
-
-      // Reconstruct avg kill distance total
-      const ad = parseFloat(r.avgDist);
-      if (!isNaN(ad) && r.kills > 0) {
-        a.totalKillDist  += ad * r.kills;
-        a.killsWithDist  += r.kills;
-      }
-    });
-
-    return [...map.values()].map(a => ({
-      ...a,
-      missionCount: a.missions.size,
-      kd:          a.deaths > 0 ? a.kills / a.deaths : a.kills,
-      shotsPerKill: a.kills > 0 ? a.shots / a.kills : null,
-      avgDist:     a.killsWithDist > 0 ? a.totalKillDist / a.killsWithDist : null,
-    }));
-  }
-
-  function sorted(agg) {
-    const copy = [...agg];
-    switch (state.sortBy) {
-      case "kills_asc":   copy.sort((a,b) => a.kills - b.kills); break;
-      case "kd_desc":     copy.sort((a,b) => b.kd - a.kd); break;
-      case "deaths_desc": copy.sort((a,b) => b.deaths - a.deaths); break;
-      case "tk_desc":     copy.sort((a,b) => b.teamkills - a.teamkills); break;
-      case "longest_desc":copy.sort((a,b) => b.longest - a.longest); break;
-      case "name_asc":    copy.sort((a,b) => a.username.localeCompare(b.username)); break;
-      default:            copy.sort((a,b) => b.kills - a.kills);
+  function sorted(agg){
+    const c=[...agg];
+    switch(state.sortBy){
+      case"kills_asc":c.sort((a,b)=>a.kills-b.kills);break;
+      case"kd_desc":c.sort((a,b)=>b.kd-a.kd);break;
+      case"deaths_desc":c.sort((a,b)=>b.deaths-a.deaths);break;
+      case"tk_desc":c.sort((a,b)=>b.teamkills-a.teamkills);break;
+      case"longest_desc":c.sort((a,b)=>b.longest-a.longest);break;
+      case"name_asc":c.sort((a,b)=>a.username.localeCompare(b.username));break;
+      default:c.sort((a,b)=>b.kills-a.kills);
     }
-    return copy;
+    return c;
   }
-
-  // ── Render ───────────────────────────────────────────────────────────────
-
-  function render() {
-    const rows = filteredRows();
-    const agg  = sorted(aggregated(rows));
-
-    // Stats bar
-    const totalKills   = agg.reduce((s,r) => s + r.kills, 0);
-    const totalDeaths  = agg.reduce((s,r) => s + r.deaths, 0);
-    const totalTK      = agg.reduce((s,r) => s + r.teamkills, 0);
-    const missions     = new Set(rows.map(r => r.mission)).size;
-    const avgKD        = agg.length ? (agg.reduce((s,r) => s + r.kd, 0) / agg.length) : 0;
-
-    document.getElementById("sKills").textContent   = totalKills;
-    document.getElementById("sDeaths").textContent  = totalDeaths;
-    document.getElementById("sTK").textContent      = totalTK;
-    document.getElementById("sPlayers").textContent = agg.length;
-    document.getElementById("sMissions").textContent = missions;
-    document.getElementById("sKD").textContent      = avgKD.toFixed(2);
-
-    // Filters
-    renderFilter(
-      "players",
-      uniq(state.rows.map(r => r.username)),
-      state.selPlayers,
-      "searchPlayers", "optionsPlayers", "selectedPlayers"
-    );
-    renderFilter(
-      "missions",
-      uniq(state.rows.map(r => r.mission)),
-      state.selMissions,
-      "searchMissions", "optionsMissions", "selectedMissions"
-    );
-
-    renderTable(agg);
-    renderLeader(agg[0]);
-    renderChart(agg);
+  function render(){
+    const rows=filteredRows(),agg=sorted(aggregated(rows));
+    const tK=agg.reduce((s,r)=>s+r.kills,0),tD=agg.reduce((s,r)=>s+r.deaths,0),tTK=agg.reduce((s,r)=>s+r.teamkills,0);
+    const mis=new Set(rows.map(r=>r.mission)).size,avgKD=agg.length?(agg.reduce((s,r)=>s+r.kd,0)/agg.length):0;
+    document.getElementById("sKills").textContent=tK.toLocaleString();
+    document.getElementById("sDeaths").textContent=tD.toLocaleString();
+    document.getElementById("sTK").textContent=tTK;
+    document.getElementById("sPlayers").textContent=agg.length;
+    document.getElementById("sMissions").textContent=mis;
+    document.getElementById("sKD").textContent=avgKD.toFixed(2);
+    renderFilter("players",uniq(state.rows.map(r=>r.username)),state.selPlayers,"searchPlayers","optionsPlayers","selectedPlayers");
+    renderFilter("missions",uniq(state.rows.map(r=>r.mission)),state.selMissions,"searchMissions","optionsMissions","selectedMissions");
+    renderTable(agg);renderLeader(agg[0]);renderChart(agg);
   }
-
-  function renderFilter(type, options, selected, searchId, optionsId, selectedId) {
-    const q = document.getElementById(searchId).value.toLowerCase();
-    document.getElementById(selectedId).innerHTML = selected.map(item => `
-      <span class="pill">${item}
-        <button onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">✕</button>
-      </span>`).join("");
-
-    const filtered = options.filter(o => o.toLowerCase().includes(q));
-    document.getElementById(optionsId).innerHTML = filtered.length
-      ? filtered.map(item => `
-          <button class="option${selected.includes(item) ? " active" : ""}"
-            onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">${item}</button>`).join("")
-      : `<span style="color:var(--muted);font-size:12px;padding:4px;">No matches</span>`;
+  function renderFilter(type,options,selected,searchId,optionsId,selectedId){
+    const q=document.getElementById(searchId).value.toLowerCase();
+    document.getElementById(selectedId).innerHTML=selected.map(item=>`<span class="pill">${item}<button onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">&#x2715;</button></span>`).join("");
+    const f=options.filter(o=>o.toLowerCase().includes(q));
+    document.getElementById(optionsId).innerHTML=f.length?f.map(item=>`<button class="option${selected.includes(item)?" active":""}" onclick="toggleSel(${JSON.stringify(type)},${JSON.stringify(item)})">${item}</button>`).join(""):`<span style="color:#aaa;font-size:12px;padding:4px;">No matches</span>`;
   }
-
-  function toggleSel(type, item) {
-    const key = type === "players" ? "selPlayers" : "selMissions";
-    state[key] = state[key].includes(item)
-      ? state[key].filter(x => x !== item)
-      : [...state[key], item];
-    render();
+  function toggleSel(type,item){
+    const k=type==="players"?"selPlayers":"selMissions";
+    state[k]=state[k].includes(item)?state[k].filter(x=>x!==item):[...state[k],item];render();
   }
-
-  function rankClass(i) {
-    if (i === 0) return "rank gold";
-    if (i === 1) return "rank silver";
-    if (i === 2) return "rank bronze";
-    return "rank";
+  function rankClass(i){if(i===0)return"rank gold";if(i===1)return"rank silver";if(i===2)return"rank bronze";return"rank";}
+  function kdClass(kd){if(kd>=2)return"kd-good";if(kd>=0.8)return"kd-ok";return"kd-bad";}
+  function renderTable(agg){
+    const body=document.getElementById("tableBody");
+    if(!agg.length){body.innerHTML=`<tr><td colspan="11" class="empty-state">No data for the current selection.</td></tr>`;return;}
+    body.innerHTML=agg.map((r,i)=>`<tr>
+      <td class="${rankClass(i)}">${i+1}</td>
+      <td><strong>${r.username}</strong></td>
+      <td class="num"><strong>${r.kills}</strong></td>
+      <td class="num">${r.deaths}</td>
+      <td class="num ${kdClass(r.kd)}">${r.kd.toFixed(2)}</td>
+      <td class="num ${r.teamkills>0?"tk-warn":""}">${r.teamkills}</td>
+      <td class="num">${r.shots.toLocaleString()}</td>
+      <td class="num">${r.hitsTaken.toLocaleString()}</td>
+      <td class="num">${r.shotsPerKill!=null?r.shotsPerKill.toFixed(1):"&#8212;"}</td>
+      <td class="num">${r.avgDist!=null?Math.round(r.avgDist)+" m":"&#8212;"}</td>
+      <td class="num">${r.longest>0?r.longest+" m":"&#8212;"}</td>
+    </tr>`).join("");
   }
-
-  function kdClass(kd) {
-    if (kd >= 2)   return "kd-good";
-    if (kd >= 0.8) return "kd-ok";
-    return "kd-bad";
+  function renderLeader(top){
+    const el=document.getElementById("leaderBlock");
+    if(!top){el.className="empty-state";el.innerHTML="No data for current selection.";return;}
+    el.className="leader-body";
+    el.innerHTML=`<div class="leader-name">${top.username}</div><div class="leader-grid">
+      <div class="mini"><div class="mini-label">Kills</div><div class="mini-value orange">${top.kills}</div></div>
+      <div class="mini"><div class="mini-label">K/D</div><div class="mini-value">${top.kd.toFixed(2)}</div></div>
+      <div class="mini"><div class="mini-label">Deaths</div><div class="mini-value">${top.deaths}</div></div>
+      <div class="mini"><div class="mini-label">Teamkills</div><div class="mini-value ${top.teamkills>0?"red":""}">${top.teamkills}</div></div>
+      <div class="mini"><div class="mini-label">Longest Kill</div><div class="mini-value">${top.longest>0?top.longest+"m":"&#8212;"}</div></div>
+      <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
+    </div>`;
   }
-
-  function renderTable(agg) {
-    const body = document.getElementById("tableBody");
-    if (!agg.length) {
-      body.innerHTML = `<tr><td colspan="11" class="empty-state" style="padding:20px 14px;">No data for the current selection.</td></tr>`;
-      return;
-    }
-    body.innerHTML = agg.map((r, i) => `
-      <tr>
-        <td class="${rankClass(i)}">${i + 1}</td>
-        <td><strong>${r.username}</strong></td>
-        <td class="num"><strong>${r.kills}</strong></td>
-        <td class="num">${r.deaths}</td>
-        <td class="num ${kdClass(r.kd)}">${r.kd.toFixed(2)}</td>
-        <td class="num ${r.teamkills > 0 ? "tk-warn" : ""}">${r.teamkills}</td>
-        <td class="num">${r.shots.toLocaleString()}</td>
-        <td class="num">${r.hitsTaken.toLocaleString()}</td>
-        <td class="num">${r.shotsPerKill != null ? r.shotsPerKill.toFixed(1) : "—"}</td>
-        <td class="num">${r.avgDist != null ? Math.round(r.avgDist) + " m" : "—"}</td>
-        <td class="num">${r.longest > 0 ? r.longest + " m" : "—"}</td>
-      </tr>`).join("");
+  function renderChart(agg){
+    const ctx=document.getElementById("killsChart"),data=agg.slice(0,10);
+    if(state.chart)state.chart.destroy();
+    state.chart=new Chart(ctx,{type:"bar",data:{labels:data.map(x=>x.username),datasets:[{data:data.map(x=>x.kills),
+      backgroundColor:data.map((_,i)=>i===0?"#c4511a":i===1?"#888":i===2?"#a0714a":"#d4d4d4"),borderRadius:4,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw} kills`}}},
+        scales:{y:{beginAtZero:true,ticks:{precision:0,color:"#888",font:{family:"Open Sans"}},grid:{color:"#e8e8e8"}},
+                x:{ticks:{color:"#666",maxRotation:40,minRotation:0,font:{family:"Open Sans",size:11}},grid:{display:false}}}}});
   }
-
-  function renderLeader(top) {
-    const el = document.getElementById("leaderBlock");
-    if (!top) {
-      el.className = "empty-state";
-      el.innerHTML = "No data for current selection.";
-      return;
-    }
-    el.className = "";
-    el.innerHTML = `
-      <div class="leader-name">${top.username}</div>
-      <div class="leader-grid">
-        <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
-        <div class="mini"><div class="mini-label">K/D</div><div class="mini-value">${top.kd.toFixed(2)}</div></div>
-        <div class="mini"><div class="mini-label">Deaths</div><div class="mini-value">${top.deaths}</div></div>
-        <div class="mini"><div class="mini-label">Teamkills</div><div class="mini-value" style="${top.teamkills>0?"color:var(--red)":""}">${top.teamkills}</div></div>
-        <div class="mini"><div class="mini-label">Longest Kill</div><div class="mini-value">${top.longest > 0 ? top.longest + "m" : "—"}</div></div>
-        <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
-      </div>`;
-  }
-
-  function renderChart(agg) {
-    const ctx  = document.getElementById("killsChart");
-    const data = agg.slice(0, 10);
-    if (state.chart) state.chart.destroy();
-    state.chart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: data.map(x => x.username),
-        datasets: [{
-          data: data.map(x => x.kills),
-          backgroundColor: data.map((_, i) =>
-            i === 0 ? "#e8c44a" : i === 1 ? "#8b949e" : i === 2 ? "#b08060" : "#30363d"),
-          borderRadius: 6,
-          borderSkipped: false,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: {
-          callbacks: { label: ctx => ` ${ctx.raw} kills` }
-        }},
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0, color: "#7d8590" },
-            grid:  { color: "#21262d" }
-          },
-          x: {
-            ticks: { color: "#7d8590", maxRotation: 40, minRotation: 0, font: { family: "Barlow" } },
-            grid:  { display: false }
-          }
-        }
-      }
-    });
-  }
-
-  // ── Init ─────────────────────────────────────────────────────────────────
-
-  document.getElementById("resetAllBtn").addEventListener("click", () => {
-    state.selPlayers  = [];
-    state.selMissions = [];
-    document.getElementById("searchPlayers").value  = "";
-    document.getElementById("searchMissions").value = "";
-    render();
+  document.getElementById("resetAllBtn").addEventListener("click",()=>{
+    state.selPlayers=[];state.selMissions=[];
+    document.getElementById("searchPlayers").value="";document.getElementById("searchMissions").value="";render();
   });
-
-  document.querySelectorAll("[data-clear]").forEach(btn =>
-    btn.addEventListener("click", () => {
-      const k = btn.dataset.clear === "players" ? "selPlayers" : "selMissions";
-      state[k] = [];
-      render();
-    })
-  );
-
-  ["searchPlayers","searchMissions"].forEach(id =>
-    document.getElementById(id).addEventListener("input", render)
-  );
-
-  document.getElementById("sortBy").addEventListener("change", e => {
-    state.sortBy = e.target.value;
-    render();
-  });
-
-  Papa.parse(CSV_URL, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: results => {
-      state.rows = (results.data || []).map(parseRow).filter(r => r.username && r.username !== "Unknown");
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("app").style.display     = "grid";
-      render();
+  document.querySelectorAll("[data-clear]").forEach(btn=>btn.addEventListener("click",()=>{
+    state[btn.dataset.clear==="players"?"selPlayers":"selMissions"]=[];render();
+  }));
+  ["searchPlayers","searchMissions"].forEach(id=>document.getElementById(id).addEventListener("input",render));
+  document.getElementById("sortBy").addEventListener("change",e=>{state.sortBy=e.target.value;render();});
+  Papa.parse(CSV_URL,{download:true,header:true,skipEmptyLines:true,
+    complete:results=>{
+      state.rows=(results.data||[]).map(parseRow).filter(r=>r.username&&r.username!=="Unknown");
+      document.getElementById("loading").style.display="none";
+      document.getElementById("app").style.display="grid";render();
     },
-    error: () => {
-      document.getElementById("loading").textContent = "Failed to load data. Check the CSV URL.";
-    }
+    error:()=>{document.getElementById("loading").textContent="Failed to load data. Check the CSV URL.";}
   });
 </script>
 </body>
