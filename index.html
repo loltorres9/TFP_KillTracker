@@ -511,23 +511,30 @@ function refreshPills() {
   const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))].sort();
 
   renderSelectablePills("missionPills", availMissions, selectedMissions, "missionSearch", (item, set) => {
-    // Clicking a mission: if already the only one selected → deselect all; else select only this one
-    if (set && set.size === 1 && set.has(item)) {
-      selectedMissions = null;
-    } else {
+    if (set === null) {
+      // First explicit click — select only this one
       selectedMissions = new Set([item]);
+    } else if (set.has(item)) {
+      set.delete(item);
+      // If nothing left selected, go back to "all"
+      selectedMissions = set.size > 0 ? set : null;
+    } else {
+      set.add(item);
     }
-    // Reset player selection when mission changes
+    // Reset player selection when mission filter changes
     selectedPlayers = null;
     refreshPills();
     filterChanged();
   });
 
   renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
-    if (set && set.size === 1 && set.has(item)) {
-      selectedPlayers = null;
-    } else {
+    if (set === null) {
       selectedPlayers = new Set([item]);
+    } else if (set.has(item)) {
+      set.delete(item);
+      selectedPlayers = set.size > 0 ? set : null;
+    } else {
+      set.add(item);
     }
     refreshPills();
     filterChanged();
