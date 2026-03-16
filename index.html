@@ -76,6 +76,20 @@
   }
   .pill.active { background: var(--charcoal); color: white; border-color: var(--charcoal); }
   .filter-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .event-type-row { display: flex; gap: 10px; margin-top: 10px; }
+  .event-toggle {
+    display: flex; align-items: center; gap: 7px; padding: 6px 14px;
+    border-radius: 20px; border: 1px solid var(--border); cursor: pointer;
+    font-size: 0.8rem; font-weight: 600; user-select: none; transition: all 0.15s;
+    background: var(--bg);
+  }
+  .event-toggle.active-large { background: #1a237e; color: white; border-color: #1a237e; }
+  .event-toggle.active-regular { background: var(--charcoal); color: white; border-color: var(--charcoal); }
+  .event-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .event-dot.large   { background: #90caf9; }
+  .event-dot.regular { background: #aaa; }
+  .event-toggle.active-large   .event-dot.large   { background: white; }
+  .event-toggle.active-regular .event-dot.regular { background: white; }
   .btn-reset {
     padding: 5px 14px; background: transparent; border: 1px solid var(--border);
     border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-family: 'Open Sans', sans-serif;
@@ -121,7 +135,7 @@
   .kd-bad  { color: var(--red); font-weight: 600; }
   .tk-cell { color: var(--red); font-weight: 700; }
 
-  /* ── EXECUTIONERS CHART ── */
+  /* ── TOP KILLERS CHART ── */
   .chart-section {
     background: var(--white); border: 1px solid var(--border);
     border-radius: 8px; padding: 18px; margin-bottom: 20px;
@@ -184,7 +198,7 @@
       <div class="award-card ac-kills">
         <div class="award-icon">👑</div>
         <div class="award-body">
-          <div class="award-label">Top Killer</div>
+          <div class="award-label">Executioner</div>
           <div class="award-name" id="aw-kills-name">—</div>
           <div class="award-stat" id="aw-kills-stat"></div>
         </div>
@@ -208,14 +222,14 @@
       <div class="award-card ac-kda">
         <div class="award-icon">⚔️</div>
         <div class="award-body">
-          <div class="award-label">K/D PLAYER</div>
+          <div class="award-label">K/D Player</div>
           <div class="award-name" id="aw-kda-name">—</div>
           <div class="award-stat" id="aw-kda-stat"></div>
         </div>
       </div>
     </div>
 
-    <!-- Top Killers chart -->
+    <!-- Executioners chart -->
     <div class="chart-section">
       <h3>Top Infantry Killers</h3>
       <div id="chartBars"></div>
@@ -239,6 +253,17 @@
       <div class="filter-actions">
         <button class="btn-reset" id="resetFilters">Reset Filters</button>
         <span style="font-size:0.78rem;color:#888" id="filterCount"></span>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Event Type</div>
+        <div class="event-type-row">
+          <div class="event-toggle active-large" id="toggleLarge">
+            <span class="event-dot large"></span>Large Events (last Sat of month)
+          </div>
+          <div class="event-toggle active-regular" id="toggleRegular">
+            <span class="event-dot regular"></span>Regular Sessions
+          </div>
+        </div>
       </div>
     </div>
 
@@ -287,6 +312,22 @@ let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
 let vehSortAsc = false;
+
+// ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
+// Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
+function isLastSaturdayOfMonth(filename) {
+  const m = filename.match(/^(\d{4})_(\d{2})_(\d{2})/);
+  if (!m) return false;
+  const year = parseInt(m[1]), month = parseInt(m[2]) - 1, day = parseInt(m[3]);
+  const date = new Date(year, month, day);
+  if (date.getDay() !== 6) return false; // must be Saturday (6)
+  // Check it's the last Saturday: next Saturday would be in a different month
+  const nextSat = new Date(year, month, day + 7);
+  return nextSat.getMonth() !== month;
+}
+
+let showLargeEvents   = true;
+let showRegularEvents = true;
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
 fetch(CSV_URL)
@@ -430,10 +471,29 @@ function buildFilters() {
   document.getElementById("resetFilters").onclick = () => {
     activePlayers  = new Set(allPlayers);
     activeMissions = new Set(allMissions);
+    showLargeEvents   = true;
+    showRegularEvents = true;
     renderPills("playerPills",  allPlayers,  activePlayers,  "playerSearch",  filterChanged);
     renderPills("missionPills", allMissions, activeMissions, "missionSearch", filterChanged);
     document.getElementById("playerSearch").value = "";
     document.getElementById("missionSearch").value = "";
+    document.getElementById("toggleLarge").classList.add("active-large");
+    document.getElementById("toggleRegular").classList.add("active-regular");
+    filterChanged();
+  };
+
+  document.getElementById("toggleLarge").onclick = () => {
+    // Don't allow both off
+    if (showLargeEvents && !showRegularEvents) return;
+    showLargeEvents = !showLargeEvents;
+    document.getElementById("toggleLarge").classList.toggle("active-large", showLargeEvents);
+    filterChanged();
+  };
+
+  document.getElementById("toggleRegular").onclick = () => {
+    if (showRegularEvents && !showLargeEvents) return;
+    showRegularEvents = !showRegularEvents;
+    document.getElementById("toggleRegular").classList.toggle("active-regular", showRegularEvents);
     filterChanged();
   };
 }
@@ -469,7 +529,10 @@ function applyFilters() {
   const filtered = rawRows.filter(r => {
     const name = r["Username"] || "";
     const mission = r["Mission"] || "";
-    return activePlayers.has(name) && activeMissions.has(mission);
+    const srcFile = r["Source File"] || "";
+    const isLarge = isLastSaturdayOfMonth(srcFile);
+    const eventTypeOk = isLarge ? showLargeEvents : showRegularEvents;
+    return activePlayers.has(name) && activeMissions.has(mission) && eventTypeOk;
   });
 
   // Re-aggregate only for filtered rows
@@ -592,7 +655,7 @@ function renderLeader() {
   if (!eligible.length) { row.style.display = "none"; return; }
   row.style.display = "flex";
 
-  // Top Killer — most on-foot kills
+  // Executioner — most on-foot kills
   const byKills = [...eligible].sort((a,b) => b.killsOnFoot - a.killsOnFoot)[0];
   document.getElementById("aw-kills-name").textContent = byKills.name;
   document.getElementById("aw-kills-stat").textContent =
@@ -622,7 +685,7 @@ function renderLeader() {
     document.getElementById("aw-spk-stat").textContent = "";
   }
 
-  // K/D PLAYER — highest kdFoot (min 3 kills)
+  // K/D Player — highest kdFoot (min 3 kills)
   const byKda = [...eligible].filter(p => p.killsOnFoot >= 3)
     .sort((a,b) => b.kdFoot - a.kdFoot)[0];
   if (byKda) {
