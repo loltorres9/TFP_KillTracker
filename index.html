@@ -20,7 +20,6 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Open Sans',sans-serif;font-size:14px;min-height:100vh;}
 
-    /* topbar */
     .topbar{background:var(--charcoal);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.3);}
     .topbar-brand{display:flex;align-items:center;gap:12px;}
     .topbar-shield{width:32px;height:32px;background:#fff;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;color:var(--charcoal);flex-shrink:0;}
@@ -30,20 +29,17 @@
 
     .wrap{max-width:1500px;margin:0 auto;padding:26px 24px 48px;}
 
-    /* page header */
     .page-header{background:var(--charcoal);border-radius:var(--radius);padding:26px 30px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:var(--shadow);}
     .eyebrow{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#aaa;margin-bottom:7px;}
     h1{font-family:'Oswald',sans-serif;font-size:46px;font-weight:700;line-height:.95;letter-spacing:.02em;text-transform:uppercase;color:#fff;}
     .subtitle{color:#aaa;font-size:13px;line-height:1.6;margin-top:9px;max-width:540px;}
 
-    /* buttons */
     .btn{font-family:'Open Sans',sans-serif;font-weight:700;font-size:12px;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;transition:background .15s;text-transform:uppercase;letter-spacing:.07em;}
     .btn-primary{background:#fff;color:var(--charcoal);}
     .btn-primary:hover{background:#e0e0e0;}
     .btn-ghost{background:transparent;color:#bbb;border:1px solid #666;}
     .btn-ghost:hover{border-color:#fff;color:#fff;}
 
-    /* toggle */
     .toggle-wrap{display:flex;align-items:center;gap:9px;font-size:12px;color:#ccc;white-space:nowrap;cursor:pointer;}
     .toggle{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
     .toggle input{opacity:0;width:0;height:0;}
@@ -52,7 +48,6 @@
     .toggle input:checked+.toggle-slider{background:#a0a0a0;}
     .toggle input:checked+.toggle-slider:before{transform:translateX(18px);}
 
-    /* stats */
     .stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;margin-bottom:20px;}
     .stat{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--charcoal);border-radius:var(--radius);padding:15px 17px;box-shadow:var(--shadow);}
     .stat.red-top{border-top-color:var(--red);}
@@ -62,7 +57,6 @@
     .stat-value.red{color:var(--red);}
     .stat-value.green{color:var(--green);}
 
-    /* filters */
     .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:20px;}
     .filter-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
     .filter-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
@@ -79,14 +73,12 @@
     .option:hover{border-color:var(--charcoal);}
     .option.active{background:var(--charcoal);color:#fff;border-color:var(--charcoal);}
 
-    /* main layout */
     .main{display:grid;grid-template-columns:1fr 385px;gap:20px;}
     .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
     .section-header{background:var(--charcoal);padding:12px 17px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
     .section-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
     .section-sub{color:#999;font-size:12px;margin-top:2px;}
 
-    /* table */
     .table-wrap{overflow-x:auto;}
     table{width:100%;border-collapse:collapse;}
     th,td{padding:10px 13px;border-bottom:1px solid var(--border);font-size:13px;white-space:nowrap;}
@@ -106,7 +98,6 @@
     .kd-ok{color:var(--text);}
     .tk-warn{color:var(--red);font-weight:700;}
 
-    /* side */
     .side-col{display:flex;flex-direction:column;gap:20px;}
     .chart-wrap{position:relative;height:265px;padding:14px 14px 0;}
     .leader-body{padding:15px 17px 17px;}
@@ -141,16 +132,19 @@
     <div>
       <div class="eyebrow">Task Force Phalanx</div>
       <h1>Kill Tracker</h1>
-      <p class="subtitle">Per-player stats aggregated across all missions. Filter by player or mission, toggle vehicle kills, and click any column header to sort.</p>
+      <p class="subtitle">
+        Per-player stats aggregated across all missions. Infantry kills exclude kills made from a vehicle.
+        Vehicle Kills counts enemy vehicles destroyed. Click any column to sort.
+      </p>
     </div>
     <button class="btn btn-primary" id="resetAllBtn">&#8635; Reset Filters</button>
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="stat-label">Total Kills</div><div class="stat-value" id="sKills">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Infantry Kills</div><div class="stat-value" id="sKills">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Total Deaths</div><div class="stat-value" id="sDeaths">&#8212;</div></div>
     <div class="stat red-top"><div class="stat-label">Teamkills</div><div class="stat-value red" id="sTK">&#8212;</div></div>
-    <div class="stat"><div class="stat-label">Vehicle Kills</div><div class="stat-value" id="sVK">&#8212;</div></div>
+    <div class="stat"><div class="stat-label">Vehicles Destroyed</div><div class="stat-value" id="sVK">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Players</div><div class="stat-value" id="sPlayers">&#8212;</div></div>
     <div class="stat"><div class="stat-label">Missions</div><div class="stat-value" id="sMissions">&#8212;</div></div>
     <div class="stat green-top"><div class="stat-label">Avg K/D</div><div class="stat-value green" id="sKD">&#8212;</div></div>
@@ -179,9 +173,12 @@
       <div class="section-header">
         <div>
           <div class="section-title">Player Stats</div>
-          <div class="section-sub">Click any column header to sort &middot; aggregated across selected missions</div>
+          <div class="section-sub">
+            Longest Kill: <strong id="longestLabel" style="color:#ccc;">all kills</strong>
+            &nbsp;&middot;&nbsp; click any column header to sort
+          </div>
         </div>
-        <label class="toggle-wrap" title="Toggle between all kills and infantry-only for the Longest Kill column">
+        <label class="toggle-wrap" title="On = Longest Kill includes all kills. Off = infantry on-foot kills only (excludes kills made from a vehicle).">
           <span>Include vehicle kills in Longest</span>
           <label class="toggle">
             <input type="checkbox" id="vehicleToggle" checked />
@@ -199,7 +196,7 @@
               <th data-col="deaths"       class="sortable num">Deaths</th>
               <th data-col="kd"           class="sortable num">K/D</th>
               <th data-col="teamkills"    class="sortable num">TK</th>
-              <th data-col="vehicleKills" class="sortable num">Vehicle Kills</th>
+              <th data-col="vehicleKills" class="sortable num">Vehicles Destroyed</th>
               <th data-col="shots"        class="sortable num">Shots</th>
               <th data-col="hitsTaken"    class="sortable num">Hits Taken</th>
               <th data-col="shotsPerKill" class="sortable num">Shots/Kill</th>
@@ -216,7 +213,7 @@
     <div class="side-col">
       <div class="card">
         <div class="section-header">
-          <div><div class="section-title">Top 10 Killers</div><div class="section-sub">Current filtered view</div></div>
+          <div><div class="section-title">Top 10 Killers</div><div class="section-sub">By infantry kills, current filter</div></div>
         </div>
         <div class="chart-wrap"><canvas id="killsChart"></canvas></div>
       </div>
@@ -230,11 +227,15 @@
 </div>
 
 <script>
-  // ── player_stats sheet CSV ───────────────────────────────────────────────
-  // Columns: Source File | Mission | World | Username | Kills | Deaths |
-  //          K/D Ratio | Teamkills | Vehicle Kills | Shots Fired | Hits Taken |
-  //          Shots per Kill | Avg Kill Distance (m) | Longest Kill (m) |
-  //          Longest Infantry Kill (m)
+  // Columns in player_stats:
+  // Source File | Mission | World | Username | Kills | Deaths | K/D Ratio |
+  // Teamkills | Vehicle Kills | Shots Fired | Hits Taken | Shots per Kill |
+  // Avg Kill Distance (m) | Longest Kill (m) | Longest Infantry Kill (m)
+  //
+  // "Kills"                  = infantry kills (killer was a unit, victim was a unit, different sides)
+  // "Vehicle Kills"          = enemy vehicles destroyed (victim.type === 'vehicle')
+  // "Longest Kill (m)"       = longest of all infantry kills (all distances)
+  // "Longest Infantry Kill"  = longest kill made while killer was on foot (killer.type === 'unit')
 
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
 
@@ -353,6 +354,7 @@
     document.getElementById("sPlayers").textContent  = agg.length;
     document.getElementById("sMissions").textContent = mis;
     document.getElementById("sKD").textContent       = avgKD.toFixed(2);
+    document.getElementById("longestLabel").textContent = state.includeVehicle ? "all kills" : "on-foot kills only";
 
     renderFilter("players",  uniq(state.rows.map(r => r.username)), state.selPlayers,  "searchPlayers",  "optionsPlayers",  "selectedPlayers");
     renderFilter("missions", uniq(state.rows.map(r => r.mission)),  state.selMissions, "searchMissions", "optionsMissions", "selectedMissions");
@@ -431,7 +433,7 @@
       <div class="mini"><div class="mini-label">Deaths</div><div class="mini-value">${top.deaths}</div></div>
       <div class="mini"><div class="mini-label">Teamkills</div><div class="mini-value ${top.teamkills>0?"red":""}">${top.teamkills}</div></div>
       <div class="mini"><div class="mini-label">${lngLabel}</div><div class="mini-value">${lng>0?lng+"m":"&#8212;"}</div></div>
-      <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
+      <div class="mini"><div class="mini-label">Vehicles Dest.</div><div class="mini-value">${top.vehicleKills}</div></div>
     </div>`;
   }
 
@@ -460,7 +462,6 @@
     });
   }
 
-  // column sort
   document.querySelectorAll("th.sortable").forEach(th => {
     th.addEventListener("click", () => {
       const col = th.dataset.col;
@@ -474,13 +475,11 @@
     });
   });
 
-  // vehicle toggle
   document.getElementById("vehicleToggle").addEventListener("change", e => {
     state.includeVehicle = e.target.checked;
     render();
   });
 
-  // filter controls
   document.getElementById("resetAllBtn").addEventListener("click", () => {
     state.selPlayers=[]; state.selMissions=[];
     document.getElementById("searchPlayers").value="";
@@ -497,7 +496,6 @@
     document.getElementById(id).addEventListener("input", render)
   );
 
-  // load
   Papa.parse(CSV_URL, {
     download: true, header: true, skipEmptyLines: true,
     complete: results => {
