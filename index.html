@@ -1,439 +1,670 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Papa from "papaparse";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Crosshair, Map, Shield, Search, X } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TFP Kill Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #eef2f5;
+      --panel: #ffffff;
+      --panel-2: #f7f9fb;
+      --text: #12202b;
+      --muted: #607080;
+      --border: #dbe3ea;
+      --accent: #1f2937;
+      --accent-2: #2f3f52;
+      --shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      --radius: 22px;
+    }
 
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?output=csv";
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
 
-function parseUnit(name) {
-  if (!name) return "Unassigned";
-  const bracketMatch = name.match(/^\[(.*?)\]\s*(.+)$/);
-  if (bracketMatch) return bracketMatch[1].trim() || "Unassigned";
+    .wrap {
+      max-width: 1450px;
+      margin: 0 auto;
+      padding: 24px;
+    }
 
-  const tagMatch = name.match(/^(?:TFP|1st|2nd|3rd|4th|USC|A|B|C)\b/i);
-  if (tagMatch) return tagMatch[0].trim();
+    .hero, .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
 
-  return "Unassigned";
-}
+    .hero {
+      padding: 28px 30px;
+      margin-bottom: 22px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: end;
+    }
 
-function cleanName(name) {
-  if (!name) return "Unknown";
-  return name.replace(/^\[(.*?)\]\s*/, "").trim() || "Unknown";
-}
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
 
-function MultiSelectPills({ label, options, selected, onToggle, onClear, searchable = true }) {
-  const [query, setQuery] = useState("");
+    h1 {
+      margin: 10px 0 8px;
+      font-size: 40px;
+      line-height: 1.05;
+    }
 
-  const filteredOptions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return options.filter((option) => option.toLowerCase().includes(q));
-  }, [options, query]);
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.5;
+    }
 
-  return (
-    <Card className="rounded-2xl border-slate-200 bg-white/90 shadow-sm">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base font-semibold text-slate-800">{label}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClear} className="text-slate-500 hover:text-slate-800">
-            Reset
-          </Button>
-        </div>
-        {searchable && (
-          <div className="relative mt-2">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${label.toLowerCase()}...`}
-              className="rounded-xl border-slate-200 bg-slate-50 pl-9"
-            />
+    .btn {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn.secondary {
+      background: #edf2f7;
+      color: var(--accent);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      padding: 20px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .filter-card {
+      padding: 18px;
+    }
+
+    .filter-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .filter-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .search {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      border-radius: 14px;
+      padding: 11px 12px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .selected {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      min-height: 10px;
+    }
+
+    .pill {
+      background: #eef2f7;
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill button {
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      color: inherit;
+      font-size: 14px;
+    }
+
+    .options {
+      max-height: 250px;
+      overflow: auto;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-content: flex-start;
+    }
+
+    .option {
+      border: 0;
+      background: #fff;
+      color: var(--accent-2);
+      border-radius: 999px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .option.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1.35fr 0.85fr;
+      gap: 20px;
+    }
+
+    .table-card, .side-col .card {
+      padding: 20px;
+    }
+
+    .table-header, .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .section-sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    select {
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--panel-2);
+      color: var(--muted);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+    }
+
+    td.num, th.num { text-align: right; }
+
+    .side-col {
+      display: grid;
+      gap: 20px;
+    }
+
+    .leader-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .mini {
+      background: var(--panel-2);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .mini-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .mini-value {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 22px 8px;
+    }
+
+    .loading {
+      padding: 40px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      .stats, .filters, .main { grid-template-columns: 1fr; }
+      .hero { flex-direction: column; align-items: start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Task Force Phalanx</div>
+        <h1>Mission Kill Tracker</h1>
+        <p class="subtitle">
+          Filtere Kills nach User, Unit und Mission. Die Unit wird aktuell automatisch aus Tags wie <strong>[2nd USC] Name</strong> im Killer-Feld abgeleitet.
+        </p>
+      </div>
+      <button class="btn" id="resetAllBtn">Alle Filter zurücksetzen</button>
+    </div>
+
+    <div class="stats">
+      <div class="card stat"><div class="stat-label">Filtered Kills</div><div class="stat-value" id="statKills">0</div><div class="stat-sub">Kill rows nach aktuellem Filter</div></div>
+      <div class="card stat"><div class="stat-label">Players</div><div class="stat-value" id="statPlayers">0</div><div class="stat-sub">Spieler im aktuellen View</div></div>
+      <div class="card stat"><div class="stat-label">Units</div><div class="stat-value" id="statUnits">0</div><div class="stat-sub">Units im aktuellen View</div></div>
+      <div class="card stat"><div class="stat-label">Missions</div><div class="stat-value" id="statMissions">0</div><div class="stat-sub">Missionen im aktuellen View</div></div>
+    </div>
+
+    <div class="filters">
+      <div class="card filter-card">
+        <div class="filter-top"><div class="filter-title">Users</div><button class="btn secondary" data-clear="users">Reset</button></div>
+        <input id="searchUsers" class="search" placeholder="User suchen..." />
+        <div class="selected" id="selectedUsers"></div>
+        <div class="options" id="optionsUsers"></div>
+      </div>
+
+      <div class="card filter-card">
+        <div class="filter-top"><div class="filter-title">Units</div><button class="btn secondary" data-clear="units">Reset</button></div>
+        <input id="searchUnits" class="search" placeholder="Unit suchen..." />
+        <div class="selected" id="selectedUnits"></div>
+        <div class="options" id="optionsUnits"></div>
+      </div>
+
+      <div class="card filter-card">
+        <div class="filter-top"><div class="filter-title">Missions</div><button class="btn secondary" data-clear="missions">Reset</button></div>
+        <input id="searchMissions" class="search" placeholder="Mission suchen..." />
+        <div class="selected" id="selectedMissions"></div>
+        <div class="options" id="optionsMissions"></div>
+      </div>
+    </div>
+
+    <div id="loading" class="loading">CSV wird geladen…</div>
+
+    <div class="main" id="app" style="display:none;">
+      <div class="card table-card">
+        <div class="table-header">
+          <div>
+            <h2 class="section-title">Kills by User</h2>
+            <p class="section-sub">Gruppierte Ergebnisse basierend auf dem aktuellen Filter</p>
           </div>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {selected.map((item) => (
-              <Badge
-                key={item}
-                variant="secondary"
-                className="rounded-full bg-slate-100 px-3 py-1 text-slate-700"
-              >
-                {item}
-                <button className="ml-2" onClick={() => onToggle(item)}>
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </Badge>
-            ))}
+          <select id="sortBy">
+            <option value="kills_desc">Kills ↓</option>
+            <option value="kills_asc">Kills ↑</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="name_desc">Name Z–A</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Unit</th>
+                <th class="num">Kills</th>
+                <th class="num">Missions</th>
+                <th class="num">Longest</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="card">
+          <div class="chart-header">
+            <div>
+              <h2 class="section-title">Top 10 Killers</h2>
+              <p class="section-sub">Aktueller Filter</p>
+            </div>
           </div>
-        )}
+          <canvas id="killsChart" height="260"></canvas>
+        </div>
 
-        <div className="max-h-64 overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
-          <div className="flex flex-wrap gap-2">
-            {filteredOptions.map((option) => {
-              const active = selected.includes(option);
-              return (
-                <button
-                  key={option}
-                  onClick={() => onToggle(option)}
-                  className={`rounded-full px-3 py-1.5 text-sm transition ${
-                    active
-                      ? "bg-slate-800 text-white shadow-sm"
-                      : "bg-white text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-            {filteredOptions.length === 0 && (
-              <div className="px-2 py-3 text-sm text-slate-500">No matches found.</div>
-            )}
+        <div class="card">
+          <div>
+            <h2 class="section-title">Current Leader</h2>
           </div>
+          <div id="leaderBlock" class="empty">Noch keine Daten für die Auswahl.</div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
+      </div>
+    </div>
+  </div>
 
-function StatCard({ title, value, subtitle, icon: Icon }) {
-  return (
-    <Card className="rounded-2xl border-slate-200 bg-white/90 shadow-sm">
-      <CardContent className="flex items-start justify-between p-5">
-        <div>
-          <div className="text-sm text-slate-500">{title}</div>
-          <div className="mt-1 text-3xl font-bold tracking-tight text-slate-900">{value}</div>
-          <div className="mt-1 text-xs text-slate-500">{subtitle}</div>
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?output=csv";
+
+    const state = {
+      rows: [],
+      selectedUsers: [],
+      selectedUnits: [],
+      selectedMissions: [],
+      sortBy: "kills_desc",
+      chart: null,
+    };
+
+    function parseUnit(name) {
+      if (!name) return "Unassigned";
+      const bracketMatch = name.match(/^\[(.*?)\]\s*(.+)$/);
+      if (bracketMatch) return (bracketMatch[1] || "Unassigned").trim();
+      return "Unassigned";
+    }
+
+    function cleanName(name) {
+      if (!name) return "Unknown";
+      return name.replace(/^\[(.*?)\]\s*/, "").trim() || "Unknown";
+    }
+
+    function uniq(arr) {
+      return [...new Set(arr)].sort((a, b) => a.localeCompare(b));
+    }
+
+    function matchesSearch(value, query) {
+      return value.toLowerCase().includes(query.toLowerCase());
+    }
+
+    function filteredRows() {
+      return state.rows.filter(row => {
+        const userMatch = !state.selectedUsers.length || state.selectedUsers.includes(row.killer);
+        const unitMatch = !state.selectedUnits.length || state.selectedUnits.includes(row.unit);
+        const missionMatch = !state.selectedMissions.length || state.selectedMissions.includes(row.mission);
+        return userMatch && unitMatch && missionMatch;
+      });
+    }
+
+    function groupedKills(rows) {
+      const map = new Map();
+      rows.forEach(row => {
+        const key = `${row.killer}|||${row.unit}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            killer: row.killer,
+            unit: row.unit,
+            kills: 0,
+            missions: new Set(),
+            longestKill: 0,
+          });
+        }
+        const item = map.get(key);
+        item.kills += 1;
+        item.missions.add(row.mission);
+        item.longestKill = Math.max(item.longestKill, row.distance || 0);
+      });
+
+      const result = [...map.values()].map(x => ({
+        killer: x.killer,
+        unit: x.unit,
+        kills: x.kills,
+        missionCount: x.missions.size,
+        longestKill: x.longestKill,
+      }));
+
+      switch (state.sortBy) {
+        case "kills_asc":
+          result.sort((a, b) => a.kills - b.kills || a.killer.localeCompare(b.killer));
+          break;
+        case "name_asc":
+          result.sort((a, b) => a.killer.localeCompare(b.killer));
+          break;
+        case "name_desc":
+          result.sort((a, b) => b.killer.localeCompare(a.killer));
+          break;
+        default:
+          result.sort((a, b) => b.kills - a.kills || a.killer.localeCompare(b.killer));
+      }
+      return result;
+    }
+
+    function renderFilter(type, options, selected, searchId, optionsId, selectedId) {
+      const query = document.getElementById(searchId).value.trim();
+      const optionsEl = document.getElementById(optionsId);
+      const selectedEl = document.getElementById(selectedId);
+
+      selectedEl.innerHTML = selected.map(item => `
+        <span class="pill">${item}<button onclick="toggleSelection('${type}', ${JSON.stringify(item)})">✕</button></span>
+      `).join("");
+
+      const filtered = options.filter(o => matchesSearch(o, query));
+      optionsEl.innerHTML = filtered.length
+        ? filtered.map(item => `
+            <button class="option ${selected.includes(item) ? 'active' : ''}" onclick="toggleSelection('${type}', ${JSON.stringify(item)})">${item}</button>
+          `).join("")
+        : `<div class="empty">Keine Treffer.</div>`;
+    }
+
+    function toggleSelection(type, item) {
+      const key = type === 'users' ? 'selectedUsers' : type === 'units' ? 'selectedUnits' : 'selectedMissions';
+      if (state[key].includes(item)) {
+        state[key] = state[key].filter(x => x !== item);
+      } else {
+        state[key] = [...state[key], item];
+      }
+      render();
+    }
+
+    function renderTable(grouped) {
+      const body = document.getElementById('tableBody');
+      if (!grouped.length) {
+        body.innerHTML = `<tr><td colspan="5" class="empty">Keine Kills für die gewählte Filterkombination gefunden.</td></tr>`;
+        return;
+      }
+      body.innerHTML = grouped.map(row => `
+        <tr>
+          <td><strong>${row.killer}</strong></td>
+          <td>${row.unit}</td>
+          <td class="num"><strong>${row.kills}</strong></td>
+          <td class="num">${row.missionCount}</td>
+          <td class="num">${row.longestKill} m</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderLeader(top) {
+      const el = document.getElementById('leaderBlock');
+      if (!top) {
+        el.className = 'empty';
+        el.innerHTML = 'Noch keine Daten für die Auswahl.';
+        return;
+      }
+      el.className = '';
+      el.innerHTML = `
+        <div style="font-size:30px;font-weight:800;margin-top:12px;">${top.killer}</div>
+        <div style="color:var(--muted);margin-top:6px;">Unit: ${top.unit}</div>
+        <div class="leader-grid">
+          <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
+          <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
+          <div class="mini"><div class="mini-label">Longest</div><div class="mini-value">${top.longestKill}m</div></div>
         </div>
-        <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-          <Icon className="h-5 w-5" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+      `;
+    }
 
-export default function TFPKillTracker() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+    function renderChart(grouped) {
+      const ctx = document.getElementById('killsChart');
+      const data = grouped.slice(0, 10);
+      const labels = data.map(x => x.killer);
+      const values = data.map(x => x.kills);
 
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [selectedUnits, setSelectedUnits] = useState([]);
-  const [selectedMissions, setSelectedMissions] = useState([]);
-  const [sortBy, setSortBy] = useState("kills_desc");
+      if (state.chart) state.chart.destroy();
+      state.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ data: values, borderRadius: 8 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
+          }
+        }
+      });
+    }
 
-  useEffect(() => {
+    function render() {
+      const rows = filteredRows();
+      const grouped = groupedKills(rows);
+
+      document.getElementById('statKills').textContent = rows.length;
+      document.getElementById('statPlayers').textContent = grouped.length;
+      document.getElementById('statUnits').textContent = new Set(rows.map(r => r.unit)).size;
+      document.getElementById('statMissions').textContent = new Set(rows.map(r => r.mission)).size;
+
+      renderFilter('users', uniq(state.rows.map(r => r.killer)), state.selectedUsers, 'searchUsers', 'optionsUsers', 'selectedUsers');
+      renderFilter('units', uniq(state.rows.map(r => r.unit)), state.selectedUnits, 'searchUnits', 'optionsUnits', 'selectedUnits');
+      renderFilter('missions', uniq(state.rows.map(r => r.mission)), state.selectedMissions, 'searchMissions', 'optionsMissions', 'selectedMissions');
+
+      renderTable(grouped);
+      renderLeader(grouped[0]);
+      renderChart(grouped);
+    }
+
+    function initEvents() {
+      ['searchUsers', 'searchUnits', 'searchMissions'].forEach(id => {
+        document.getElementById(id).addEventListener('input', render);
+      });
+
+      document.querySelectorAll('[data-clear]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.dataset.clear;
+          if (type === 'users') state.selectedUsers = [];
+          if (type === 'units') state.selectedUnits = [];
+          if (type === 'missions') state.selectedMissions = [];
+          render();
+        });
+      });
+
+      document.getElementById('resetAllBtn').addEventListener('click', () => {
+        state.selectedUsers = [];
+        state.selectedUnits = [];
+        state.selectedMissions = [];
+        document.getElementById('searchUsers').value = '';
+        document.getElementById('searchUnits').value = '';
+        document.getElementById('searchMissions').value = '';
+        render();
+      });
+
+      document.getElementById('sortBy').addEventListener('change', (e) => {
+        state.sortBy = e.target.value;
+        render();
+      });
+    }
+
     Papa.parse(CSV_URL, {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        try {
-          const normalized = (results.data || [])
-            .filter((row) => row.killer || row.victim || row.mission)
-            .map((row, index) => {
-              const rawKiller = row.killer?.trim() || "Unknown";
-              const mission = row.mission?.trim() || "Unknown Mission";
-              const map = row.map?.trim() || "Unknown Map";
-              const sourceFile = row.source_file?.trim() || "";
-              const missionDate = /^\d{4}_\d{2}_\d{2}/.test(sourceFile)
-                ? sourceFile.slice(0, 10).replaceAll("_", "-")
-                : "Unknown";
+        state.rows = (results.data || [])
+          .filter(row => row.killer || row.victim || row.mission)
+          .map(row => {
+            const rawKiller = (row.killer || '').trim();
+            return {
+              mission: (row.mission || 'Unknown Mission').trim(),
+              map: (row.map || 'Unknown Map').trim(),
+              killer: cleanName(rawKiller),
+              unit: parseUnit(rawKiller),
+              victim: (row.victim || 'Unknown').trim(),
+              weapon: (row.weapon || 'Unknown').trim(),
+              distance: Number(row.distance || 0),
+              timestamp: Number(row.timestamp || 0),
+              sourceFile: (row.source_file || '').trim()
+            };
+          });
 
-              return {
-                id: `${sourceFile}-${index}`,
-                mission,
-                map,
-                killerRaw: rawKiller,
-                killer: cleanName(rawKiller),
-                unit: parseUnit(rawKiller),
-                victim: row.victim?.trim() || "Unknown",
-                weapon: row.weapon?.trim() || "Unknown",
-                distance: Number(row.distance || 0),
-                timestamp: Number(row.timestamp || 0),
-                sourceFile,
-                missionDate,
-              };
-            });
-
-          setRows(normalized);
-          setLoading(false);
-        } catch (e) {
-          setError("Failed to process CSV data.");
-          setLoading(false);
-        }
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('app').style.display = 'grid';
+        initEvents();
+        render();
       },
       error: () => {
-        setError("Failed to load the published Google Sheet CSV.");
-        setLoading(false);
-      },
-    });
-  }, []);
-
-  const userOptions = useMemo(() => [...new Set(rows.map((r) => r.killer))].sort(), [rows]);
-  const unitOptions = useMemo(() => [...new Set(rows.map((r) => r.unit))].sort(), [rows]);
-  const missionOptions = useMemo(() => [...new Set(rows.map((r) => r.mission))].sort(), [rows]);
-
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      const userMatch = selectedUsers.length === 0 || selectedUsers.includes(row.killer);
-      const unitMatch = selectedUnits.length === 0 || selectedUnits.includes(row.unit);
-      const missionMatch = selectedMissions.length === 0 || selectedMissions.includes(row.mission);
-      return userMatch && unitMatch && missionMatch;
-    });
-  }, [rows, selectedUsers, selectedUnits, selectedMissions]);
-
-  const groupedKills = useMemo(() => {
-    const map = new Map();
-    for (const row of filteredRows) {
-      const key = `${row.killer}|||${row.unit}`;
-      if (!map.has(key)) {
-        map.set(key, {
-          killer: row.killer,
-          unit: row.unit,
-          kills: 0,
-          missions: new Set(),
-          maps: new Set(),
-          longestKill: 0,
-        });
+        document.getElementById('loading').textContent = 'Fehler beim Laden des CSV.';
       }
-      const entry = map.get(key);
-      entry.kills += 1;
-      entry.missions.add(row.mission);
-      entry.maps.add(row.map);
-      entry.longestKill = Math.max(entry.longestKill, row.distance || 0);
-    }
-
-    let result = Array.from(map.values()).map((item) => ({
-      ...item,
-      missionCount: item.missions.size,
-      mapCount: item.maps.size,
-    }));
-
-    switch (sortBy) {
-      case "kills_asc":
-        result = result.sort((a, b) => a.kills - b.kills || a.killer.localeCompare(b.killer));
-        break;
-      case "name_asc":
-        result = result.sort((a, b) => a.killer.localeCompare(b.killer));
-        break;
-      case "name_desc":
-        result = result.sort((a, b) => b.killer.localeCompare(a.killer));
-        break;
-      default:
-        result = result.sort((a, b) => b.kills - a.kills || a.killer.localeCompare(b.killer));
-    }
-
-    return result;
-  }, [filteredRows, sortBy]);
-
-  const missionCount = useMemo(() => new Set(filteredRows.map((r) => r.mission)).size, [filteredRows]);
-  const unitCount = useMemo(() => new Set(filteredRows.map((r) => r.unit)).size, [filteredRows]);
-  const playerCount = groupedKills.length;
-  const totalKills = filteredRows.length;
-  const topPlayer = groupedKills[0];
-
-  const chartData = groupedKills.slice(0, 10).map((item) => ({
-    name: item.killer,
-    kills: item.kills,
-  }));
-
-  const resetAll = () => {
-    setSelectedUsers([]);
-    setSelectedUnits([]);
-    setSelectedMissions([]);
-  };
-
-  if (loading) {
-    return <div className="min-h-screen bg-slate-100 p-8 text-slate-700">Loading kill tracker…</div>;
-  }
-
-  if (error) {
-    return <div className="min-h-screen bg-slate-100 p-8 text-red-600">{error}</div>;
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <div className="mx-auto max-w-7xl p-6 md:p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="mb-8"
-        >
-          <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 shadow-sm md:px-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">Task Force Phalanx</div>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Mission Kill Tracker</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
-                  Filter kills by user, unit and mission. The unit filter is derived from bracket tags in killer names,
-                  such as [2nd USC] Playername.
-                </p>
-              </div>
-              <Button onClick={resetAll} className="rounded-xl bg-slate-800 text-white hover:bg-slate-700">
-                Reset all filters
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Filtered Kills" value={totalKills} subtitle="Total kill rows after filters" icon={Crosshair} />
-          <StatCard title="Players" value={playerCount} subtitle="Killer profiles in current view" icon={Users} />
-          <StatCard title="Units" value={unitCount} subtitle="Derived units in current view" icon={Shield} />
-          <StatCard title="Missions" value={missionCount} subtitle="Mission set in current view" icon={Map} />
-        </div>
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_1.15fr_1.2fr]">
-          <MultiSelectPills
-            label="Users"
-            options={userOptions}
-            selected={selectedUsers}
-            onToggle={(item) =>
-              setSelectedUsers((prev) => (prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]))
-            }
-            onClear={() => setSelectedUsers([])}
-          />
-
-          <MultiSelectPills
-            label="Units"
-            options={unitOptions}
-            selected={selectedUnits}
-            onToggle={(item) =>
-              setSelectedUnits((prev) => (prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]))
-            }
-            onClear={() => setSelectedUnits([])}
-          />
-
-          <MultiSelectPills
-            label="Missions"
-            options={missionOptions}
-            selected={selectedMissions}
-            onToggle={(item) =>
-              setSelectedMissions((prev) => (prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]))
-            }
-            onClear={() => setSelectedMissions([])}
-          />
-        </div>
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="rounded-2xl border-slate-200 bg-white/90 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-semibold text-slate-900">Kills by User</CardTitle>
-                <p className="mt-1 text-sm text-slate-500">Grouped results based on the active filters</p>
-              </div>
-              <div className="w-44">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="rounded-xl border-slate-200 bg-slate-50">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kills_desc">Kills ↓</SelectItem>
-                    <SelectItem value="kills_asc">Kills ↑</SelectItem>
-                    <SelectItem value="name_asc">Name A–Z</SelectItem>
-                    <SelectItem value="name_desc">Name Z–A</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50">
-                      <TableHead>User</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Kills</TableHead>
-                      <TableHead className="text-right">Missions</TableHead>
-                      <TableHead className="text-right">Longest</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groupedKills.map((row) => (
-                      <TableRow key={`${row.killer}-${row.unit}`}>
-                        <TableCell className="font-medium text-slate-800">{row.killer}</TableCell>
-                        <TableCell>{row.unit}</TableCell>
-                        <TableCell className="text-right font-semibold">{row.kills}</TableCell>
-                        <TableCell className="text-right">{row.missionCount}</TableCell>
-                        <TableCell className="text-right">{row.longestKill} m</TableCell>
-                      </TableRow>
-                    ))}
-                    {groupedKills.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="py-10 text-center text-slate-500">
-                          No kills found for the selected filter set.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6">
-            <Card className="rounded-2xl border-slate-200 bg-white/90 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900">Top 10 Killers</CardTitle>
-                <p className="mt-1 text-sm text-slate-500">Current filtered view</p>
-              </CardHeader>
-              <CardContent>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" width={90} />
-                      <Tooltip />
-                      <Bar dataKey="kills" radius={[0, 8, 8, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-slate-200 bg-white/90 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900">Current Leader</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {topPlayer ? (
-                  <div className="space-y-3">
-                    <div className="text-2xl font-bold text-slate-900">{topPlayer.killer}</div>
-                    <div className="text-sm text-slate-500">Unit: {topPlayer.unit}</div>
-                    <div className="grid grid-cols-3 gap-3 pt-2">
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <div className="text-xs text-slate-500">Kills</div>
-                        <div className="mt-1 text-xl font-bold">{topPlayer.kills}</div>
-                      </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <div className="text-xs text-slate-500">Missions</div>
-                        <div className="mt-1 text-xl font-bold">{topPlayer.missionCount}</div>
-                      </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <div className="text-xs text-slate-500">Longest</div>
-                        <div className="mt-1 text-xl font-bold">{topPlayer.longestKill} m</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-slate-500">No leader for the current selection.</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+    });
+  </script>
+</body>
+</html>
