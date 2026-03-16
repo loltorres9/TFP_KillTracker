@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -88,7 +88,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
@@ -117,7 +117,7 @@
 
     .filters {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
@@ -324,50 +324,42 @@
         <div class="eyebrow">Task Force Phalanx</div>
         <h1>Mission Kill Tracker</h1>
         <p class="subtitle">
-          Filtere Kills nach User, Unit und Mission. Die Unit wird aktuell automatisch aus Tags wie <strong>[2nd USC] Name</strong> im Killer-Feld abgeleitet.
+          Filter kills by user and mission, then explore overall kill counts, rankings and the current top killer.
         </p>
       </div>
-      <button class="btn" id="resetAllBtn">Alle Filter zurücksetzen</button>
+      <button class="btn" id="resetAllBtn">Reset all filters</button>
     </div>
 
     <div class="stats">
-      <div class="card stat"><div class="stat-label">Filtered Kills</div><div class="stat-value" id="statKills">0</div><div class="stat-sub">Kill rows nach aktuellem Filter</div></div>
-      <div class="card stat"><div class="stat-label">Players</div><div class="stat-value" id="statPlayers">0</div><div class="stat-sub">Spieler im aktuellen View</div></div>
-      <div class="card stat"><div class="stat-label">Units</div><div class="stat-value" id="statUnits">0</div><div class="stat-sub">Units im aktuellen View</div></div>
-      <div class="card stat"><div class="stat-label">Missions</div><div class="stat-value" id="statMissions">0</div><div class="stat-sub">Missionen im aktuellen View</div></div>
+      <div class="card stat"><div class="stat-label">Filtered Kills</div><div class="stat-value" id="statKills">0</div><div class="stat-sub">Kill rows in the current view</div></div>
+      <div class="card stat"><div class="stat-label">Players</div><div class="stat-value" id="statPlayers">0</div><div class="stat-sub">Players in the current view</div></div>
+      <div class="card stat"><div class="stat-label">Missions</div><div class="stat-value" id="statMissions">0</div><div class="stat-sub">Missions in the current view</div></div>
     </div>
 
     <div class="filters">
       <div class="card filter-card">
         <div class="filter-top"><div class="filter-title">Users</div><button class="btn secondary" data-clear="users">Reset</button></div>
-        <input id="searchUsers" class="search" placeholder="User suchen..." />
+        <input id="searchUsers" class="search" placeholder="Search users..." />
         <div class="selected" id="selectedUsers"></div>
         <div class="options" id="optionsUsers"></div>
       </div>
 
       <div class="card filter-card">
-        <div class="filter-top"><div class="filter-title">Units</div><button class="btn secondary" data-clear="units">Reset</button></div>
-        <input id="searchUnits" class="search" placeholder="Unit suchen..." />
-        <div class="selected" id="selectedUnits"></div>
-        <div class="options" id="optionsUnits"></div>
-      </div>
-
-      <div class="card filter-card">
         <div class="filter-top"><div class="filter-title">Missions</div><button class="btn secondary" data-clear="missions">Reset</button></div>
-        <input id="searchMissions" class="search" placeholder="Mission suchen..." />
+        <input id="searchMissions" class="search" placeholder="Search missions..." />
         <div class="selected" id="selectedMissions"></div>
         <div class="options" id="optionsMissions"></div>
       </div>
     </div>
 
-    <div id="loading" class="loading">CSV wird geladen…</div>
+    <div id="loading" class="loading">Loading CSV…</div>
 
     <div class="main" id="app" style="display:none;">
       <div class="card table-card">
         <div class="table-header">
           <div>
             <h2 class="section-title">Kills by User</h2>
-            <p class="section-sub">Gruppierte Ergebnisse basierend auf dem aktuellen Filter</p>
+            <p class="section-sub">Grouped results based on the active filters</p>
           </div>
           <select id="sortBy">
             <option value="kills_desc">Kills ↓</option>
@@ -381,7 +373,6 @@
             <thead>
               <tr>
                 <th>User</th>
-                <th>Unit</th>
                 <th class="num">Kills</th>
                 <th class="num">Missions</th>
                 <th class="num">Longest</th>
@@ -397,7 +388,7 @@
           <div class="chart-header">
             <div>
               <h2 class="section-title">Top 10 Killers</h2>
-              <p class="section-sub">Aktueller Filter</p>
+              <p class="section-sub">Current filtered view</p>
             </div>
           </div>
           <canvas id="killsChart" height="260"></canvas>
@@ -407,7 +398,7 @@
           <div>
             <h2 class="section-title">Current Leader</h2>
           </div>
-          <div id="leaderBlock" class="empty">Noch keine Daten für die Auswahl.</div>
+          <div id="leaderBlock" class="empty">No data available for the current selection.</div>
         </div>
       </div>
     </div>
@@ -419,18 +410,10 @@
     const state = {
       rows: [],
       selectedUsers: [],
-      selectedUnits: [],
       selectedMissions: [],
       sortBy: "kills_desc",
       chart: null,
     };
-
-    function parseUnit(name) {
-      if (!name) return "Unassigned";
-      const bracketMatch = name.match(/^\[(.*?)\]\s*(.+)$/);
-      if (bracketMatch) return (bracketMatch[1] || "Unassigned").trim();
-      return "Unassigned";
-    }
 
     function cleanName(name) {
       if (!name) return "Unknown";
@@ -448,20 +431,18 @@
     function filteredRows() {
       return state.rows.filter(row => {
         const userMatch = !state.selectedUsers.length || state.selectedUsers.includes(row.killer);
-        const unitMatch = !state.selectedUnits.length || state.selectedUnits.includes(row.unit);
         const missionMatch = !state.selectedMissions.length || state.selectedMissions.includes(row.mission);
-        return userMatch && unitMatch && missionMatch;
+        return userMatch && missionMatch;
       });
     }
 
     function groupedKills(rows) {
       const map = new Map();
       rows.forEach(row => {
-        const key = `${row.killer}|||${row.unit}`;
+        const key = row.killer;
         if (!map.has(key)) {
           map.set(key, {
             killer: row.killer,
-            unit: row.unit,
             kills: 0,
             missions: new Set(),
             longestKill: 0,
@@ -475,7 +456,6 @@
 
       const result = [...map.values()].map(x => ({
         killer: x.killer,
-        unit: x.unit,
         kills: x.kills,
         missionCount: x.missions.size,
         longestKill: x.longestKill,
@@ -511,11 +491,11 @@
         ? filtered.map(item => `
             <button class="option ${selected.includes(item) ? 'active' : ''}" onclick="toggleSelection('${type}', ${JSON.stringify(item)})">${item}</button>
           `).join("")
-        : `<div class="empty">Keine Treffer.</div>`;
+        : `<div class="empty">No matches found.</div>`;
     }
 
     function toggleSelection(type, item) {
-      const key = type === 'users' ? 'selectedUsers' : type === 'units' ? 'selectedUnits' : 'selectedMissions';
+      const key = type === 'users' ? 'selectedUsers' : 'selectedMissions';
       if (state[key].includes(item)) {
         state[key] = state[key].filter(x => x !== item);
       } else {
@@ -527,13 +507,12 @@
     function renderTable(grouped) {
       const body = document.getElementById('tableBody');
       if (!grouped.length) {
-        body.innerHTML = `<tr><td colspan="5" class="empty">Keine Kills für die gewählte Filterkombination gefunden.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="4" class="empty">No kills found for the selected filter combination.</td></tr>`;
         return;
       }
       body.innerHTML = grouped.map(row => `
         <tr>
           <td><strong>${row.killer}</strong></td>
-          <td>${row.unit}</td>
           <td class="num"><strong>${row.kills}</strong></td>
           <td class="num">${row.missionCount}</td>
           <td class="num">${row.longestKill} m</td>
@@ -545,13 +524,12 @@
       const el = document.getElementById('leaderBlock');
       if (!top) {
         el.className = 'empty';
-        el.innerHTML = 'Noch keine Daten für die Auswahl.';
+        el.innerHTML = 'No data available for the current selection.';
         return;
       }
       el.className = '';
       el.innerHTML = `
         <div style="font-size:30px;font-weight:800;margin-top:12px;">${top.killer}</div>
-        <div style="color:var(--muted);margin-top:6px;">Unit: ${top.unit}</div>
         <div class="leader-grid">
           <div class="mini"><div class="mini-label">Kills</div><div class="mini-value">${top.kills}</div></div>
           <div class="mini"><div class="mini-label">Missions</div><div class="mini-value">${top.missionCount}</div></div>
@@ -591,11 +569,9 @@
 
       document.getElementById('statKills').textContent = rows.length;
       document.getElementById('statPlayers').textContent = grouped.length;
-      document.getElementById('statUnits').textContent = new Set(rows.map(r => r.unit)).size;
       document.getElementById('statMissions').textContent = new Set(rows.map(r => r.mission)).size;
 
       renderFilter('users', uniq(state.rows.map(r => r.killer)), state.selectedUsers, 'searchUsers', 'optionsUsers', 'selectedUsers');
-      renderFilter('units', uniq(state.rows.map(r => r.unit)), state.selectedUnits, 'searchUnits', 'optionsUnits', 'selectedUnits');
       renderFilter('missions', uniq(state.rows.map(r => r.mission)), state.selectedMissions, 'searchMissions', 'optionsMissions', 'selectedMissions');
 
       renderTable(grouped);
@@ -604,7 +580,7 @@
     }
 
     function initEvents() {
-      ['searchUsers', 'searchUnits', 'searchMissions'].forEach(id => {
+      ['searchUsers', 'searchMissions'].forEach(id => {
         document.getElementById(id).addEventListener('input', render);
       });
 
@@ -612,7 +588,6 @@
         btn.addEventListener('click', () => {
           const type = btn.dataset.clear;
           if (type === 'users') state.selectedUsers = [];
-          if (type === 'units') state.selectedUnits = [];
           if (type === 'missions') state.selectedMissions = [];
           render();
         });
@@ -620,10 +595,8 @@
 
       document.getElementById('resetAllBtn').addEventListener('click', () => {
         state.selectedUsers = [];
-        state.selectedUnits = [];
         state.selectedMissions = [];
         document.getElementById('searchUsers').value = '';
-        document.getElementById('searchUnits').value = '';
         document.getElementById('searchMissions').value = '';
         render();
       });
@@ -647,7 +620,6 @@
               mission: (row.mission || 'Unknown Mission').trim(),
               map: (row.map || 'Unknown Map').trim(),
               killer: cleanName(rawKiller),
-              unit: parseUnit(rawKiller),
               victim: (row.victim || 'Unknown').trim(),
               weapon: (row.weapon || 'Unknown').trim(),
               distance: Number(row.distance || 0),
@@ -662,7 +634,7 @@
         render();
       },
       error: () => {
-        document.getElementById('loading').textContent = 'Fehler beim Laden des CSV.';
+        document.getElementById('loading').textContent = 'Failed to load the CSV.';
       }
     });
   </script>
