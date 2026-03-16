@@ -76,20 +76,13 @@
   }
   .pill.active { background: var(--charcoal); color: white; border-color: var(--charcoal); }
   .filter-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-  .event-type-row { display: flex; gap: 10px; margin-top: 10px; }
-  .event-toggle {
-    display: flex; align-items: center; gap: 7px; padding: 6px 14px;
-    border-radius: 20px; border: 1px solid var(--border); cursor: pointer;
-    font-size: 0.8rem; font-weight: 600; user-select: none; transition: all 0.15s;
-    background: var(--bg);
+  .event-type-select {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.82rem; font-family: 'Open Sans', sans-serif;
+    background: var(--white); color: #333; cursor: pointer;
+    appearance: auto; margin-top: 2px;
   }
-  .event-toggle.active-large { background: #1a237e; color: white; border-color: #1a237e; }
-  .event-toggle.active-regular { background: var(--charcoal); color: white; border-color: var(--charcoal); }
-  .event-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .event-dot.large   { background: #90caf9; }
-  .event-dot.regular { background: #aaa; }
-  .event-toggle.active-large   .event-dot.large   { background: white; }
-  .event-toggle.active-regular .event-dot.regular { background: white; }
+  .event-type-select:focus { outline: none; border-color: var(--charcoal); }
   .btn-reset {
     padding: 5px 14px; background: transparent; border: 1px solid var(--border);
     border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-family: 'Open Sans', sans-serif;
@@ -256,14 +249,11 @@
       </div>
       <div style="margin-top:12px">
         <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Event Type</div>
-        <div class="event-type-row">
-          <div class="event-toggle active-large" id="toggleLarge">
-            <span class="event-dot large"></span>Joint Op (last Sat + Sun)
-          </div>
-          <div class="event-toggle active-regular" id="toggleRegular">
-            <span class="event-dot regular"></span>Regular Sessions
-          </div>
-        </div>
+        <select class="event-type-select" id="eventTypeSelect">
+          <option value="both">Both</option>
+          <option value="joint">Joint Op</option>
+          <option value="regular">Regular Op</option>
+        </select>
       </div>
     </div>
 
@@ -472,21 +462,10 @@ let selectedMissions = null;
 
 function buildFilters() {
   // Wire up event type toggles
-  document.getElementById("toggleLarge").onclick = () => {
-    if (showJointOps && !showRegularEvents) return;
-    showJointOps = !showJointOps;
-    document.getElementById("toggleLarge").classList.toggle("active-large", showJointOps);
-    // Reset explicit selections when event type changes
-    selectedPlayers  = null;
-    selectedMissions = null;
-    refreshPills();
-    filterChanged();
-  };
-
-  document.getElementById("toggleRegular").onclick = () => {
-    if (showRegularEvents && !showJointOps) return;
-    showRegularEvents = !showRegularEvents;
-    document.getElementById("toggleRegular").classList.toggle("active-regular", showRegularEvents);
+  document.getElementById("eventTypeSelect").onchange = () => {
+    const val = document.getElementById("eventTypeSelect").value;
+    showJointOps      = val === "both" || val === "joint";
+    showRegularEvents = val === "both" || val === "regular";
     selectedPlayers  = null;
     selectedMissions = null;
     refreshPills();
@@ -498,10 +477,9 @@ function buildFilters() {
     showRegularEvents = true;
     selectedPlayers   = null;
     selectedMissions  = null;
-    document.getElementById("playerSearch").value  = "";
-    document.getElementById("missionSearch").value = "";
-    document.getElementById("toggleLarge").classList.add("active-large");
-    document.getElementById("toggleRegular").classList.add("active-regular");
+    document.getElementById("playerSearch").value   = "";
+    document.getElementById("missionSearch").value  = "";
+    document.getElementById("eventTypeSelect").value = "both";
     refreshPills();
     filterChanged();
   };
@@ -656,8 +634,8 @@ function applyFilters() {
   const parts = [];
   if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
   if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
-  if (!showJointOps)      parts.push("no Joint Ops");
-  if (!showRegularEvents) parts.push("no Regular");
+  const evVal = document.getElementById("eventTypeSelect") ? document.getElementById("eventTypeSelect").value : "both";
+  if (evVal !== "both") parts.push(evVal === "joint" ? "Joint Op only" : "Regular Op only");
   document.getElementById("filterCount").textContent =
     parts.length ? `Filtered: ${parts.join(" · ")}` : `${filteredPlayers.length} players`;
 
