@@ -675,7 +675,7 @@ function renderStats() {
   const totTK        = filteredPlayers.reduce((s,p) => s + p.tkOnFoot + p.tkInVeh, 0);
   const totVehKills  = filteredPlayers.reduce((s,p) => s + p.vehKillsFoot + p.vehKillsVeh, 0);
   const totKillsVeh  = filteredPlayers.reduce((s,p) => s + p.killsInVeh, 0);
-  const missions     = new Set(rawRows.filter(r => activePlayers.has(r["Username"]||"") && activeMissions.has(r["Mission"]||"")).map(r => r["Mission"]||"")).size;
+  const missions     = new Set(filteredPlayers.flatMap(p => [...p.missions])).size;
   const avgKD        = filteredPlayers.length ? (filteredPlayers.reduce((s,p)=>s+p.kdFoot,0)/filteredPlayers.length).toFixed(2) : "0.00";
 
   const cards = [
