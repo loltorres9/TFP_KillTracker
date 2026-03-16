@@ -258,7 +258,7 @@
         <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Event Type</div>
         <div class="event-type-row">
           <div class="event-toggle active-large" id="toggleLarge">
-            <span class="event-dot large"></span>Large Events (last Sat of month)
+            <span class="event-dot large"></span>Joint Op (last Sat + Sun)
           </div>
           <div class="event-toggle active-regular" id="toggleRegular">
             <span class="event-dot regular"></span>Regular Sessions
@@ -315,18 +315,29 @@ let vehSortAsc = false;
 
 // ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
 // Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
-function isLastSaturdayOfMonth(filename) {
+function isJointOp(filename) {
+  // Joint Op = last Saturday of the month AND the Sunday immediately after it
   const m = filename.match(/^(\d{4})_(\d{2})_(\d{2})/);
   if (!m) return false;
   const year = parseInt(m[1]), month = parseInt(m[2]) - 1, day = parseInt(m[3]);
-  const date = new Date(year, month, day);
-  if (date.getDay() !== 6) return false; // must be Saturday (6)
-  // Check it's the last Saturday: next Saturday would be in a different month
-  const nextSat = new Date(year, month, day + 7);
-  return nextSat.getMonth() !== month;
+  const d = new Date(year, month, day);
+  const dow = d.getDay(); // 0=Sun, 6=Sat
+  if (dow === 6) {
+    // Saturday — is it the last one of the month?
+    return new Date(year, month, day + 7).getMonth() !== month;
+  }
+  if (dow === 0) {
+    // Sunday — was yesterday the last Saturday of its month?
+    const prevSat = new Date(year, month, day - 1);
+    if (prevSat.getDay() !== 6) return false; // sanity check
+    // Check prev Saturday is the last Saturday of ITS own month
+    const nextSatFromPrev = new Date(prevSat.getFullYear(), prevSat.getMonth(), prevSat.getDate() + 7);
+    return nextSatFromPrev.getMonth() !== prevSat.getMonth();
+  }
+  return false;
 }
 
-let showLargeEvents   = true;
+let showJointOps   = true;
 let showRegularEvents = true;
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
@@ -471,7 +482,7 @@ function buildFilters() {
   document.getElementById("resetFilters").onclick = () => {
     activePlayers  = new Set(allPlayers);
     activeMissions = new Set(allMissions);
-    showLargeEvents   = true;
+    showJointOps   = true;
     showRegularEvents = true;
     renderPills("playerPills",  allPlayers,  activePlayers,  "playerSearch",  filterChanged);
     renderPills("missionPills", allMissions, activeMissions, "missionSearch", filterChanged);
@@ -484,14 +495,14 @@ function buildFilters() {
 
   document.getElementById("toggleLarge").onclick = () => {
     // Don't allow both off
-    if (showLargeEvents && !showRegularEvents) return;
-    showLargeEvents = !showLargeEvents;
-    document.getElementById("toggleLarge").classList.toggle("active-large", showLargeEvents);
+    if (showJointOps && !showRegularEvents) return;
+    showJointOps = !showJointOps;
+    document.getElementById("toggleLarge").classList.toggle("active-large", showJointOps);
     filterChanged();
   };
 
   document.getElementById("toggleRegular").onclick = () => {
-    if (showRegularEvents && !showLargeEvents) return;
+    if (showRegularEvents && !showJointOps) return;
     showRegularEvents = !showRegularEvents;
     document.getElementById("toggleRegular").classList.toggle("active-regular", showRegularEvents);
     filterChanged();
@@ -530,8 +541,8 @@ function applyFilters() {
     const name = r["Username"] || "";
     const mission = r["Mission"] || "";
     const srcFile = r["Source File"] || "";
-    const isLarge = isLastSaturdayOfMonth(srcFile);
-    const eventTypeOk = isLarge ? showLargeEvents : showRegularEvents;
+    const isLarge = isJointOp(srcFile);
+    const eventTypeOk = isLarge ? showJointOps : showRegularEvents;
     return activePlayers.has(name) && activeMissions.has(mission) && eventTypeOk;
   });
 
