@@ -121,7 +121,7 @@
   .kd-bad  { color: var(--red); font-weight: 600; }
   .tk-cell { color: var(--red); font-weight: 700; }
 
-  /* ── TOP KILLERS CHART ── */
+  /* ── EXECUTIONERS CHART ── */
   .chart-section {
     background: var(--white); border: 1px solid var(--border);
     border-radius: 8px; padding: 18px; margin-bottom: 20px;
@@ -192,7 +192,7 @@
       <div class="award-card ac-longest">
         <div class="award-icon">🎯</div>
         <div class="award-body">
-          <div class="award-label">Longest Shot</div>
+          <div class="award-label">Pro Sniper</div>
           <div class="award-name" id="aw-long-name">—</div>
           <div class="award-stat" id="aw-long-stat"></div>
         </div>
@@ -200,7 +200,7 @@
       <div class="award-card ac-spk">
         <div class="award-icon">🔫</div>
         <div class="award-body">
-          <div class="award-label">Best Accuracy</div>
+          <div class="award-label">Perfect Aim</div>
           <div class="award-name" id="aw-spk-name">—</div>
           <div class="award-stat" id="aw-spk-stat"></div>
         </div>
@@ -208,7 +208,7 @@
       <div class="award-card ac-kda">
         <div class="award-icon">⚔️</div>
         <div class="award-body">
-          <div class="award-label">Best K/D</div>
+          <div class="award-label">K/D PLAYER</div>
           <div class="award-name" id="aw-kda-name">—</div>
           <div class="award-stat" id="aw-kda-stat"></div>
         </div>
@@ -598,7 +598,7 @@ function renderLeader() {
   document.getElementById("aw-kills-stat").textContent =
     `${byKills.killsOnFoot} kills · K/D ${byKills.kdFoot.toFixed(2)}`;
 
-  // Longest Shot — highest maxLongestFoot (min 2 kills to avoid flukes)
+  // Pro Sniper — highest maxLongestFoot (min 2 kills to avoid flukes)
   const byLong = [...eligible].filter(p => p.killsOnFoot >= 2)
     .sort((a,b) => b.maxLongestFoot - a.maxLongestFoot)[0];
   if (byLong && byLong.maxLongestFoot > 0) {
@@ -610,7 +610,7 @@ function renderLeader() {
     document.getElementById("aw-long-stat").textContent = "";
   }
 
-  // Best Accuracy — lowest shots per kill (min 3 kills to filter noise)
+  // Perfect Aim — lowest shots per kill (min 3 kills to filter noise)
   const bySpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null)
     .sort((a,b) => a.spkFoot - b.spkFoot)[0];
   if (bySpk) {
@@ -622,7 +622,7 @@ function renderLeader() {
     document.getElementById("aw-spk-stat").textContent = "";
   }
 
-  // Best K/D — highest kdFoot (min 3 kills)
+  // K/D PLAYER — highest kdFoot (min 3 kills)
   const byKda = [...eligible].filter(p => p.killsOnFoot >= 3)
     .sort((a,b) => b.kdFoot - a.kdFoot)[0];
   if (byKda) {
