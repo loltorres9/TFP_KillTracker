@@ -305,9 +305,6 @@ let rawRows = [];    // one entry per CSV row
 let aggPlayers = {}; // aggregated by player name across missions
 let filteredPlayers = [];
 
-let activePlayers  = new Set();
-let activeMissions = new Set();
-
 let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
@@ -469,35 +466,20 @@ function buildUI() {
   applyFilters();
 }
 
+// selectedPlayers / selectedMissions = null means "all", Set means explicit selection
+let selectedPlayers  = null;
+let selectedMissions = null;
+
 function buildFilters() {
-  const allPlayers  = [...new Set(rawRows.map(r => r["Username"] || "").filter(Boolean))].sort();
-  const allMissions = [...new Set(rawRows.map(r => r["Mission"]  || "").filter(Boolean))].sort();
-
-  activePlayers  = new Set(allPlayers);
-  activeMissions = new Set(allMissions);
-
-  renderPills("playerPills",  allPlayers,  activePlayers,  "playerSearch",  filterChanged);
-  renderPills("missionPills", allMissions, activeMissions, "missionSearch", filterChanged);
-
-  document.getElementById("resetFilters").onclick = () => {
-    activePlayers  = new Set(allPlayers);
-    activeMissions = new Set(allMissions);
-    showJointOps   = true;
-    showRegularEvents = true;
-    renderPills("playerPills",  allPlayers,  activePlayers,  "playerSearch",  filterChanged);
-    renderPills("missionPills", allMissions, activeMissions, "missionSearch", filterChanged);
-    document.getElementById("playerSearch").value = "";
-    document.getElementById("missionSearch").value = "";
-    document.getElementById("toggleLarge").classList.add("active-large");
-    document.getElementById("toggleRegular").classList.add("active-regular");
-    filterChanged();
-  };
-
+  // Wire up event type toggles
   document.getElementById("toggleLarge").onclick = () => {
-    // Don't allow both off
     if (showJointOps && !showRegularEvents) return;
     showJointOps = !showJointOps;
     document.getElementById("toggleLarge").classList.toggle("active-large", showJointOps);
+    // Reset explicit selections when event type changes
+    selectedPlayers  = null;
+    selectedMissions = null;
+    refreshPills();
     filterChanged();
   };
 
@@ -505,30 +487,90 @@ function buildFilters() {
     if (showRegularEvents && !showJointOps) return;
     showRegularEvents = !showRegularEvents;
     document.getElementById("toggleRegular").classList.toggle("active-regular", showRegularEvents);
+    selectedPlayers  = null;
+    selectedMissions = null;
+    refreshPills();
     filterChanged();
   };
+
+  document.getElementById("resetFilters").onclick = () => {
+    showJointOps      = true;
+    showRegularEvents = true;
+    selectedPlayers   = null;
+    selectedMissions  = null;
+    document.getElementById("playerSearch").value  = "";
+    document.getElementById("missionSearch").value = "";
+    document.getElementById("toggleLarge").classList.add("active-large");
+    document.getElementById("toggleRegular").classList.add("active-regular");
+    refreshPills();
+    filterChanged();
+  };
+
+  document.getElementById("playerSearch").oninput  = refreshPills;
+  document.getElementById("missionSearch").oninput = refreshPills;
+
+  refreshPills();
 }
 
-function renderPills(containerId, items, activeSet, searchId, onChange) {
+function getEventFilteredRows() {
+  return rawRows.filter(r => {
+    const src = r["Source File"] || "";
+    const isLarge = isJointOp(src);
+    return isLarge ? showJointOps : showRegularEvents;
+  });
+}
+
+function refreshPills() {
+  const eventRows = getEventFilteredRows();
+
+  // Available missions given current event type
+  const availMissions = [...new Set(eventRows.map(r => r["Mission"] || "").filter(Boolean))].sort();
+
+  // Available players given current event type + selected missions
+  const missionFiltered = selectedMissions
+    ? eventRows.filter(r => selectedMissions.has(r["Mission"] || ""))
+    : eventRows;
+  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))].sort();
+
+  renderSelectablePills("missionPills", availMissions, selectedMissions, "missionSearch", (item, set) => {
+    // Clicking a mission: if already the only one selected → deselect all; else select only this one
+    if (set && set.size === 1 && set.has(item)) {
+      selectedMissions = null;
+    } else {
+      selectedMissions = new Set([item]);
+    }
+    // Reset player selection when mission changes
+    selectedPlayers = null;
+    refreshPills();
+    filterChanged();
+  });
+
+  renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
+    if (set && set.size === 1 && set.has(item)) {
+      selectedPlayers = null;
+    } else {
+      selectedPlayers = new Set([item]);
+    }
+    refreshPills();
+    filterChanged();
+  });
+}
+
+function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
+  // selectedSet === null means "all active"; a Set means explicit selection
   const container = document.getElementById(containerId);
   const searchVal = document.getElementById(searchId).value.toLowerCase();
   container.innerHTML = "";
   items
     .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
     .forEach(item => {
+      const isActive = selectedSet === null || selectedSet.has(item);
       const pill = document.createElement("span");
-      pill.className = "pill" + (activeSet.has(item) ? " active" : "");
+      pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
-      pill.onclick = () => {
-        if (activeSet.has(item)) activeSet.delete(item);
-        else activeSet.add(item);
-        pill.classList.toggle("active");
-        onChange();
-      };
+      pill.onclick = () => onSelect(item, selectedSet);
       container.appendChild(pill);
     });
-
-  document.getElementById(searchId).oninput = () => renderPills(containerId, items, activeSet, searchId, onChange);
 }
 
 function filterChanged() {
@@ -536,14 +578,15 @@ function filterChanged() {
 }
 
 function applyFilters() {
-  // Filter rawRows by active players & missions, then re-aggregate
   const filtered = rawRows.filter(r => {
-    const name = r["Username"] || "";
-    const mission = r["Mission"] || "";
+    const name    = r["Username"] || "";
+    const mission = r["Mission"]  || "";
     const srcFile = r["Source File"] || "";
     const isLarge = isJointOp(srcFile);
-    const eventTypeOk = isLarge ? showJointOps : showRegularEvents;
-    return activePlayers.has(name) && activeMissions.has(mission) && eventTypeOk;
+    const eventTypeOk   = isLarge ? showJointOps : showRegularEvents;
+    const playerOk  = selectedPlayers  === null || selectedPlayers.has(name);
+    const missionOk = selectedMissions === null || selectedMissions.has(mission);
+    return eventTypeOk && playerOk && missionOk;
   });
 
   // Re-aggregate only for filtered rows
@@ -610,8 +653,13 @@ function applyFilters() {
   filteredPlayers = Object.values(tempAgg);
 
   const totalCount = Object.keys(aggPlayers).length;
+  const parts = [];
+  if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
+  if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
+  if (!showJointOps)      parts.push("no Joint Ops");
+  if (!showRegularEvents) parts.push("no Regular");
   document.getElementById("filterCount").textContent =
-    filteredPlayers.length < totalCount ? `Showing ${filteredPlayers.length} of ${totalCount} players` : `${totalCount} players`;
+    parts.length ? `Filtered: ${parts.join(" · ")}` : `${filteredPlayers.length} players`;
 
   renderStats();
   renderChart();
@@ -685,7 +733,8 @@ function renderLeader() {
   }
 
   // Perfect Aim — lowest shots per kill (min 3 kills to filter noise)
-  const bySpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null)
+  // spkFoot >= 1 means at least 1 shot fired per kill (no knife/0-shot kills skewing it)
+  const bySpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
     .sort((a,b) => a.spkFoot - b.spkFoot)[0];
   if (bySpk) {
     document.getElementById("aw-spk-name").textContent = bySpk.name;
