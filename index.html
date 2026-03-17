@@ -90,6 +90,12 @@
     font-family: 'Open Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
   }
   .btn-back:hover { background: var(--charcoal-light); }
+  .btn-career {
+    margin-top: 6px; padding: 5px 12px; background: var(--charcoal); color: white;
+    border: none; border-radius: 4px; font-size: 0.78rem; cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+  }
+  .btn-career:hover { background: var(--charcoal-light); }
   .career-header-name { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--charcoal); }
   .career-header-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
 
@@ -293,8 +299,8 @@
         <div class="filter-group">
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
-          <div class="career-pills-label">Player Career Stats</div>
           <div class="pills-container" id="playerPills"></div>
+          <button id="careerBtn" class="btn-career" style="display:none" onclick="openCareerPage([...selectedPlayers][0])">View Career Stats →</button>
         </div>
         <div class="filter-group">
           <label>Missions</label>
@@ -656,23 +662,21 @@ function refreshPills() {
     filterChanged();
   });
 
-  renderCareerPills("playerPills", availPlayers, "playerSearch");
-}
+  renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
+    if (set === null) {
+      selectedPlayers = new Set([item]);
+    } else if (set.has(item)) {
+      set.delete(item);
+      selectedPlayers = set.size > 0 ? set : null;
+    } else {
+      set.add(item);
+    }
+    refreshPills();
+    filterChanged();
+  });
 
-function renderCareerPills(containerId, items, searchId) {
-  const container = document.getElementById(containerId);
-  const searchVal = document.getElementById(searchId).value.toLowerCase();
-  container.innerHTML = "";
-  items
-    .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
-    .forEach(item => {
-      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
-      const pill = document.createElement("span");
-      pill.className = "pill" + (isActive ? " active" : "");
-      pill.textContent = item;
-      pill.onclick = () => openCareerPage(item);
-      container.appendChild(pill);
-    });
+  const careerBtn = document.getElementById("careerBtn");
+  careerBtn.style.display = selectedPlayers?.size === 1 ? "" : "none";
 }
 
 function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
@@ -1062,6 +1066,7 @@ function closeCareerPage() {
 
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
+  document.getElementById('careerBtn').style.display     = 'none';
   document.getElementById('statsBar').style.display      = '';
   document.querySelector('.chart-section').style.display = '';
   document.querySelector('.filter-panel').style.display  = '';
