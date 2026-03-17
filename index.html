@@ -396,7 +396,17 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXM
 const NUM = v => parseFloat(v) || 0;
 
 function normalizeRole(role) {
-  return role.trim().replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '').trim();
+  return role.trim()
+    .replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '')
+    .replace(/\s+(Red|Blue|Green|Yellow|White|Black|Orange|Purple|Teal|Pink|Cyan|Lime|Maroon|Navy|Olive|Silver|Violet|Magenta)$/i, '')
+    .trim();
+}
+
+function missionDate(missionName) {
+  const m = missionName.match(/\((\d{4}-\d{2}-\d{2})\)/);
+  if (!m) return missionName;
+  const [y, mo, d] = m[1].split('-');
+  return `${d}/${mo}/${y}`;
 }
 
 let rawRows = [];    // one entry per CSV row
@@ -591,6 +601,7 @@ function buildAggregates() {
     p.missionCount = p.missions.size;
     const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
     p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
   });
 }
 
@@ -815,6 +826,7 @@ function applyFilters() {
     p.missionCount = p.missions.size;
     const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
     p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
   });
 
   filteredPlayers = Object.values(tempAgg).filter(p => {
@@ -1057,11 +1069,11 @@ function openPlayerModal(playerName) {
   currentModalPlayer = playerName;
   document.getElementById('modalPlayerName').textContent = p.name;
   const _mml = p.missions ? [...p.missions] : [];
-  const _mActive = _mml.length > 1 ? `${_mml[0]} – ${_mml[_mml.length - 1]}` : (_mml[0] || '—');
+  const _mActive = _mml.length > 1 ? `${missionDate(_mml[0])} – ${missionDate(_mml[_mml.length - 1])}` : (_mml[0] ? missionDate(_mml[0]) : '—');
   document.getElementById('modalPlayerSub').innerHTML =
     `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
     `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>` +
-    (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole}</div></div>` : '');
+    (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole} (${p.topRoleCount})</div></div>` : '');
   document.getElementById('modalMaximizeBtn').onclick = () => {
     document.getElementById('playerModal').classList.remove('open');
     openCareerPage(currentModalPlayer);
@@ -1086,10 +1098,10 @@ function openCareerPage(playerName) {
 
   document.getElementById('careerPlayerName').textContent = p.name;
   const _cml = p.missions ? [...p.missions] : [];
-  const _cActive = _cml.length > 1 ? `${_cml[0]} – ${_cml[_cml.length - 1]}` : (_cml[0] || '—');
+  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
   document.getElementById('careerPlayerSub').textContent =
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
-    (p.topRole ? `   ·   Top Role: ${p.topRole}` : '');
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display         = 'none';
