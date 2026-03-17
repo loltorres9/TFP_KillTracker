@@ -398,7 +398,11 @@ fetch(CSV_URL)
       // Handle CSV fields with commas in quotes
       const cols = parseCSVLine(line);
       const obj = {};
-      header.forEach((h,i) => obj[h] = (cols[i] || "").replace(/"/g,"").trim());
+      header.forEach((h,i) => {
+        const raw = cols[i] || "";
+        // Don't strip quotes from JSON columns
+        obj[h] = h === "Weapon Kills (JSON)" ? raw.trim() : raw.replace(/"/g,"").trim();
+      });
       return obj;
     }).filter(r => r["Username"]);
 
