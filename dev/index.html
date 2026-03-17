@@ -1083,7 +1083,11 @@ function openPlayerModal(playerName) {
 
   currentModalPlayer = playerName;
   document.getElementById('modalPlayerName').textContent = p.name;
-  const _mml = p.missions ? [...p.missions].sort((a, b) => a.localeCompare(b)) : [];
+  const _mml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
   const _mActive = _mml.length > 1 ? `${missionDate(_mml[0])} – ${missionDate(_mml[_mml.length - 1])}` : (_mml[0] ? missionDate(_mml[0]) : '—');
   document.getElementById('modalPlayerSub').innerHTML =
     `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
@@ -1112,7 +1116,11 @@ function openCareerPage(playerName) {
   if (!p) return;
 
   document.getElementById('careerPlayerName').textContent = p.name;
-  const _cml = p.missions ? [...p.missions].sort((a, b) => a.localeCompare(b)) : [];
+  const _cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
   const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
   document.getElementById('careerPlayerSub').textContent =
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
