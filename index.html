@@ -486,15 +486,15 @@ function buildAggregates() {
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
 
-    // Weapons
+    // Weapons + mission rows (for modal)
     try {
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)
+"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
         p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
       });
     } catch(e) {}
-
-    // Store raw mission row for modal
     p.missionRows.push(r);
   });
 
@@ -691,15 +691,15 @@ function applyFilters() {
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
 
-    // Weapons
+    // Weapons + mission rows (for modal)
     try {
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)
+"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
         p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
       });
     } catch(e) {}
-
-    // Store raw mission row for modal
     p.missionRows.push(r);
   });
 
@@ -952,6 +952,7 @@ const INF_COLS = [
   { label: "#",       key: "_rank",        numeric: false, sortKey: null },
   { label: "Player",  key: "name",         numeric: false, sortKey: "name" },
   { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot" },
+  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot" },
   { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot" },
   { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass },
