@@ -398,6 +398,7 @@ const NUM = v => parseFloat(v) || 0;
 
 function normalizeRole(role) {
   return role.trim()
+    .replace(/@.*$/, '')
     .replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '')
     .replace(/\s+(Red|Blue|Green|Yellow|White|Black|Orange|Purple|Teal|Pink|Cyan|Lime|Maroon|Navy|Olive|Silver|Violet|Magenta)$/i, '')
     .trim();
@@ -613,6 +614,58 @@ function buildUI() {
 
   buildFilters();
   applyFilters();
+
+  // ── Deep-link: ?player=Name ──────────────────────────────────────────────
+  const _dlPlayer = new URLSearchParams(window.location.search).get('player');
+  if (_dlPlayer) openCareerPage(_dlPlayer);
+
+  window.addEventListener('popstate', e => {
+    const name = e.state && e.state.player;
+    if (name) {
+      _openCareerPageNoHistory(name);
+    } else {
+      _closeCareerPageNoHistory();
+    }
+  });
+}
+
+// Internal versions that update the DOM without pushing another history entry
+function _openCareerPageNoHistory(playerName) {
+  selectedPlayers = new Set([playerName]);
+  applyFilters();
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+  document.getElementById('careerPlayerName').textContent = p.name;
+  const _cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
+  document.getElementById('careerPlayerSub').textContent =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('statsBar').style.display         = 'none';
+  document.getElementById('awardsRow').style.display        = 'none';
+  document.querySelector('.chart-section').style.display    = 'none';
+  document.querySelector('.filter-panel').style.display     = 'none';
+  document.getElementById('careerHeader').style.display     = '';
+  document.getElementById('careerStats').style.display      = '';
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+function _closeCareerPageNoHistory() {
+  selectedPlayers = null;
+  document.getElementById('careerHeader').style.display  = 'none';
+  document.getElementById('careerStats').style.display   = 'none';
+  document.getElementById('statsBar').style.display      = '';
+  document.querySelector('.chart-section').style.display = '';
+  document.querySelector('.filter-panel').style.display  = '';
+  applyFilters();
+  refreshPills();
+  window.scrollTo(0, 0);
 }
 
 // selectedPlayers / selectedMissions = null means "all", Set means explicit selection
@@ -1109,6 +1162,10 @@ function mStat(val, lbl, sub) {
 
 // ── CAREER PAGE ──────────────────────────────────────────────────────────
 function openCareerPage(playerName) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('player', playerName);
+  history.pushState({ player: playerName }, '', url);
+
   selectedPlayers = new Set([playerName]);
   applyFilters();
 
@@ -1140,6 +1197,10 @@ function openCareerPage(playerName) {
 
 function closeCareerPage() {
   selectedPlayers = null;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('player');
+  history.pushState({}, '', url);
 
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
