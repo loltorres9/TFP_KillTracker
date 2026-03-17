@@ -293,6 +293,7 @@
         <div class="filter-group">
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
+          <div class="career-pills-label">Player Career Stats</div>
           <div class="pills-container" id="playerPills"></div>
         </div>
         <div class="filter-group">
@@ -655,20 +656,24 @@ function refreshPills() {
     filterChanged();
   });
 
-  renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
-    if (set === null) {
-      selectedPlayers = new Set([item]);
-    } else if (set.has(item)) {
-      set.delete(item);
-      selectedPlayers = set.size > 0 ? set : null;
-    } else {
-      set.add(item);
-    }
-    refreshPills();
-    filterChanged();
-  });
+  renderCareerPills("playerPills", availPlayers, "playerSearch");
 }
 
+function renderCareerPills(containerId, items, searchId) {
+  const container = document.getElementById(containerId);
+  const searchVal = document.getElementById(searchId).value.toLowerCase();
+  container.innerHTML = "";
+  items
+    .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
+    .forEach(item => {
+      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = item;
+      pill.onclick = () => openCareerPage(item);
+      container.appendChild(pill);
+    });
+}
 
 function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
   // selectedSet === null means "all active"; a Set means explicit selection
@@ -683,7 +688,6 @@ function renderSelectablePills(containerId, items, selectedSet, searchId, onSele
       pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
       pill.onclick = () => onSelect(item, selectedSet);
-      pill.oncontextmenu = (e) => { e.preventDefault(); openCareerPage(item); };
       container.appendChild(pill);
     });
 }
