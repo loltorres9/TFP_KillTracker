@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFP Kill Tracker – Option Comparison</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+
+  header {
+    background: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  header img { width: 36px; height: 36px; }
+  header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 1px; color: #e94560; }
+  header span { color: #aaa; font-size: 0.9rem; margin-left: 8px; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    padding: 40px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(233,69,96,0.18);
+  }
+
+  .card-header {
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid #0f3460;
+  }
+  .card-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #e94560;
+    margin-bottom: 6px;
+  }
+  .card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .card-desc {
+    font-size: 0.85rem;
+    color: #aaa;
+    line-height: 1.5;
+  }
+
+  .card-features {
+    padding: 16px 24px;
+    border-bottom: 1px solid #0f3460;
+  }
+  .card-features ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-features li {
+    font-size: 0.82rem;
+    color: #ccc;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .card-features li::before {
+    content: '✓';
+    color: #4caf50;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .card-footer {
+    padding: 18px 24px;
+  }
+  .btn-open {
+    display: block;
+    text-align: center;
+    padding: 10px 0;
+    border-radius: 7px;
+    background: #e94560;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    transition: background 0.15s;
+  }
+  .btn-open:hover { background: #c73652; }
+
+  .side-by-side {
+    max-width: 1500px;
+    margin: 0 auto 40px;
+    padding: 0 32px;
+  }
+  .side-by-side h2 {
+    font-size: 1rem;
+    color: #888;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .iframe-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .iframe-wrap {
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .iframe-wrap .iframe-label {
+    background: #0f3460;
+    padding: 7px 14px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #aad4ff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .iframe-wrap .iframe-label a {
+    color: #e94560;
+    text-decoration: none;
+    font-size: 0.7rem;
+  }
+  .iframe-wrap .iframe-label a:hover { text-decoration: underline; }
+  .iframe-wrap iframe {
+    width: 100%;
+    height: 620px;
+    border: none;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="favicon.svg" alt="TFP">
+  <h1>TFP Kill Tracker</h1>
+  <span>— Option Comparison</span>
+</header>
+
+<div class="cards">
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-label">Option A</div>
+      <div class="card-title">Collapsible Sidebar</div>
+      <div class="card-desc">Career stats live in a slide-in sidebar panel, keeping the main table clean and uncluttered.</div>
+    </div>
+    <div class="card-features">
+      <ul>
+        <li>Collapsible sidebar panel for career stats</li>
+        <li>Toggle button to show/hide the panel</li>
+        <li>Player name opens career page on click</li>
+        <li>Main table layout unchanged</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <a class="btn-open" href="option-a/index.html" target="_blank">Open full page</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-label">Option B</div>
+      <div class="card-title">Multi-select Pills + Row Button</div>
+      <div class="card-desc">Selectable player pills replace the old career pills. Each table row gets a 📊 icon button to open career stats.</div>
+    </div>
+    <div class="card-features">
+      <ul>
+        <li>Multi-select player pills (highlight on click)</li>
+        <li>📊 career button inside every table row</li>
+        <li>No separate career section needed</li>
+        <li>Compact and inline</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <a class="btn-open" href="option-b/index.html" target="_blank">Open full page</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-label">Option C</div>
+      <div class="card-title">Inline Expandable Row</div>
+      <div class="card-desc">Clicking a player row expands an inline stats sub-row directly beneath it in the table.</div>
+    </div>
+    <div class="card-features">
+      <ul>
+        <li>Expandable inline sub-row per player</li>
+        <li>Stats shown without leaving the page</li>
+        <li>Toggle expand/collapse per row</li>
+        <li>No navigation required</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <a class="btn-open" href="option-c/index.html" target="_blank">Open full page</a>
+    </div>
+  </div>
+
+</div>
+
+<div class="side-by-side">
+  <h2>Side-by-side preview</h2>
+  <div class="iframe-row">
+    <div class="iframe-wrap">
+      <div class="iframe-label">
+        Option A
+        <a href="option-a/index.html" target="_blank">open ↗</a>
+      </div>
+      <iframe src="option-a/index.html" loading="lazy"></iframe>
+    </div>
+    <div class="iframe-wrap">
+      <div class="iframe-label">
+        Option B
+        <a href="option-b/index.html" target="_blank">open ↗</a>
+      </div>
+      <iframe src="option-b/index.html" loading="lazy"></iframe>
+    </div>
+    <div class="iframe-wrap">
+      <div class="iframe-label">
+        Option C
+        <a href="option-c/index.html" target="_blank">open ↗</a>
+      </div>
+      <iframe src="option-c/index.html" loading="lazy"></iframe>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
