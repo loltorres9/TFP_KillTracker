@@ -192,7 +192,9 @@
     position: sticky; top: 0; z-index: 1;
   }
   .modal-header h2 { font-family: 'Oswald', sans-serif; font-size: 1.3rem; margin: 0; }
-  .modal-header .modal-sub { font-size: 0.78rem; opacity: 0.7; margin-top: 3px; }
+  .modal-header .modal-sub { font-size: 0.82rem; margin-top: 8px; display: flex; gap: 40px; flex-wrap: wrap; }
+  .modal-header .modal-sub .co-col { line-height: 1.9; }
+  .modal-header .modal-sub b { font-weight: 700; }
   .modal-close {
     background: none; border: none; color: white; font-size: 1.6rem;
     cursor: pointer; padding: 0 4px; line-height: 1;
@@ -233,15 +235,6 @@
   }
   .best-mission-card .bm-name { font-family: 'Oswald', sans-serif; font-size: 1.1rem; font-weight: 700; }
   .best-mission-card .bm-stats { font-size: 0.8rem; opacity: 0.85; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 14px; }
-  .career-overview-card {
-    background: var(--charcoal); color: white; border-radius: 8px; padding: 16px 20px;
-  }
-  .career-overview-card .co-name {
-    font-family: 'Oswald', sans-serif; font-size: 1.15rem; font-weight: 700; margin-bottom: 10px;
-  }
-  .career-overview-card .co-body { display: flex; gap: 48px; flex-wrap: wrap; }
-  .career-overview-card .co-col { font-size: 0.82rem; line-height: 1.9; }
-  .career-overview-card .co-col b { font-weight: 700; }
   tbody tr { cursor: pointer; }
   tbody tr:hover td { background: var(--row-hover) !important; }
 </style>
@@ -995,31 +988,39 @@ function buildCareerStatsHTML(p) {
   }
   bestHTML += '</div>';
 
-  // ── Section 4: Career overview ──
-  const missionsList = p.missions ? [...p.missions] : [];
-  const firstMission = missionsList[0] || '—';
-  const lastMission  = missionsList[missionsList.length - 1] || '—';
-  const activeRange  = missionsList.length > 1
-    ? `${firstMission} – ${lastMission}`
-    : firstMission;
+  // ── Section 4: Kill breakdown by mission ──
+  let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
+  missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
 
-  const overviewHTML = `
-    <div class="modal-section">
-      <h3>Career Overview</h3>
-      <div class="career-overview-card">
-        <div class="co-name">${p.name}</div>
-        <div class="co-body">
-          <div class="co-col">
-            <div><b>Combat Missions:</b> ${p.missionCount}</div>
-          </div>
-          <div class="co-col">
-            <div><b>Active:</b> ${activeRange}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+  const missionMap = {};
+  mRows.forEach(r => {
+    const key = r["Mission"] || r["Source File"] || '—';
+    if (!missionMap[key]) missionMap[key] = { mission: key, k: 0, d: 0, tk: 0, sh: 0, lk: 0 };
+    const m = missionMap[key];
+    m.k  += NUM(r["Kills (On Foot)"]);
+    m.d  += NUM(r["Deaths (On Foot)"]);
+    m.tk += NUM(r["Teamkills (On Foot)"]);
+    m.sh += NUM(r["Shots (On Foot)"]);
+    m.lk  = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
+  });
+  const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
 
-  return overallHTML + weaponHTML + bestHTML + overviewHTML;
+  mergedMissions.forEach((m, i) => {
+    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
+    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
+    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    missionHTML += `<tr style="${bg}">
+      <td>${m.mission}</td>
+      <td>${m.k}</td><td>${m.d}</td>
+      <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
+      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk}</td>
+      <td>${m.sh}</td><td>${spk}</td>
+      <td>${m.lk || '—'}</td>
+    </tr>`;
+  });
+  missionHTML += '</tbody></table></div>';
+
+  return overallHTML + weaponHTML + bestHTML + missionHTML;
 }
 
 function openPlayerModal(playerName) {
@@ -1027,7 +1028,11 @@ function openPlayerModal(playerName) {
   if (!p) return;
 
   document.getElementById('modalPlayerName').textContent = p.name;
-  document.getElementById('modalPlayerSub').textContent = p.missionCount + ' combat mission(s)';
+  const _mml = p.missions ? [...p.missions] : [];
+  const _mActive = _mml.length > 1 ? `${_mml[0]} – ${_mml[_mml.length - 1]}` : (_mml[0] || '—');
+  document.getElementById('modalPlayerSub').innerHTML =
+    `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
+    `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>`;
 
   const body = document.getElementById('modalBody');
   body.innerHTML = buildCareerStatsHTML(p);
@@ -1047,7 +1052,10 @@ function openCareerPage(playerName) {
   if (!p) return;
 
   document.getElementById('careerPlayerName').textContent = p.name;
-  document.getElementById('careerPlayerSub').textContent = p.missionCount + ' combat mission(s)';
+  const _cml = p.missions ? [...p.missions] : [];
+  const _cActive = _cml.length > 1 ? `${_cml[0]} – ${_cml[_cml.length - 1]}` : (_cml[0] || '—');
+  document.getElementById('careerPlayerSub').textContent =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}`;
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display         = 'none';
