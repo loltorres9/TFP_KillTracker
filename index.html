@@ -147,6 +147,69 @@
   /* ── LOADING / ERROR ── */
   .loading { text-align: center; padding: 60px; font-size: 1rem; color: #888; }
   .error   { background: #fff0f0; border: 1px solid #ffcdd2; border-radius: 8px; padding: 18px; color: #b71c1c; margin: 20px 0; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white); border-radius: 10px;
+    width: 90%; max-width: 860px; max-height: 88vh;
+    overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    display: flex; flex-direction: column;
+  }
+  .modal-header {
+    background: var(--charcoal); color: white;
+    padding: 18px 24px; border-radius: 10px 10px 0 0;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .modal-header h2 { font-family: 'Oswald', sans-serif; font-size: 1.3rem; margin: 0; }
+  .modal-header .modal-sub { font-size: 0.78rem; opacity: 0.7; margin-top: 3px; }
+  .modal-close {
+    background: none; border: none; color: white; font-size: 1.6rem;
+    cursor: pointer; padding: 0 4px; line-height: 1;
+  }
+  .modal-close:hover { opacity: 0.7; }
+  .modal-body { padding: 20px 24px; }
+  .modal-section { margin-bottom: 24px; }
+  .modal-section h3 {
+    font-family: 'Oswald', sans-serif; font-size: 0.95rem;
+    color: var(--charcoal); margin-bottom: 10px;
+    padding-bottom: 5px; border-bottom: 2px solid var(--border);
+  }
+  .modal-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+  .modal-stat {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 14px; min-width: 110px;
+  }
+  .modal-stat .ms-val { font-family: 'Oswald', sans-serif; font-size: 1.2rem; color: var(--charcoal); }
+  .modal-stat .ms-lbl { font-size: 0.7rem; color: #888; margin-top: 2px; }
+  .weapon-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .weapon-label { font-size: 0.78rem; width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .weapon-track { flex: 1; background: var(--bg); border-radius: 3px; height: 14px; }
+  .weapon-fill  { height: 100%; background: var(--charcoal); border-radius: 3px; }
+  .weapon-val   { font-size: 0.78rem; font-weight: 700; width: 28px; text-align: right; }
+  .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .mission-table th {
+    background: var(--charcoal); color: white;
+    padding: 7px 10px; text-align: right; font-family: 'Oswald', sans-serif; font-size: 0.78rem;
+  }
+  .mission-table th:first-child { text-align: left; }
+  .mission-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; }
+  .mission-table td:first-child { text-align: left; font-weight: 600; }
+  .mission-table tr:hover td { background: var(--row-hover); }
+  .best-mission-card {
+    background: linear-gradient(135deg, var(--charcoal), #5a5a5a);
+    color: white; border-radius: 8px; padding: 14px 18px;
+  }
+  .best-mission-card .bm-name { font-family: 'Oswald', sans-serif; font-size: 1.1rem; font-weight: 700; }
+  .best-mission-card .bm-stats { font-size: 0.8rem; opacity: 0.85; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 14px; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--row-hover) !important; }
 </style>
 </head>
 <body>
@@ -250,6 +313,20 @@
       </table>
     </div>
 
+
+    <!-- Player detail modal -->
+    <div class="modal-overlay" id="playerModal" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <h2 id="modalPlayerName">Player</h2>
+            <div class="modal-sub" id="modalPlayerSub"></div>
+          </div>
+          <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('open')">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -406,6 +483,17 @@ function buildAggregates() {
     p.hitsInVeh   += hiv;
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
+
+    // Weapons
+    try {
+      const wmap = JSON.parse(weaponJson);
+      Object.entries(wmap).forEach(([w, c]) => {
+        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+      });
+    } catch(e) {}
+
+    // Store raw mission row for modal
+    p.missionRows.push(r);
   });
 
   // Compute derived fields
@@ -565,6 +653,8 @@ function applyFilters() {
         vehKillsFoot: 0, vehKillsVeh: 0,
         shotsInVeh: 0, hitsInVeh: 0,
         maxLongestVeh: 0, avgDistVehSum: 0, avgDistVehN: 0,
+        weaponKills: {},   // weapon -> total kills across missions
+        missionRows: [],   // raw per-mission rows for modal
       };
     }
     const p = tempAgg[name];
@@ -598,6 +688,17 @@ function applyFilters() {
     p.shotsInVeh  += siv; p.hitsInVeh   += hiv;
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
+
+    // Weapons
+    try {
+      const wmap = JSON.parse(weaponJson);
+      Object.entries(wmap).forEach(([w, c]) => {
+        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+      });
+    } catch(e) {}
+
+    // Store raw mission row for modal
+    p.missionRows.push(r);
   });
 
   Object.values(tempAgg).forEach(p => {
@@ -718,6 +819,132 @@ function renderLeader() {
   }
 }
 
+
+// ── PLAYER MODAL ─────────────────────────────────────────────────────────
+function closeModal(e) {
+  if (e.target === document.getElementById('playerModal')) {
+    document.getElementById('playerModal').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
+});
+
+function openPlayerModal(playerName) {
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+
+  document.getElementById('modalPlayerName').textContent = p.name;
+  document.getElementById('modalPlayerSub').textContent =
+    p.missionCount + ' mission(s) · ' + (p.missions ? [...p.missions].join(', ') : '');
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = '';
+
+  // ── Section 1: Overall stats summary ──
+  const overallHTML = `
+    <div class="modal-section">
+      <h3>Overall Infantry Stats</h3>
+      <div class="modal-grid">
+        ${mStat(p.killsOnFoot, 'Kills')}
+        ${mStat(p.deathsOnFoot, 'Deaths')}
+        ${mStat(p.kdFoot.toFixed(2), 'K/D')}
+        ${mStat(p.tkOnFoot, 'Teamkills')}
+        ${mStat(p.shotsOnFoot, 'Shots Fired')}
+        ${mStat(p.spkFoot != null ? p.spkFoot.toFixed(1) : '—', 'Shots / Kill')}
+        ${mStat(p.maxLongestFoot ? p.maxLongestFoot + 'm' : '—', 'Longest Kill')}
+        ${mStat(p.avgDistFoot ? Math.round(p.avgDistFoot) + 'm' : '—', 'Avg Kill Dist')}
+      </div>
+    </div>`;
+
+  // ── Section 2: Weapon breakdown ──
+  const weapons = Object.entries(p.weaponKills || {}).sort((a,b) => b[1]-a[1]);
+  let weaponHTML = '<div class="modal-section"><h3>Weapon Kill Breakdown</h3>';
+  if (weapons.length === 0) {
+    weaponHTML += '<p style="color:#888;font-size:0.82rem">No weapon data available — re-import missions with the updated script to populate this.</p>';
+  } else {
+    const maxW = weapons[0][1];
+    // Weapon accuracy: shots per kill — approximate by distributing total shots proportionally
+    const totalKillsW = weapons.reduce((s,[,c]) => s+c, 0);
+    weapons.slice(0, 15).forEach(([weapon, kills]) => {
+      const pct = (kills / maxW * 100).toFixed(1);
+      const spk = p.spkFoot != null && totalKillsW > 0
+        ? (p.shotsOnFoot * (kills / totalKillsW) / kills).toFixed(1)
+        : null;
+      weaponHTML += `
+        <div class="weapon-bar-row">
+          <div class="weapon-label" title="${weapon}">${weapon}</div>
+          <div class="weapon-track"><div class="weapon-fill" style="width:${pct}%"></div></div>
+          <div class="weapon-val">${kills}</div>
+          <div style="font-size:0.72rem;color:#888;width:70px;text-align:right">${spk ? spk+' shots/kill' : ''}</div>
+        </div>`;
+    });
+  }
+  weaponHTML += '</div>';
+
+  // ── Section 3: Best single mission ──
+  const mRows = p.missionRows || [];
+  let bestHTML = '<div class="modal-section"><h3>Best Single Mission</h3>';
+  if (mRows.length > 0) {
+    const best = mRows.reduce((b, r) => {
+      const k = NUM(r["Kills (On Foot)"]);
+      return k > NUM(b["Kills (On Foot)"]) ? r : b;
+    }, mRows[0]);
+    const bk  = NUM(best["Kills (On Foot)"]);
+    const bd  = NUM(best["Deaths (On Foot)"]);
+    const bkd = bd > 0 ? (bk/bd).toFixed(2) : bk.toFixed(2);
+    const btk = NUM(best["Teamkills (On Foot)"]);
+    const blk = NUM(best["Longest Kill On Foot (m)"]);
+    bestHTML += `
+      <div class="best-mission-card">
+        <div class="bm-name">${best["Mission"] || best["Source File"] || '—'}</div>
+        <div class="bm-stats">
+          <span>⚔️ ${bk} kills</span>
+          <span>💀 ${bd} deaths</span>
+          <span>📊 K/D ${bkd}</span>
+          ${btk > 0 ? '<span>⚠️ ' + btk + ' TK</span>' : ''}
+          ${blk > 0 ? '<span>🎯 ' + blk + 'm longest</span>' : ''}
+        </div>
+      </div>`;
+  } else {
+    bestHTML += '<p style="color:#888;font-size:0.82rem">No mission data available.</p>';
+  }
+  bestHTML += '</div>';
+
+  // ── Section 4: Kill breakdown by mission ──
+  let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
+  missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
+
+  const sortedRows = [...mRows].sort((a,b) => NUM(b["Kills (On Foot)"]) - NUM(a["Kills (On Foot)"]));
+  sortedRows.forEach((r, i) => {
+    const k  = NUM(r["Kills (On Foot)"]);
+    const d  = NUM(r["Deaths (On Foot)"]);
+    const kd = d > 0 ? (k/d).toFixed(2) : k.toFixed(2);
+    const tk = NUM(r["Teamkills (On Foot)"]);
+    const sh = NUM(r["Shots (On Foot)"]);
+    const spk = k > 0 ? (sh/k).toFixed(1) : '—';
+    const lk = NUM(r["Longest Kill On Foot (m)"]);
+    const bg = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    missionHTML += `<tr style="${bg}">
+      <td>${r["Mission"] || r["Source File"] || '—'}</td>
+      <td>${k}</td><td>${d}</td>
+      <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
+      <td${tk>0?' style="color:var(--red);font-weight:700"':''}>${tk}</td>
+      <td>${sh}</td><td>${spk}</td>
+      <td>${lk || '—'}</td>
+    </tr>`;
+  });
+  missionHTML += '</tbody></table></div>';
+
+  body.innerHTML = overallHTML + weaponHTML + bestHTML + missionHTML;
+  document.getElementById('playerModal').classList.add('open');
+}
+
+function mStat(val, lbl) {
+  return `<div class="modal-stat"><div class="ms-val">${val}</div><div class="ms-lbl">${lbl}</div></div>`;
+}
+
 // ── INFANTRY TABLE ───────────────────────────────────────────────────────
 const INF_COLS = [
   { label: "#",       key: "_rank",        numeric: false, sortKey: null },
@@ -758,7 +985,7 @@ function renderInfantryTable() {
       const cls = col.css ? col.css(p[col.key]) : "";
       return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
     });
-    return `<tr${hasTK ? ' class="tk-row"' : ""}>${cells.join("")}</tr>`;
+    return `<tr${hasTK ? ' class="tk-row"' : ""} onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
   }).join("");
 }
 
@@ -810,7 +1037,7 @@ function renderVehicleTable() {
       const cls = col.css ? col.css(p[col.key]) : "";
       return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
     });
-    return `<tr>${cells.join("")}</tr>`;
+    return `<tr onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
   }).join("");
 }
 
