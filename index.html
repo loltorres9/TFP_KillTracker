@@ -1073,7 +1073,8 @@ function filterToPlayer(playerName) {
   } else {
     selectedPlayers.add(playerName);
   }
-  applyFilters();
+  refreshPills();
+  filterChanged();
 }
 
 function openPlayerModal(playerName) {
