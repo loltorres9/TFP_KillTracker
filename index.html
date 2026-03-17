@@ -499,8 +499,7 @@ function buildAggregates() {
 
     // Weapons + mission rows (for modal)
     try {
-      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)
-"] || "{}";
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
         p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
@@ -711,8 +710,7 @@ function applyFilters() {
 
     // Weapons + mission rows (for modal)
     try {
-      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)
-"] || "{}";
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
         p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
