@@ -393,7 +393,7 @@ fetch(CSV_URL)
   .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
   .then(csv => {
     const lines = csv.trim().split("\n");
-    const header = lines[0].split(",").map(h => h.replace(/"/g,"").trim());
+    const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
       // Handle CSV fields with commas in quotes
       const cols = parseCSVLine(line);
@@ -401,7 +401,7 @@ fetch(CSV_URL)
       header.forEach((h,i) => {
         const raw = cols[i] || "";
         // Don't strip quotes from JSON columns
-        obj[h] = h === "Weapon Kills (JSON)" ? raw.trim() : raw.replace(/"/g,"").trim();
+        obj[h] = h === "Weapon Kills (JSON)" ? raw.trim() : raw.replace(/"/g,"").replace(/\r/g,"").trim();
       });
       return obj;
     }).filter(r => r["Username"]);
