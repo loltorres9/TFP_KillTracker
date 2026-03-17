@@ -422,9 +422,17 @@ function parseCSVLine(line) {
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (c === '"') { inQuotes = !inQuotes; }
-    else if (c === ',' && !inQuotes) { result.push(cur); cur = ""; }
-    else { cur += c; }
+    if (c === '"') {
+      if (inQuotes && line[i+1] === '"') {
+        cur += '"'; i++; // escaped quote "" -> "
+      } else {
+        inQuotes = !inQuotes; // toggle quoted mode, don't add the delimiter quote
+      }
+    } else if (c === ',' && !inQuotes) {
+      result.push(cur); cur = "";
+    } else {
+      cur += c;
+    }
   }
   result.push(cur);
   return result;
