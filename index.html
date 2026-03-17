@@ -189,6 +189,7 @@
   }
   .modal-stat .ms-val { font-family: 'Oswald', sans-serif; font-size: 1.2rem; color: var(--charcoal); }
   .modal-stat .ms-lbl { font-size: 0.7rem; color: #888; margin-top: 2px; }
+  .modal-stat .ms-sub { font-size: 0.68rem; color: #aaa; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
   .weapon-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .weapon-label { font-size: 0.78rem; width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .weapon-track { flex: 1; background: var(--bg); border-radius: 3px; height: 14px; }
@@ -898,7 +899,7 @@ function openPlayerModal(playerName) {
         ${mStat(p.tkOnFoot, 'Teamkills')}
         ${mStat(p.shotsOnFoot, 'Shots Fired')}
         ${mStat(p.spkFoot != null ? p.spkFoot.toFixed(1) : '—', 'Shots / Kill')}
-        ${mStat(p.maxLongestFoot ? p.maxLongestFoot + 'm' : '—', 'Longest Kill')}
+        ${mStat(p.maxLongestFoot ? p.maxLongestFoot + 'm' : '—', 'Longest Kill', p.longestKillWeapon || '')}
         ${mStat(p.avgDistFoot ? Math.round(p.avgDistFoot) + 'm' : '—', 'Avg Kill Dist')}
       </div>
     </div>`;
@@ -954,27 +955,34 @@ function openPlayerModal(playerName) {
   }
   bestHTML += '</div>';
 
-  // ── Section 4: Kill breakdown by mission ──
+  // ── Section 4: Kill breakdown by mission (merge rows with identical mission names) ──
   let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
   missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
 
-  const sortedRows = [...mRows].sort((a,b) => NUM(b["Kills (On Foot)"]) - NUM(a["Kills (On Foot)"]));
-  sortedRows.forEach((r, i) => {
-    const k  = NUM(r["Kills (On Foot)"]);
-    const d  = NUM(r["Deaths (On Foot)"]);
-    const kd = d > 0 ? (k/d).toFixed(2) : k.toFixed(2);
-    const tk = NUM(r["Teamkills (On Foot)"]);
-    const sh = NUM(r["Shots (On Foot)"]);
-    const spk = k > 0 ? (sh/k).toFixed(1) : '—';
-    const lk = NUM(r["Longest Kill On Foot (m)"]);
-    const bg = i % 2 === 1 ? 'background:#f9f9f9' : '';
+  const missionMap = {};
+  mRows.forEach(r => {
+    const key = r["Mission"] || r["Source File"] || '—';
+    if (!missionMap[key]) missionMap[key] = { mission: key, k: 0, d: 0, tk: 0, sh: 0, lk: 0 };
+    const m = missionMap[key];
+    m.k  += NUM(r["Kills (On Foot)"]);
+    m.d  += NUM(r["Deaths (On Foot)"]);
+    m.tk += NUM(r["Teamkills (On Foot)"]);
+    m.sh += NUM(r["Shots (On Foot)"]);
+    m.lk  = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
+  });
+  const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
+
+  mergedMissions.forEach((m, i) => {
+    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
+    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
+    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
     missionHTML += `<tr style="${bg}">
-      <td>${r["Mission"] || r["Source File"] || '—'}</td>
-      <td>${k}</td><td>${d}</td>
+      <td>${m.mission}</td>
+      <td>${m.k}</td><td>${m.d}</td>
       <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
-      <td${tk>0?' style="color:var(--red);font-weight:700"':''}>${tk}</td>
-      <td>${sh}</td><td>${spk}</td>
-      <td>${lk || '—'}</td>
+      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk}</td>
+      <td>${m.sh}</td><td>${spk}</td>
+      <td>${m.lk || '—'}</td>
     </tr>`;
   });
   missionHTML += '</tbody></table></div>';
@@ -983,8 +991,8 @@ function openPlayerModal(playerName) {
   document.getElementById('playerModal').classList.add('open');
 }
 
-function mStat(val, lbl) {
-  return `<div class="modal-stat"><div class="ms-val">${val}</div><div class="ms-lbl">${lbl}</div></div>`;
+function mStat(val, lbl, sub) {
+  return `<div class="modal-stat"><div class="ms-val">${val}</div><div class="ms-lbl">${lbl}</div>${sub ? `<div class="ms-sub" title="${sub}">${sub}</div>` : ''}</div>`;
 }
 
 // ── INFANTRY TABLE ───────────────────────────────────────────────────────
