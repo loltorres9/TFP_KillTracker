@@ -904,19 +904,16 @@ function openPlayerModal(playerName) {
     weaponHTML += '<p style="color:#888;font-size:0.82rem">No weapon data available — re-import missions with the updated script to populate this.</p>';
   } else {
     const maxW = weapons[0][1];
-    // Weapon accuracy: shots per kill — approximate by distributing total shots proportionally
     const totalKillsW = weapons.reduce((s,[,c]) => s+c, 0);
     weapons.slice(0, 15).forEach(([weapon, kills]) => {
       const pct = (kills / maxW * 100).toFixed(1);
-      const spk = p.spkFoot != null && totalKillsW > 0
-        ? (p.shotsOnFoot * (kills / totalKillsW) / kills).toFixed(1)
-        : null;
+      const sharePct = (kills / totalKillsW * 100).toFixed(0);
       weaponHTML += `
         <div class="weapon-bar-row">
           <div class="weapon-label" title="${weapon}">${weapon}</div>
           <div class="weapon-track"><div class="weapon-fill" style="width:${pct}%"></div></div>
           <div class="weapon-val">${kills}</div>
-          <div style="font-size:0.72rem;color:#888;width:70px;text-align:right">${spk ? spk+' shots/kill' : ''}</div>
+          <div style="font-size:0.72rem;color:#888;width:50px;text-align:right">${sharePct}%</div>
         </div>`;
     });
   }
