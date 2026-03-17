@@ -90,12 +90,11 @@
     font-family: 'Open Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
   }
   .btn-back:hover { background: var(--charcoal-light); }
-  .btn-career {
-    margin-top: 6px; padding: 5px 12px; background: var(--charcoal); color: white;
-    border: none; border-radius: 4px; font-size: 0.78rem; cursor: pointer;
-    font-family: 'Open Sans', sans-serif;
+  .career-icon-btn {
+    background: none; border: none; cursor: pointer; font-size: 0.85rem;
+    margin-left: 6px; opacity: 0.45; vertical-align: middle; padding: 0 2px;
   }
-  .btn-career:hover { background: var(--charcoal-light); }
+  .career-icon-btn:hover { opacity: 1; }
   .career-header-name { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--charcoal); }
   .career-header-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
 
@@ -300,7 +299,6 @@
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
           <div class="pills-container" id="playerPills"></div>
-          <button id="careerBtn" class="btn-career" style="display:none" onclick="openCareerPage([...selectedPlayers][0])">View Career Stats →</button>
         </div>
         <div class="filter-group">
           <label>Missions</label>
@@ -674,9 +672,6 @@ function refreshPills() {
     refreshPills();
     filterChanged();
   });
-
-  const careerBtn = document.getElementById("careerBtn");
-  careerBtn.style.display = selectedPlayers?.size === 1 ? "" : "none";
 }
 
 function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
@@ -1066,7 +1061,6 @@ function closeCareerPage() {
 
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('careerBtn').style.display     = 'none';
   document.getElementById('statsBar').style.display      = '';
   document.querySelector('.chart-section').style.display = '';
   document.querySelector('.filter-panel').style.display  = '';
@@ -1112,6 +1106,7 @@ function renderInfantryTable() {
     const hasTK = p.tkOnFoot > 0;
     const cells = INF_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
@@ -1163,6 +1158,7 @@ function renderVehicleTable() {
                     rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
     const cells = VEH_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
