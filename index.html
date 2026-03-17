@@ -195,11 +195,12 @@
   .modal-header .modal-sub { font-size: 0.82rem; margin-top: 8px; display: flex; gap: 40px; flex-wrap: wrap; }
   .modal-header .modal-sub .co-col { line-height: 1.9; }
   .modal-header .modal-sub b { font-weight: 700; }
-  .modal-close {
-    background: none; border: none; color: white; font-size: 1.6rem;
-    cursor: pointer; padding: 0 4px; line-height: 1;
+  .modal-close, .modal-maximize {
+    background: none; border: none; color: white; cursor: pointer; padding: 0 4px; line-height: 1;
   }
-  .modal-close:hover { opacity: 0.7; }
+  .modal-close { font-size: 1.6rem; }
+  .modal-maximize { font-size: 1.2rem; opacity: 0.8; }
+  .modal-close:hover, .modal-maximize:hover { opacity: 0.7; }
   .modal-body { padding: 20px 24px; }
   .modal-section { margin-bottom: 24px; }
   .modal-section h3 {
@@ -370,7 +371,10 @@
             <h2 id="modalPlayerName">Player</h2>
             <div class="modal-sub" id="modalPlayerSub"></div>
           </div>
-          <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('open')">✕</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="modal-maximize" id="modalMaximizeBtn" title="Full career page">&#x26F6;</button>
+            <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('open')">✕</button>
+          </div>
         </div>
         <div class="modal-body" id="modalBody"></div>
       </div>
@@ -391,6 +395,10 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXM
 
 const NUM = v => parseFloat(v) || 0;
 
+function normalizeRole(role) {
+  return role.trim().replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '').trim();
+}
+
 let rawRows = [];    // one entry per CSV row
 let aggPlayers = {}; // aggregated by player name across missions
 let filteredPlayers = [];
@@ -399,6 +407,7 @@ let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
 let vehSortAsc = false;
+let currentModalPlayer = null;
 
 // ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
 // Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
@@ -505,11 +514,18 @@ function buildAggregates() {
         weaponKills: {},
         missionRows: [],
         longestKillWeapon: "",  // weapon used for the longest kill
+        roleCounts: {},
       };
     }
     const p = aggPlayers[name];
     const mission = r["Mission"] || r["Mission\r"] || "";
     p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
     const world = r["World"] || "";
     if (world) p.worlds.add(world);
 
@@ -573,6 +589,8 @@ function buildAggregates() {
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
   });
 }
 
@@ -733,11 +751,18 @@ function applyFilters() {
         maxLongestVeh: 0, avgDistVehSum: 0, avgDistVehN: 0,
         weaponKills: {},   // weapon -> total kills across missions
         missionRows: [],   // raw per-mission rows for modal
+        roleCounts: {},    // normalized role -> appearances
       };
     }
     const p = tempAgg[name];
     const mission = r["Mission"] || "";
     p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
 
     const kof  = NUM(r["Kills (On Foot)"]);
     const dof  = NUM(r["Deaths (On Foot)"]);
@@ -788,6 +813,8 @@ function applyFilters() {
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
   });
 
   filteredPlayers = Object.values(tempAgg).filter(p => {
@@ -1027,12 +1054,18 @@ function openPlayerModal(playerName) {
   const p = filteredPlayers.find(x => x.name === playerName);
   if (!p) return;
 
+  currentModalPlayer = playerName;
   document.getElementById('modalPlayerName').textContent = p.name;
   const _mml = p.missions ? [...p.missions] : [];
   const _mActive = _mml.length > 1 ? `${_mml[0]} – ${_mml[_mml.length - 1]}` : (_mml[0] || '—');
   document.getElementById('modalPlayerSub').innerHTML =
     `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
-    `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>`;
+    `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>` +
+    (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole}</div></div>` : '');
+  document.getElementById('modalMaximizeBtn').onclick = () => {
+    document.getElementById('playerModal').classList.remove('open');
+    openCareerPage(currentModalPlayer);
+  };
 
   const body = document.getElementById('modalBody');
   body.innerHTML = buildCareerStatsHTML(p);
@@ -1055,7 +1088,8 @@ function openCareerPage(playerName) {
   const _cml = p.missions ? [...p.missions] : [];
   const _cActive = _cml.length > 1 ? `${_cml[0]} – ${_cml[_cml.length - 1]}` : (_cml[0] || '—');
   document.getElementById('careerPlayerSub').textContent =
-    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}`;
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.topRole ? `   ·   Top Role: ${p.topRole}` : '');
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display         = 'none';
