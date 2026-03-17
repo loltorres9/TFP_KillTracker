@@ -293,6 +293,14 @@
           <option value="regular">Regular Op</option>
         </select>
       </div>
+      <div style="margin-top:12px">
+        <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Players</div>
+        <select class="event-type-select" id="zeusFilterSelect">
+          <option value="all">All Players</option>
+          <option value="no-zeus">Hide Zeus</option>
+          <option value="zeus-only">Zeus Only</option>
+        </select>
+      </div>
     </div>
 
     <!-- Infantry table -->
@@ -378,6 +386,7 @@ function isJointOp(filename) {
 
 let showJointOps   = true;
 let showRegularEvents = true;
+let zeusFilter = "all";
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
 fetch(CSV_URL)
@@ -432,6 +441,7 @@ function buildAggregates() {
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
         shotsOnFoot: 0, hitsOnFoot: 0,
         killDistOnFoot: [], // collect distances for avg/max
+        suicides: 0,
         // In-vehicle
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
@@ -473,6 +483,7 @@ function buildAggregates() {
     p.tkOnFoot     += tkof;
     p.shotsOnFoot  += sof;
     p.hitsOnFoot   += hof;
+    p.suicides     += NUM(r["Suicides"]) || 0;
     if (lof > p.maxLongestFoot) p.maxLongestFoot = lof;
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
 
@@ -545,12 +556,19 @@ function buildFilters() {
     document.getElementById("playerSearch").value   = "";
     document.getElementById("missionSearch").value  = "";
     document.getElementById("eventTypeSelect").value = "both";
+    document.getElementById("zeusFilterSelect").value = "all";
+    zeusFilter = "all";
     refreshPills();
     filterChanged();
   };
 
   document.getElementById("playerSearch").oninput  = refreshPills;
   document.getElementById("missionSearch").oninput = refreshPills;
+  document.getElementById("zeusFilterSelect").onchange = () => {
+    zeusFilter = document.getElementById("zeusFilterSelect").value;
+    selectedPlayers = null; selectedMissions = null;
+    refreshPills(); filterChanged();
+  };
 
   refreshPills();
 }
@@ -649,7 +667,7 @@ function applyFilters() {
         name,
         missions: new Set(),
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
-        shotsOnFoot: 0, hitsOnFoot: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0,
         maxLongestFoot: 0, avgDistFootSum: 0, avgDistFootN: 0,
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
@@ -713,7 +731,16 @@ function applyFilters() {
     p.missionCount = p.missions.size;
   });
 
-  filteredPlayers = Object.values(tempAgg);
+  filteredPlayers = Object.values(tempAgg).filter(p => {
+    const playerOk = selectedPlayers === null || selectedPlayers.has(p.name);
+    const isZeus = p.missionRows && p.missionRows.some(r =>
+      (r["Group"] || "").toLowerCase() === "zeus"
+    );
+    const zeusOk = zeusFilter === "all"
+      || (zeusFilter === "no-zeus"   && !isZeus)
+      || (zeusFilter === "zeus-only" &&  isZeus);
+    return playerOk && zeusOk;
+  });
 
   const totalCount = Object.keys(aggPlayers).length;
   const parts = [];
@@ -956,6 +983,7 @@ const INF_COLS = [
   { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot" },
   { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass },
+  { label: "Suicides", key: "suicides",     numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "" },
   { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot" },
   { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot" },
   { label: "Shots/Kill", key: "spkFoot",   numeric: true,  sortKey: "spkFoot",  fmt: v => v != null ? v.toFixed(1) : "—" },
