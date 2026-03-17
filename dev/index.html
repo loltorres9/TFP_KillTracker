@@ -75,6 +75,19 @@
   }
   .btn-reset:hover { background: var(--bg); }
 
+  /* ── PILL MODE TOGGLE ── */
+  .pill-mode-toggle {
+    display: flex; gap: 0; margin-bottom: 6px;
+    border: 1px solid var(--charcoal); border-radius: 4px; overflow: hidden;
+    width: fit-content;
+  }
+  .pill-mode-btn {
+    background: transparent; border: none; padding: 3px 10px;
+    font-size: 0.72rem; cursor: pointer; color: #aaa;
+    font-family: 'Open Sans', sans-serif; letter-spacing: 0.03em;
+  }
+  .pill-mode-btn.active { background: var(--charcoal); color: white; }
+
   /* ── CAREER VIEW ── */
   .career-pills-label {
     font-size: 0.72rem; color: var(--charcoal); font-weight: 600;
@@ -293,7 +306,10 @@
         <div class="filter-group">
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
-          <div class="career-pills-label">Player Career Stats</div>
+          <div class="pill-mode-toggle">
+            <button id="modeFilter" class="pill-mode-btn active" onclick="setPillMode('filter')">Filter</button>
+            <button id="modeCareer" class="pill-mode-btn" onclick="setPillMode('career')">Career View</button>
+          </div>
           <div class="pills-container" id="playerPills"></div>
         </div>
         <div class="filter-group">
@@ -581,6 +597,7 @@ function buildUI() {
 // selectedPlayers / selectedMissions = null means "all", Set means explicit selection
 let selectedPlayers  = null;
 let selectedMissions = null;
+let pillMode = "filter";
 
 function buildFilters() {
   // Wire up event type toggles
@@ -656,7 +673,35 @@ function refreshPills() {
     filterChanged();
   });
 
-  renderCareerPills("playerPills", availPlayers, "playerSearch");
+  if (pillMode === "career") {
+    renderCareerPills("playerPills", availPlayers, "playerSearch");
+  } else {
+    renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
+      if (set === null) {
+        selectedPlayers = new Set([item]);
+      } else if (set.has(item)) {
+        set.delete(item);
+        selectedPlayers = set.size > 0 ? set : null;
+      } else {
+        set.add(item);
+      }
+      refreshPills();
+      filterChanged();
+    });
+  }
+}
+
+function setPillMode(mode) {
+  pillMode = mode;
+  document.getElementById("modeFilter").classList.toggle("active", mode === "filter");
+  document.getElementById("modeCareer").classList.toggle("active", mode === "career");
+  if (mode === "filter" && selectedPlayers !== null) {
+    // keep current selection
+  } else if (mode === "career") {
+    selectedPlayers = null; // clear filter when switching to career mode
+    filterChanged();
+  }
+  refreshPills();
 }
 
 function renderCareerPills(containerId, items, searchId) {
