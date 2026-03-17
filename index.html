@@ -495,7 +495,7 @@ function buildAggregates() {
     p.tkOnFoot     += tkof;
     p.shotsOnFoot  += sof;
     p.hitsOnFoot   += hof;
-    p.suicides     += NUM(r["Suicides"]) || 0;
+    p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
     if (lof > p.maxLongestFoot) p.maxLongestFoot = lof;
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
 
@@ -1035,7 +1035,6 @@ const VEH_COLS = [
   { label: "Deaths (Veh)", key: "deathsInVeh", numeric: true,  sortKey: "deathsInVeh" },
   { label: "K/D (Veh)", key: "kdVeh",          numeric: true,  sortKey: "kdVeh",  fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK (Veh)", key: "tkInVeh",         numeric: true,  sortKey: "tkInVeh", css: tkClass },
-  { label: "Veh Kills (Foot)", key: "vehKillsFoot",  numeric: true, sortKey: "vehKillsFoot" },
   { label: "Veh Kills (Veh)",  key: "vehKillsVeh",   numeric: true, sortKey: "vehKillsVeh" },
   { label: "Shots (Veh)", key: "shotsInVeh",   numeric: true,  sortKey: "shotsInVeh" },
   { label: "Hits Taken (Veh)", key: "hitsInVeh", numeric: true, sortKey: "hitsInVeh" },
