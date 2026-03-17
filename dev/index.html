@@ -1065,10 +1065,13 @@ function buildCareerStatsHTML(p) {
 }
 
 function filterToPlayer(playerName) {
-  if (selectedPlayers && selectedPlayers.size === 1 && selectedPlayers.has(playerName)) {
-    selectedPlayers = null;
-  } else {
+  if (selectedPlayers === null) {
     selectedPlayers = new Set([playerName]);
+  } else if (selectedPlayers.has(playerName)) {
+    selectedPlayers.delete(playerName);
+    if (selectedPlayers.size === 0) selectedPlayers = null;
+  } else {
+    selectedPlayers.add(playerName);
   }
   applyFilters();
 }
