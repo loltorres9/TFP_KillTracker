@@ -75,6 +75,30 @@
   }
   .btn-reset:hover { background: var(--bg); }
 
+  /* ── CAREER VIEW ── */
+  .career-pills-label {
+    font-size: 0.72rem; color: var(--charcoal); font-weight: 600;
+    margin: 6px 0 4px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .career-header {
+    background: var(--white); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px;
+  }
+  .btn-back {
+    padding: 6px 14px; background: var(--charcoal); color: white;
+    border: none; border-radius: 4px; font-size: 0.82rem; cursor: pointer;
+    font-family: 'Open Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-back:hover { background: var(--charcoal-light); }
+  .career-icon-btn {
+    background: none; border: none; cursor: pointer; font-size: 0.85rem;
+    margin-left: 6px; opacity: 0.45; vertical-align: middle; padding: 0 2px;
+  }
+  .career-icon-btn:hover { opacity: 1; }
+
+  .career-header-name { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--charcoal); }
+  .career-header-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
+
   /* ── SECTION HEADER ── */
   .section-header {
     font-family: 'Oswald', sans-serif; font-size: 1.1rem;
@@ -92,10 +116,10 @@
     background: var(--charcoal); color: white;
     padding: 9px 8px; font-family: 'Oswald', sans-serif;
     font-size: 0.79rem; font-weight: 600; letter-spacing: 0.2px;
-    white-space: nowrap; text-align: right; cursor: pointer;
+    white-space: nowrap; text-align: center; cursor: pointer;
     user-select: none;
   }
-  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+  thead th:nth-child(2) { text-align: left; }
   thead th:hover { background: var(--charcoal-light); }
   thead th .sort-arrow { margin-left: 4px; opacity: 0.6; font-size: 0.7rem; }
   tbody tr { border-bottom: 1px solid var(--border); }
@@ -103,7 +127,7 @@
   tbody tr.tk-row { background: var(--tk-bg); }
   tbody tr.tk-row:hover { background: #ffe0e0; }
   tbody td {
-    padding: 7px 8px; font-size: 0.82rem; text-align: right; white-space: nowrap;
+    padding: 7px 8px; font-size: 0.82rem; text-align: center; white-space: nowrap;
   }
   tbody td:first-child { text-align: center; font-weight: 700; font-family: 'Oswald', sans-serif; font-size: 1rem; }
   tbody td:nth-child(2) { text-align: left; font-weight: 600; }
@@ -169,12 +193,15 @@
     position: sticky; top: 0; z-index: 1;
   }
   .modal-header h2 { font-family: 'Oswald', sans-serif; font-size: 1.3rem; margin: 0; }
-  .modal-header .modal-sub { font-size: 0.78rem; opacity: 0.7; margin-top: 3px; }
-  .modal-close {
-    background: none; border: none; color: white; font-size: 1.6rem;
-    cursor: pointer; padding: 0 4px; line-height: 1;
+  .modal-header .modal-sub { font-size: 0.82rem; margin-top: 8px; display: flex; gap: 40px; flex-wrap: wrap; }
+  .modal-header .modal-sub .co-col { line-height: 1.9; }
+  .modal-header .modal-sub b { font-weight: 700; }
+  .modal-close, .modal-maximize {
+    background: none; border: none; color: white; cursor: pointer; padding: 0 4px; line-height: 1;
   }
-  .modal-close:hover { opacity: 0.7; }
+  .modal-close { font-size: 1.6rem; }
+  .modal-maximize { font-size: 1.2rem; opacity: 0.8; }
+  .modal-close:hover, .modal-maximize:hover { opacity: 0.7; }
   .modal-body { padding: 20px 24px; }
   .modal-section { margin-bottom: 24px; }
   .modal-section h3 {
@@ -275,6 +302,7 @@
         <div class="filter-group">
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
+          <div class="career-pills-label">Player Career Stats</div>
           <div class="pills-container" id="playerPills"></div>
         </div>
         <div class="filter-group">
@@ -305,6 +333,18 @@
       </div>
     </div>
 
+    <!-- Career view header (hidden in leaderboard mode) -->
+    <div id="careerHeader" class="career-header" style="display:none">
+      <button class="btn-back" onclick="closeCareerPage()">← Back to Leaderboard</button>
+      <div>
+        <div class="career-header-name" id="careerPlayerName"></div>
+        <div class="career-header-sub" id="careerPlayerSub"></div>
+      </div>
+    </div>
+
+    <!-- Career inline stats (hidden in leaderboard mode) -->
+    <div id="careerStats" style="display:none"></div>
+
     <!-- Infantry table -->
     <div class="section-header">Infantry Combat Stats (On Foot)</div>
     <div class="table-wrap">
@@ -332,7 +372,10 @@
             <h2 id="modalPlayerName">Player</h2>
             <div class="modal-sub" id="modalPlayerSub"></div>
           </div>
-          <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('open')">✕</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="modal-maximize" id="modalMaximizeBtn" title="Full career page">&#x26F6;</button>
+            <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('open')">✕</button>
+          </div>
         </div>
         <div class="modal-body" id="modalBody"></div>
       </div>
@@ -353,6 +396,20 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXM
 
 const NUM = v => parseFloat(v) || 0;
 
+function normalizeRole(role) {
+  return role.trim()
+    .replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '')
+    .replace(/\s+(Red|Blue|Green|Yellow|White|Black|Orange|Purple|Teal|Pink|Cyan|Lime|Maroon|Navy|Olive|Silver|Violet|Magenta)$/i, '')
+    .trim();
+}
+
+function missionDate(missionName) {
+  const m = missionName.match(/\((\d{4}-\d{2}-\d{2})\)/);
+  if (!m) return missionName;
+  const [y, mo, d] = m[1].split('-');
+  return `${d}/${mo}/${y}`;
+}
+
 let rawRows = [];    // one entry per CSV row
 let aggPlayers = {}; // aggregated by player name across missions
 let filteredPlayers = [];
@@ -361,6 +418,7 @@ let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
 let vehSortAsc = false;
+let currentModalPlayer = null;
 
 // ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
 // Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
@@ -467,11 +525,18 @@ function buildAggregates() {
         weaponKills: {},
         missionRows: [],
         longestKillWeapon: "",  // weapon used for the longest kill
+        roleCounts: {},
       };
     }
     const p = aggPlayers[name];
     const mission = r["Mission"] || r["Mission\r"] || "";
     p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
     const world = r["World"] || "";
     if (world) p.worlds.add(world);
 
@@ -535,6 +600,9 @@ function buildAggregates() {
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
   });
 }
 
@@ -625,18 +693,24 @@ function refreshPills() {
     filterChanged();
   });
 
-  renderSelectablePills("playerPills", availPlayers, selectedPlayers, "playerSearch", (item, set) => {
-    if (set === null) {
-      selectedPlayers = new Set([item]);
-    } else if (set.has(item)) {
-      set.delete(item);
-      selectedPlayers = set.size > 0 ? set : null;
-    } else {
-      set.add(item);
-    }
-    refreshPills();
-    filterChanged();
-  });
+  renderCareerPills("playerPills", availPlayers, "playerSearch");
+}
+
+function renderCareerPills(containerId, items, searchId) {
+  const container = document.getElementById(containerId);
+  const searchVal = document.getElementById(searchId).value.toLowerCase();
+  container.innerHTML = "";
+  items
+    .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
+    .forEach(item => {
+      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = item;
+      pill.onclick = () => filterToPlayer(item);
+      pill.oncontextmenu = (e) => { e.preventDefault(); openCareerPage(item); };
+      container.appendChild(pill);
+    });
 }
 
 function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
@@ -690,11 +764,18 @@ function applyFilters() {
         maxLongestVeh: 0, avgDistVehSum: 0, avgDistVehN: 0,
         weaponKills: {},   // weapon -> total kills across missions
         missionRows: [],   // raw per-mission rows for modal
+        roleCounts: {},    // normalized role -> appearances
       };
     }
     const p = tempAgg[name];
     const mission = r["Mission"] || "";
     p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
 
     const kof  = NUM(r["Kills (On Foot)"]);
     const dof  = NUM(r["Deaths (On Foot)"]);
@@ -745,6 +826,9 @@ function applyFilters() {
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
   });
 
   filteredPlayers = Object.values(tempAgg).filter(p => {
@@ -877,17 +961,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
 });
 
-function openPlayerModal(playerName) {
-  const p = filteredPlayers.find(x => x.name === playerName);
-  if (!p) return;
-
-  document.getElementById('modalPlayerName').textContent = p.name;
-  document.getElementById('modalPlayerSub').textContent =
-    p.missionCount + ' mission(s) · ' + (p.missions ? [...p.missions].join(', ') : '');
-
-  const body = document.getElementById('modalBody');
-  body.innerHTML = '';
-
+function buildCareerStatsHTML(p) {
   // ── Section 1: Overall stats summary ──
   const overallHTML = `
     <div class="modal-section">
@@ -955,7 +1029,7 @@ function openPlayerModal(playerName) {
   }
   bestHTML += '</div>';
 
-  // ── Section 4: Kill breakdown by mission (merge rows with identical mission names) ──
+  // ── Section 4: Kill breakdown by mission ──
   let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
   missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
 
@@ -987,12 +1061,95 @@ function openPlayerModal(playerName) {
   });
   missionHTML += '</tbody></table></div>';
 
-  body.innerHTML = overallHTML + weaponHTML + bestHTML + missionHTML;
+  return overallHTML + weaponHTML + bestHTML + missionHTML;
+}
+
+function filterToPlayer(playerName) {
+  if (selectedPlayers === null) {
+    selectedPlayers = new Set([playerName]);
+  } else if (selectedPlayers.has(playerName)) {
+    selectedPlayers.delete(playerName);
+    if (selectedPlayers.size === 0) selectedPlayers = null;
+  } else {
+    selectedPlayers.add(playerName);
+  }
+  refreshPills();
+  filterChanged();
+}
+
+function openPlayerModal(playerName) {
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+
+  currentModalPlayer = playerName;
+  document.getElementById('modalPlayerName').textContent = p.name;
+  const _mml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _mActive = _mml.length > 1 ? `${missionDate(_mml[0])} – ${missionDate(_mml[_mml.length - 1])}` : (_mml[0] ? missionDate(_mml[0]) : '—');
+  document.getElementById('modalPlayerSub').innerHTML =
+    `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
+    `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>` +
+    (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole} (${p.topRoleCount})</div></div>` : '');
+  document.getElementById('modalMaximizeBtn').onclick = () => {
+    document.getElementById('playerModal').classList.remove('open');
+    openCareerPage(currentModalPlayer);
+  };
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = buildCareerStatsHTML(p);
   document.getElementById('playerModal').classList.add('open');
 }
 
 function mStat(val, lbl, sub) {
   return `<div class="modal-stat"><div class="ms-val">${val}</div><div class="ms-lbl">${lbl}</div>${sub ? `<div class="ms-sub" title="${sub}">${sub}</div>` : ''}</div>`;
+}
+
+// ── CAREER PAGE ──────────────────────────────────────────────────────────
+function openCareerPage(playerName) {
+  selectedPlayers = new Set([playerName]);
+  applyFilters();
+
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+
+  document.getElementById('careerPlayerName').textContent = p.name;
+  const _cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
+  document.getElementById('careerPlayerSub').textContent =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+
+  document.getElementById('statsBar').style.display         = 'none';
+  document.getElementById('awardsRow').style.display        = 'none';
+  document.querySelector('.chart-section').style.display    = 'none';
+  document.querySelector('.filter-panel').style.display     = 'none';
+  document.getElementById('careerHeader').style.display     = '';
+  document.getElementById('careerStats').style.display      = '';
+
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+function closeCareerPage() {
+  selectedPlayers = null;
+
+  document.getElementById('careerHeader').style.display  = 'none';
+  document.getElementById('careerStats').style.display   = 'none';
+  document.getElementById('statsBar').style.display      = '';
+  document.querySelector('.chart-section').style.display = '';
+  document.querySelector('.filter-panel').style.display  = '';
+
+  applyFilters(); // renderLeader handles awardsRow visibility
+  refreshPills();
+  window.scrollTo(0, 0);
 }
 
 // ── INFANTRY TABLE ───────────────────────────────────────────────────────
@@ -1031,6 +1188,7 @@ function renderInfantryTable() {
     const hasTK = p.tkOnFoot > 0;
     const cells = INF_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
@@ -1082,6 +1240,7 @@ function renderVehicleTable() {
                     rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
     const cells = VEH_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
