@@ -90,11 +90,6 @@
     font-family: 'Open Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
   }
   .btn-back:hover { background: var(--charcoal-light); }
-  .career-icon-btn {
-    background: none; border: none; cursor: pointer; font-size: 0.85rem;
-    margin-left: 6px; opacity: 0.45; vertical-align: middle; padding: 0 2px;
-  }
-  .career-icon-btn:hover { opacity: 1; }
   .career-header-name { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--charcoal); }
   .career-header-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
 
@@ -687,6 +682,7 @@ function renderSelectablePills(containerId, items, selectedSet, searchId, onSele
       pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
       pill.onclick = () => onSelect(item, selectedSet);
+      pill.oncontextmenu = (e) => { e.preventDefault(); openCareerPage(item); };
       container.appendChild(pill);
     });
 }
@@ -1106,7 +1102,6 @@ function renderInfantryTable() {
     const hasTK = p.tkOnFoot > 0;
     const cells = INF_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
-      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
@@ -1158,7 +1153,6 @@ function renderVehicleTable() {
                     rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
     const cells = VEH_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
-      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
       let val = p[col.key];
       if (col.fmt) val = col.fmt(val);
       else if (val == null || val === "") val = "—";
