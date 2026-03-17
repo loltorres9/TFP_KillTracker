@@ -398,6 +398,7 @@ const NUM = v => parseFloat(v) || 0;
 
 function normalizeRole(role) {
   return role.trim()
+    .replace(/@.*$/, '')
     .replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '')
     .replace(/\s+(Red|Blue|Green|Yellow|White|Black|Orange|Purple|Teal|Pink|Cyan|Lime|Maroon|Navy|Olive|Silver|Violet|Magenta)$/i, '')
     .trim();
