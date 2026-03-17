@@ -90,12 +90,6 @@
     font-family: 'Open Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
   }
   .btn-back:hover { background: var(--charcoal-light); }
-  .btn-career {
-    margin-top: 6px; padding: 5px 12px; background: var(--charcoal); color: white;
-    border: none; border-radius: 4px; font-size: 0.78rem; cursor: pointer;
-    font-family: 'Open Sans', sans-serif;
-  }
-  .btn-career:hover { background: var(--charcoal-light); }
   .career-header-name { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--charcoal); }
   .career-header-sub { font-size: 0.78rem; color: #888; margin-top: 2px; }
 
@@ -300,7 +294,6 @@
           <label>Players</label>
           <input type="text" class="filter-search" id="playerSearch" placeholder="Search players…">
           <div class="pills-container" id="playerPills"></div>
-          <button id="careerBtn" class="btn-career" style="display:none" onclick="openCareerPage([...selectedPlayers][0])">View Career Stats →</button>
         </div>
         <div class="filter-group">
           <label>Missions</label>
@@ -674,10 +667,8 @@ function refreshPills() {
     refreshPills();
     filterChanged();
   });
-
-  const careerBtn = document.getElementById("careerBtn");
-  careerBtn.style.display = selectedPlayers?.size === 1 ? "" : "none";
 }
+
 
 function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
   // selectedSet === null means "all active"; a Set means explicit selection
@@ -692,6 +683,7 @@ function renderSelectablePills(containerId, items, selectedSet, searchId, onSele
       pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
       pill.onclick = () => onSelect(item, selectedSet);
+      pill.oncontextmenu = (e) => { e.preventDefault(); openCareerPage(item); };
       container.appendChild(pill);
     });
 }
@@ -1066,7 +1058,6 @@ function closeCareerPage() {
 
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('careerBtn').style.display     = 'none';
   document.getElementById('statsBar').style.display      = '';
   document.querySelector('.chart-section').style.display = '';
   document.querySelector('.filter-panel').style.display  = '';
