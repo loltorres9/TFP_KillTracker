@@ -464,6 +464,7 @@ function buildAggregates() {
         avgDistVehSum: 0,  avgDistVehN: 0,
         weaponKills: {},
         missionRows: [],
+        longestKillWeapon: "",  // weapon used for the longest kill
       };
     }
     const p = aggPlayers[name];
@@ -496,7 +497,8 @@ function buildAggregates() {
     p.shotsOnFoot  += sof;
     p.hitsOnFoot   += hof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
-    if (lof > p.maxLongestFoot) p.maxLongestFoot = lof;
+    const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
+    if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
 
     p.killsInVeh  += kiv;
@@ -711,7 +713,9 @@ function applyFilters() {
 
     p.killsOnFoot  += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
     p.shotsOnFoot  += sof; p.hitsOnFoot   += hof;
-    if (lof > p.maxLongestFoot) p.maxLongestFoot = lof;
+    p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
+    if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
 
     p.killsInVeh  += kiv; p.deathsInVeh += div2; p.tkInVeh += tkiv;
@@ -825,8 +829,9 @@ function renderLeader() {
     .sort((a,b) => b.maxLongestFoot - a.maxLongestFoot)[0];
   if (byLong && byLong.maxLongestFoot > 0) {
     document.getElementById("aw-long-name").textContent = byLong.name;
+    const longWeapon = byLong.longestKillWeapon ? ` · ${byLong.longestKillWeapon}` : "";
     document.getElementById("aw-long-stat").textContent =
-      `${byLong.maxLongestFoot} m · avg ${Math.round(byLong.avgDistFoot)} m`;
+      `${byLong.maxLongestFoot} m · avg ${Math.round(byLong.avgDistFoot)} m${longWeapon}`;
   } else {
     document.getElementById("aw-long-name").textContent = "—";
     document.getElementById("aw-long-stat").textContent = "";
