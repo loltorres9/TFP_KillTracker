@@ -169,6 +169,19 @@
   .award-name  { font-family: 'Oswald', sans-serif; font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
   .award-stat  { font-size: 0.8rem; opacity: 0.85; margin-top: 3px; }
 
+  /* ── HALL LABELS ── */
+  .hall-label {
+    font-family: 'Oswald', sans-serif; font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 1.2px; text-transform: uppercase; color: #888;
+    margin-bottom: 6px;
+  }
+
+  /* ── SHAME CARDS ── */
+  .award-card.ac-shame-kd     { background: #b71c1c; color: white; }
+  .award-card.ac-shame-tk     { background: #e65100; color: white; }
+  .award-card.ac-shame-spk    { background: #827717; color: white; }
+  .award-card.ac-shame-hits   { background: #4e342e; color: white; }
+
   /* ── LOADING / ERROR ── */
   .loading { text-align: center; padding: 60px; font-size: 1rem; color: #888; }
   .error   { background: #fff0f0; border: 1px solid #ffcdd2; border-radius: 8px; padding: 18px; color: #b71c1c; margin: 20px 0; }
@@ -254,6 +267,7 @@
     <div class="stats-bar" id="statsBar"></div>
 
     <!-- Award cards -->
+    <div class="hall-label" id="hallFameLabel" style="display:none">🏆 Hall of Fame</div>
     <div class="awards-row" id="awardsRow" style="display:none">
       <div class="award-card ac-kills">
         <div class="award-icon">👑</div>
@@ -285,6 +299,43 @@
           <div class="award-label">K/D Player</div>
           <div class="award-name" id="aw-kda-name">—</div>
           <div class="award-stat" id="aw-kda-stat"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hall of Shame cards -->
+    <div class="hall-label" id="hallShameLabel" style="display:none">💀 Hall of Shame</div>
+    <div class="awards-row" id="shameRow" style="display:none">
+      <div class="award-card ac-shame-kd">
+        <div class="award-icon">🪦</div>
+        <div class="award-body">
+          <div class="award-label">Cannon Fodder</div>
+          <div class="award-name" id="sh-kd-name">—</div>
+          <div class="award-stat" id="sh-kd-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-tk">
+        <div class="award-icon">🤦</div>
+        <div class="award-body">
+          <div class="award-label">Teamkiller</div>
+          <div class="award-name" id="sh-tk-name">—</div>
+          <div class="award-stat" id="sh-tk-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-spk">
+        <div class="award-icon">🥔</div>
+        <div class="award-body">
+          <div class="award-label">Potato Aim</div>
+          <div class="award-name" id="sh-spk-name">—</div>
+          <div class="award-stat" id="sh-spk-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-hits">
+        <div class="award-icon">🧽</div>
+        <div class="award-body">
+          <div class="award-label">Bullet Sponge</div>
+          <div class="award-name" id="sh-hits-name">—</div>
+          <div class="award-stat" id="sh-hits-stat"></div>
         </div>
       </div>
     </div>
@@ -648,6 +699,9 @@ function _openCareerPageNoHistory(playerName) {
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
+  document.getElementById('hallFameLabel').style.display    = 'none';
+  document.getElementById('shameRow').style.display         = 'none';
+  document.getElementById('hallShameLabel').style.display   = 'none';
   document.querySelector('.chart-section').style.display    = 'none';
   document.querySelector('.filter-panel').style.display     = 'none';
   document.getElementById('careerHeader').style.display     = '';
@@ -952,10 +1006,18 @@ function renderChart() {
 
 // ── AWARD CARDS ──────────────────────────────────────────────────────────
 function renderLeader() {
-  const row = document.getElementById("awardsRow");
-  const eligible = filteredPlayers.filter(p => p.killsOnFoot > 0);
-  if (!eligible.length) { row.style.display = "none"; return; }
-  row.style.display = "flex";
+  const row       = document.getElementById("awardsRow");
+  const shameRow  = document.getElementById("shameRow");
+  const fameLabel = document.getElementById("hallFameLabel");
+  const shameLabel= document.getElementById("hallShameLabel");
+  const eligible  = filteredPlayers.filter(p => p.killsOnFoot > 0);
+  if (!eligible.length) {
+    row.style.display = shameRow.style.display = "none";
+    fameLabel.style.display = shameLabel.style.display = "none";
+    return;
+  }
+  row.style.display = shameRow.style.display = "flex";
+  fameLabel.style.display = shameLabel.style.display = "";
 
   // Executioner — most on-foot kills
   const byKills = [...eligible].sort((a,b) => b.killsOnFoot - a.killsOnFoot)[0];
@@ -999,6 +1061,58 @@ function renderLeader() {
   } else {
     document.getElementById("aw-kda-name").textContent = "—";
     document.getElementById("aw-kda-stat").textContent = "";
+  }
+
+  // ── HALL OF SHAME ────────────────────────────────────────────────────
+
+  // Cannon Fodder — worst K/D (min 3 kills to avoid flukes, must have died at least once)
+  const shameKd = [...eligible].filter(p => p.killsOnFoot >= 3 && p.deathsOnFoot > 0)
+    .sort((a,b) => a.kdFoot - b.kdFoot)[0];
+  if (shameKd) {
+    document.getElementById("sh-kd-name").textContent = shameKd.name;
+    document.getElementById("sh-kd-stat").textContent =
+      `${shameKd.kdFoot.toFixed(2)} K/D · ${shameKd.killsOnFoot}K / ${shameKd.deathsOnFoot}D`;
+  } else {
+    document.getElementById("sh-kd-name").textContent = "—";
+    document.getElementById("sh-kd-stat").textContent = "";
+  }
+
+  // Teamkiller — most total teamkills (on foot + vehicle)
+  const shameTk = [...filteredPlayers]
+    .map(p => ({ ...p, totalTK: p.tkOnFoot + p.tkInVeh }))
+    .filter(p => p.totalTK > 0)
+    .sort((a,b) => b.totalTK - a.totalTK)[0];
+  if (shameTk) {
+    document.getElementById("sh-tk-name").textContent = shameTk.name;
+    document.getElementById("sh-tk-stat").textContent =
+      `${shameTk.totalTK} teamkills (${shameTk.tkOnFoot} foot · ${shameTk.tkInVeh} veh)`;
+  } else {
+    document.getElementById("sh-tk-name").textContent = "—";
+    document.getElementById("sh-tk-stat").textContent = "";
+  }
+
+  // Potato Aim — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
+  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
+    .sort((a,b) => b.spkFoot - a.spkFoot)[0];
+  if (shameSpk) {
+    document.getElementById("sh-spk-name").textContent = shameSpk.name;
+    document.getElementById("sh-spk-stat").textContent =
+      `${shameSpk.spkFoot.toFixed(1)} shots/kill · ${shameSpk.killsOnFoot} kills`;
+  } else {
+    document.getElementById("sh-spk-name").textContent = "—";
+    document.getElementById("sh-spk-stat").textContent = "";
+  }
+
+  // Bullet Sponge — most hits taken on foot
+  const shameHits = [...filteredPlayers].filter(p => p.hitsOnFoot > 0)
+    .sort((a,b) => b.hitsOnFoot - a.hitsOnFoot)[0];
+  if (shameHits) {
+    document.getElementById("sh-hits-name").textContent = shameHits.name;
+    document.getElementById("sh-hits-stat").textContent =
+      `${shameHits.hitsOnFoot} hits taken`;
+  } else {
+    document.getElementById("sh-hits-name").textContent = "—";
+    document.getElementById("sh-hits-stat").textContent = "";
   }
 }
 
@@ -1186,6 +1300,9 @@ function openCareerPage(playerName) {
 
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
+  document.getElementById('hallFameLabel').style.display    = 'none';
+  document.getElementById('shameRow').style.display         = 'none';
+  document.getElementById('hallShameLabel').style.display   = 'none';
   document.querySelector('.chart-section').style.display    = 'none';
   document.querySelector('.filter-panel').style.display     = 'none';
   document.getElementById('careerHeader').style.display     = '';
