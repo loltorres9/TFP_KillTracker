@@ -311,7 +311,7 @@ function classifyPlayerUnits(rows) {
       });
       if (total === 0) return;
       const [bestUnit, bestScore] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-      // Assign only if the dominant unit accounts for ≥45% of co-occurrence weight
+      // Assign only if the dominant unit accounts for ≥75% of co-occurrence weight
       if (bestScore / total >= 0.75) {
         units[name] = bestUnit;
         changed = true;
@@ -346,18 +346,12 @@ function unitReassignHTML(playerName) {
   return `<div class="unit-reassign-row">
     <span class="unit-reassign-label">Wrong unit?</span>
     <div class="unit-reassign-btns">${btns}</div>
-    <span class="unit-reassign-hint" id="unitCopyFeedback_${playerName.replace(/\W/g,'_')}"></span>
   </div>`;
 }
 
 window.copyUnitCorrection = function(playerName, unit) {
   const label = unit || 'Unknown';
-  const text = `Move ${playerName} to ${label}`;
-  navigator.clipboard.writeText(text).then(() => {
-    const id = `unitCopyFeedback_${playerName.replace(/\W/g,'_')}`;
-    const el = document.getElementById(id);
-    if (el) { el.textContent = `"${text}" copied — paste it to Claude`; setTimeout(() => { el.textContent = ''; }, 4000); }
-  });
+  navigator.clipboard.writeText(`Move ${playerName} to ${label}`);
 };
 
 function renderUnitFilter() {
