@@ -704,6 +704,7 @@ function _openCareerPageNoHistory(playerName) {
   const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
   document.getElementById('careerPlayerSub').textContent =
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display         = 'none';
@@ -1269,6 +1270,7 @@ function openPlayerModal(playerName) {
   document.getElementById('modalPlayerSub').innerHTML =
     `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
     `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>` +
+    (p.timePlayed ? `<div class="co-col"><div><b>Time Played:</b> ${fmtTime(p.timePlayed)}</div></div>` : '') +
     (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole} (${p.topRoleCount})</div></div>` : '');
   document.getElementById('modalMaximizeBtn').onclick = () => {
     document.getElementById('playerModal').classList.remove('open');
@@ -1305,6 +1307,7 @@ function openCareerPage(playerName) {
   const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
   document.getElementById('careerPlayerSub').textContent =
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
 
