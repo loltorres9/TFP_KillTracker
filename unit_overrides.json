@@ -1,0 +1,12 @@
+{
+  "_comment": "Manual unit overrides. Format: \"PlayerName\": \"UnitName\". Valid units: 2nd USC, CNTO, PXG, TFP. Set to null to mark as Unknown.",
+  "_example": "\"SomePlayer\": \"TFP\"",
+  "Goose": "2nd USC",
+  "PSGT Dusty": "2nd USC",
+  "The Viking": "TFP",
+  "SP3 DrJaffas": "PXG",
+  "MaynoNades": "PXG",
+  "Jerry": "CNTO",
+  "KyloKen": "PXG",
+  "SP/4. Flameseer": "2nd USC"
+}

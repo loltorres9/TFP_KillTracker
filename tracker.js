@@ -83,9 +83,11 @@ let showRegularEvents = true;
 let zeusFilter = "all";
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
-fetch(CSV_URL)
-  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
-  .then(csv => {
+Promise.all([
+  fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
+  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+])
+  .then(([csv, overrides]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -102,6 +104,10 @@ fetch(CSV_URL)
 
     buildAggregates();
     playerUnits = classifyPlayerUnits(rawRows);
+    // Apply manual overrides from unit_overrides.json on top of auto-classification
+    Object.entries(overrides).forEach(([name, unit]) => {
+      playerUnits[name] = unit;
+    });
     Object.values(aggPlayers).forEach(p => { p.unit = playerUnits[p.name] || null; });
     buildUI();
   })
@@ -305,8 +311,8 @@ function classifyPlayerUnits(rows) {
       });
       if (total === 0) return;
       const [bestUnit, bestScore] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-      // Assign only if the dominant unit accounts for ≥45% of co-occurrence weight
-      if (bestScore / total >= 0.6) {
+      // Assign only if the dominant unit accounts for ≥99% of co-occurrence weight
+      if (bestScore / total >= 0.99) {
         units[name] = bestUnit;
         changed = true;
       }
@@ -322,6 +328,31 @@ function unitBadgeHTML(playerName) {
   const color = UNIT_COLORS[unit] || '#666';
   return `<span class="unit-badge" style="background:${color}">${unit}</span>`;
 }
+
+function unitReassignHTML(playerName) {
+  const current = playerUnits[playerName] || 'Unknown';
+  const units = [...UNIT_ORDER, null];
+  const btns = units.map(u => {
+    const label = u || 'Unknown';
+    const color = u ? UNIT_COLORS[u] : '#888';
+    const active = current === (u || 'Unknown');
+    const bg = active ? color : 'white';
+    const fg = active ? 'white' : '#333';
+    const border = active ? `2px solid ${color}` : '1px solid #ddd';
+    return `<button class="unit-reassign-btn" style="background:${bg};color:${fg};border:${border}"
+      onclick="copyUnitCorrection('${playerName.replace(/'/g,"\\'")}', ${u ? `'${u}'` : 'null'})">${label}</button>`;
+  }).join('');
+
+  return `<div class="unit-reassign-row">
+    <span class="unit-reassign-label">Wrong unit?</span>
+    <div class="unit-reassign-btns">${btns}</div>
+  </div>`;
+}
+
+window.copyUnitCorrection = function(playerName, unit) {
+  const label = unit || 'Unknown';
+  navigator.clipboard.writeText(`Move ${playerName} to ${label}`);
+};
 
 function renderUnitFilter() {
   const container = document.getElementById('unitFilterBtns');
@@ -342,17 +373,16 @@ function renderUnitFilter() {
     const isActive = selectedUnit === u;
     const color = u ? (UNIT_COLORS[u] || '#555') : null;
     const label = u ? `${u} <span style="opacity:0.7;font-weight:400">${counts[u] || 0}</span>` : 'All';
-    const activeStyle = isActive && color ? `background:${color};color:white;border-color:${color}` :
-                        isActive          ? 'background:#333;color:white;border-color:#333' : '';
-    const dotStyle = !isActive && color ? `style="color:${color};margin-right:3px"` : '';
-    const dot = (!isActive && color) ? `<span ${dotStyle}>●</span>` : '';
-    return `<button class="unit-btn${isActive ? ' active' : ''}" style="${activeStyle}" onclick="_filterUnit(${u ? `'${u}'` : 'null'})">${dot}${label}</button>`;
+    const dotStyle = color ? `style="color:${isActive ? 'white' : color};margin-right:3px"` : '';
+    const dot = color ? `<span ${dotStyle}>●</span>` : '';
+    return `<button class="unit-btn${isActive ? ' active' : ''}" onclick="_filterUnit(${u ? `'${u}'` : 'null'})">${dot}${label}</button>`;
   }).join('');
 }
 
 window._filterUnit = function(unit) {
   selectedUnit = unit;
   renderUnitFilter();
+  refreshPills();
   filterChanged();
 };
 
@@ -395,7 +425,7 @@ function _openCareerPageNoHistory(playerName) {
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
-  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
   document.getElementById('hallFameLabel').style.display    = 'none';
@@ -770,6 +800,17 @@ function renderLeader() {
     document.getElementById("aw-kda-stat").textContent = "";
   }
 
+  // Always On Duty — most time played
+  const byTime = [...filteredPlayers].filter(p => p.timePlayed > 0)
+    .sort((a,b) => b.timePlayed - a.timePlayed)[0];
+  if (byTime) {
+    document.getElementById("aw-time-name").textContent = byTime.name;
+    document.getElementById("aw-time-stat").textContent = fmtTime(byTime.timePlayed);
+  } else {
+    document.getElementById("aw-time-name").textContent = "—";
+    document.getElementById("aw-time-stat").textContent = "";
+  }
+
   // ── HALL OF SHAME ────────────────────────────────────────────────────
 
   // Cannon Fodder — worst K/D (min 3 kills to avoid flukes, must have died at least once)
@@ -784,7 +825,7 @@ function renderLeader() {
     document.getElementById("sh-kd-stat").textContent = "";
   }
 
-  // Teamkiller — most total teamkills (on foot + vehicle)
+  // Most Valuable Opponent — most total teamkills (on foot + vehicle)
   const shameTk = [...filteredPlayers]
     .map(p => ({ ...p, totalTK: p.tkOnFoot + p.tkInVeh }))
     .filter(p => p.totalTK > 0)
@@ -798,7 +839,7 @@ function renderLeader() {
     document.getElementById("sh-tk-stat").textContent = "";
   }
 
-  // Potato Aim — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
+  // Spray & Pray Specialist — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
   const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
     .sort((a,b) => b.spkFoot - a.spkFoot)[0];
   if (shameSpk) {
@@ -810,7 +851,7 @@ function renderLeader() {
     document.getElementById("sh-spk-stat").textContent = "";
   }
 
-  // Bullet Sponge — most hits taken on foot
+  // Bullet Magnet — most hits taken on foot
   const shameHits = [...filteredPlayers].filter(p => p.hitsOnFoot > 0)
     .sort((a,b) => b.hitsOnFoot - a.hitsOnFoot)[0];
   if (shameHits) {
@@ -820,6 +861,40 @@ function renderLeader() {
   } else {
     document.getElementById("sh-hits-name").textContent = "—";
     document.getElementById("sh-hits-stat").textContent = "";
+  }
+
+  // Tactically Unfortunate — most suicides
+  const shameSui = [...filteredPlayers].filter(p => p.suicides > 0)
+    .sort((a,b) => b.suicides - a.suicides)[0];
+  if (shameSui) {
+    document.getElementById("sh-sui-name").textContent = shameSui.name;
+    document.getElementById("sh-sui-stat").textContent = `${shameSui.suicides} suicides`;
+  } else {
+    document.getElementById("sh-sui-name").textContent = "—";
+    document.getElementById("sh-sui-stat").textContent = "";
+  }
+
+  // Body Bag Collector — most deaths on foot
+  const shameDeaths = [...filteredPlayers].filter(p => p.deathsOnFoot > 0)
+    .sort((a,b) => b.deathsOnFoot - a.deathsOnFoot)[0];
+  if (shameDeaths) {
+    document.getElementById("sh-deaths-name").textContent = shameDeaths.name;
+    document.getElementById("sh-deaths-stat").textContent = `${shameDeaths.deathsOnFoot} deaths`;
+  } else {
+    document.getElementById("sh-deaths-name").textContent = "—";
+    document.getElementById("sh-deaths-stat").textContent = "";
+  }
+
+  // Full-Auto Philosopher — most bullets fired on foot
+  const shameShots = [...filteredPlayers].filter(p => p.shotsOnFoot > 0)
+    .sort((a,b) => b.shotsOnFoot - a.shotsOnFoot)[0];
+  if (shameShots) {
+    document.getElementById("sh-shots-name").textContent = shameShots.name;
+    document.getElementById("sh-shots-stat").textContent =
+      `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
+  } else {
+    document.getElementById("sh-shots-name").textContent = "—";
+    document.getElementById("sh-shots-stat").textContent = "";
   }
 }
 
@@ -974,7 +1049,7 @@ function openPlayerModal(playerName) {
   };
 
   const body = document.getElementById('modalBody');
-  body.innerHTML = buildCareerStatsHTML(p);
+  body.innerHTML = unitReassignHTML(p.name) + buildCareerStatsHTML(p);
   document.getElementById('playerModal').classList.add('open');
 }
 
@@ -1005,7 +1080,7 @@ function openCareerPage(playerName) {
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
-  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
