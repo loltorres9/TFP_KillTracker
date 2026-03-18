@@ -957,20 +957,49 @@ function buildCareerStatsHTML(p) {
       const k = NUM(r["Kills (On Foot)"]);
       return k > NUM(b["Kills (On Foot)"]) ? r : b;
     }, mRows[0]);
-    const bk  = NUM(best["Kills (On Foot)"]);
-    const bd  = NUM(best["Deaths (On Foot)"]);
-    const bkd = bd > 0 ? (bk/bd).toFixed(2) : bk.toFixed(2);
-    const btk = NUM(best["Teamkills (On Foot)"]);
-    const blk = NUM(best["Longest Kill On Foot (m)"]);
+    const bk   = NUM(best["Kills (On Foot)"]);
+    const bd   = NUM(best["Deaths (On Foot)"]);
+    const bkd  = bd > 0 ? (bk/bd).toFixed(2) : bk.toFixed(2);
+    const btk  = NUM(best["Teamkills (On Foot)"]);
+    const bsh  = NUM(best["Shots (On Foot)"]);
+    const bspk = bk > 0 ? (bsh / bk).toFixed(1) : null;
+    const blk  = NUM(best["Longest Kill On Foot (m)"]);
+    const bad  = NUM(best["Avg Kill Dist On Foot (m)"]);
+    const bkiv  = NUM(best["Kills (In Vehicle)"]);
+    const bdiv  = NUM(best["Deaths (In Vehicle)"]);
+    const btkiv = NUM(best["Teamkills (In Vehicle)"]);
+    const bsiv  = NUM(best["Shots (In Vehicle)"]);
+    const bspkiv = bkiv > 0 ? (bsiv / bkiv).toFixed(1) : null;
+    const bvkof = NUM(best["Vehicle Kills (On Foot)"]);
+    const bvkiv = NUM(best["Vehicle Kills (In Vehicle)"]);
+    const blkiv = NUM(best["Longest Kill In Vehicle (m)"]);
+    const badiv = NUM(best["Avg Kill Dist In Vehicle (m)"]);
+    const bsui  = NUM(best["Suicides"] || best["Suicides\r"] || "0");
     bestHTML += `
       <div class="best-mission-card">
         <div class="bm-name">${best["Mission"] || best["Source File"] || '—'}</div>
-        <div class="bm-stats">
+        <div class="bm-stats" style="flex-wrap:wrap;gap:6px 14px">
+          <span style="font-weight:700;color:#888;width:100%;font-size:0.75rem;text-transform:uppercase;letter-spacing:.05em">Infantry</span>
           <span>⚔️ ${bk} kills</span>
           <span>💀 ${bd} deaths</span>
           <span>📊 K/D ${bkd}</span>
-          ${btk > 0 ? '<span>⚠️ ' + btk + ' TK</span>' : ''}
-          ${blk > 0 ? '<span>🎯 ' + blk + 'm longest</span>' : ''}
+          ${btk > 0 ? '<span style="color:var(--red)">⚠️ ' + btk + ' TK</span>' : ''}
+          <span>🔫 ${bsh} shots</span>
+          ${bspk != null ? '<span>🎯 ' + bspk + ' shots/kill</span>' : ''}
+          ${blk > 0 ? '<span>📏 ' + blk + 'm longest</span>' : ''}
+          ${bad > 0 ? '<span>📐 ' + Math.round(bad) + 'm avg dist</span>' : ''}
+          ${bsui > 0 ? '<span style="color:#888">💣 ' + bsui + ' suicides</span>' : ''}
+          ${(bkiv > 0 || bdiv > 0 || bvkof > 0 || bvkiv > 0) ? `
+            <span style="font-weight:700;color:#888;width:100%;font-size:0.75rem;text-transform:uppercase;letter-spacing:.05em;margin-top:4px">Vehicle</span>
+            <span>🚗 ${bkiv} kills</span>
+            <span>💀 ${bdiv} deaths</span>
+            ${btkiv > 0 ? '<span style="color:var(--red)">⚠️ ' + btkiv + ' TK</span>' : ''}
+            <span>🔫 ${bsiv} shots</span>
+            ${bspkiv != null ? '<span>🎯 ' + bspkiv + ' shots/kill</span>' : ''}
+            ${blkiv > 0 ? '<span>📏 ' + blkiv + 'm longest</span>' : ''}
+            ${badiv > 0 ? '<span>📐 ' + Math.round(badiv) + 'm avg dist</span>' : ''}
+            ${(bvkof + bvkiv) > 0 ? '<span>💥 ' + (bvkof + bvkiv) + ' vehicles destroyed</span>' : ''}
+          ` : ''}
         </div>
       </div>`;
   } else {
@@ -979,26 +1008,60 @@ function buildCareerStatsHTML(p) {
   bestHTML += '</div>';
 
   // ── Section 4: Kill breakdown by mission ──
-  let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
-  missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
+  let missionHTML = `<div class="modal-section"><h3>Kill Breakdown by Mission</h3>
+    <div style="overflow-x:auto">
+    <table class="mission-table"><thead>
+      <tr>
+        <th rowspan="2" style="vertical-align:bottom">Mission</th>
+        <th colspan="8" style="text-align:center;border-bottom:1px solid #ddd;color:#4a6fa5">Infantry (On Foot)</th>
+        <th colspan="8" style="text-align:center;border-bottom:1px solid #ddd;color:#8b5e3c">Vehicle</th>
+      </tr>
+      <tr>
+        <th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th><th>Avg Dist (m)</th>
+        <th>Kills</th><th>Deaths</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th><th>Avg Dist (m)</th><th>Destroyed</th>
+      </tr>
+    </thead><tbody>`;
 
   const missionMap = {};
   mRows.forEach(r => {
     const key = r["Mission"] || r["Source File"] || '—';
-    if (!missionMap[key]) missionMap[key] = { mission: key, k: 0, d: 0, tk: 0, sh: 0, lk: 0 };
+    if (!missionMap[key]) missionMap[key] = {
+      mission: key,
+      k: 0, d: 0, tk: 0, sh: 0, lk: 0, adSum: 0, adN: 0,
+      kiv: 0, div: 0, tkiv: 0, siv: 0, lkiv: 0, adivSum: 0, adivN: 0,
+      vkof: 0, vkiv: 0
+    };
     const m = missionMap[key];
-    m.k  += NUM(r["Kills (On Foot)"]);
-    m.d  += NUM(r["Deaths (On Foot)"]);
-    m.tk += NUM(r["Teamkills (On Foot)"]);
-    m.sh += NUM(r["Shots (On Foot)"]);
-    m.lk  = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
+    const kof  = NUM(r["Kills (On Foot)"]);
+    const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
+    const kiv  = NUM(r["Kills (In Vehicle)"]);
+    const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
+    m.k   += kof;
+    m.d   += NUM(r["Deaths (On Foot)"]);
+    m.tk  += NUM(r["Teamkills (On Foot)"]);
+    m.sh  += NUM(r["Shots (On Foot)"]);
+    m.lk   = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
+    if (kof > 0 && aof > 0) { m.adSum += aof * kof; m.adN += kof; }
+    m.kiv  += kiv;
+    m.div  += NUM(r["Deaths (In Vehicle)"]);
+    m.tkiv += NUM(r["Teamkills (In Vehicle)"]);
+    m.siv  += NUM(r["Shots (In Vehicle)"]);
+    m.lkiv  = Math.max(m.lkiv, NUM(r["Longest Kill In Vehicle (m)"]));
+    if (kiv > 0 && aiv > 0) { m.adivSum += aiv * kiv; m.adivN += kiv; }
+    m.vkof += NUM(r["Vehicle Kills (On Foot)"]);
+    m.vkiv += NUM(r["Vehicle Kills (In Vehicle)"]);
   });
   const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
 
   mergedMissions.forEach((m, i) => {
-    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
-    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
-    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    const kd    = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
+    const spk   = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
+    const ad    = m.adN > 0 ? Math.round(m.adSum / m.adN) + 'm' : '—';
+    const kdiv  = m.div > 0 ? (m.kiv / m.div).toFixed(2) : m.kiv.toFixed(2);
+    const spkiv = m.kiv > 0 ? (m.siv / m.kiv).toFixed(1) : '—';
+    const adiv  = m.adivN > 0 ? Math.round(m.adivSum / m.adivN) + 'm' : '—';
+    const destroyed = m.vkof + m.vkiv;
+    const bg    = i % 2 === 1 ? 'background:#f9f9f9' : '';
     missionHTML += `<tr style="${bg}">
       <td>${m.mission}</td>
       <td>${m.k}</td><td>${m.d}</td>
@@ -1006,9 +1069,16 @@ function buildCareerStatsHTML(p) {
       <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk}</td>
       <td>${m.sh}</td><td>${spk}</td>
       <td>${m.lk || '—'}</td>
+      <td>${ad}</td>
+      <td>${m.kiv || '—'}</td><td>${m.div || '—'}</td>
+      <td${m.tkiv>0?' style="color:var(--red);font-weight:700"':''}>${m.tkiv || '—'}</td>
+      <td>${m.siv || '—'}</td><td>${spkiv}</td>
+      <td>${m.lkiv || '—'}</td>
+      <td>${adiv}</td>
+      <td>${destroyed || '—'}</td>
     </tr>`;
   });
-  missionHTML += '</tbody></table></div>';
+  missionHTML += '</tbody></table></div></div>';
 
   return overallHTML + weaponHTML + bestHTML + missionHTML;
 }
