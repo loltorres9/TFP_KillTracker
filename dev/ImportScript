@@ -44,6 +44,15 @@ function importOCAP(forceReimport = false) {
   ];
   if (statsSheet.getLastRow() === 0) {
     statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
+  } else {
+    // Migrate: append any columns that exist in header but not yet in the sheet
+    const existingHeader = statsSheet.getRange(1, 1, 1, statsSheet.getLastColumn()).getValues()[0];
+    header.forEach((col, i) => {
+      if (!existingHeader.includes(col)) {
+        statsSheet.getRange(1, i + 1).setValue(col);
+        Logger.log(`Added missing header column: ${col}`);
+      }
+    });
   }
   // Build set of already-imported filenames from column A
   const importedFiles = new Set();
