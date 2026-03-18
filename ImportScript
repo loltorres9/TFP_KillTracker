@@ -40,7 +40,8 @@ function importOCAP(forceReimport = false) {
     "Top Weapon", "Weapon Kills (JSON)",
     // Misc
     "Suicides",
-    "Time Played (s)"
+    "Time Played (s)",
+    "Distance Run (m)"
   ];
   if (statsSheet.getLastRow() === 0) {
     statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
@@ -152,9 +153,32 @@ function importOCAP(forceReimport = false) {
           suicides: 0,
           isZeus: isZeus(e),
           timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
+          distanceRun: 0,
         };
       }
     });
+    // Pre-compute distance run on foot (sum of 2D distance between consecutive frames
+    // where the player is alive and not in a vehicle)
+    Object.keys(players).forEach(id => {
+      const entity = entities[id];
+      if (!entity || !Array.isArray(entity.positions)) return;
+      const pos = entity.positions;
+      let dist = 0;
+      for (let i = 1; i < pos.length; i++) {
+        const prev = pos[i - 1];
+        const cur = pos[i];
+        // pos entry: [[x,y,z], bearing, alive, inVehicle, ...]
+        if (!Array.isArray(prev) || !Array.isArray(cur)) continue;
+        const prevAlive = prev[2] === 1, curAlive = cur[2] === 1;
+        const prevOnFoot = prev[3] === 0, curOnFoot = cur[3] === 0;
+        if (!prevAlive || !curAlive || !prevOnFoot || !curOnFoot) continue;
+        const [px, py] = prev[0];
+        const [cx, cy] = cur[0];
+        dist += Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
+      }
+      players[id].distanceRun = Math.round(dist);
+    });
+
     // Pre-compute shots fired per context
     Object.keys(players).forEach(id => {
       const p = players[id];
@@ -284,6 +308,7 @@ function importOCAP(forceReimport = false) {
         p.shotsInVehicle = 0;
         p.hitsTakenInVehicle = 0;
         p.suicides = 0;
+        p.distanceRun = 0;
         p.killDistOnFoot = [];
         p.killDistInVehicle = [];
         p.weaponKills = {};
@@ -335,6 +360,7 @@ function importOCAP(forceReimport = false) {
         weaponJson,
         p.suicides,
         Math.round(p.timePlayed),
+        p.distanceRun,
       ]);
     });
     // Sort by on-foot kills descending
