@@ -83,12 +83,25 @@
     transition: all 0.15s; user-select: none;
   }
   .unit-btn:hover { filter: brightness(0.93); }
-  .unit-btn.active { color: white; }
+  .unit-btn.active { background: var(--charcoal); border-color: var(--charcoal); color: white; }
   .unit-badge {
     display: inline-block; padding: 2px 8px; border-radius: 12px;
     font-size: 0.68rem; font-weight: 700; color: white;
     letter-spacing: 0.4px; vertical-align: middle; margin-left: 8px;
   }
+  .unit-reassign-row {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    padding: 8px 14px; background: #f7f7f7; border-radius: 6px;
+    margin-bottom: 14px; font-size: 0.78rem;
+  }
+  .unit-reassign-label { color: #666; font-weight: 600; white-space: nowrap; }
+  .unit-reassign-btns  { display: flex; flex-wrap: wrap; gap: 5px; }
+  .unit-reassign-btn {
+    padding: 3px 10px; border-radius: 14px; font-size: 0.73rem;
+    cursor: pointer; font-family: 'Open Sans', sans-serif; font-weight: 600;
+    transition: filter 0.15s;
+  }
+  .unit-reassign-btn:hover { filter: brightness(0.9); }
 
   /* ── CAREER VIEW ── */
   .career-pills-label {
@@ -178,6 +191,7 @@
   .award-card.ac-longest { background: #1a237e; color: white; }
   .award-card.ac-spk     { background: #1b5e20; color: white; }
   .award-card.ac-kda     { background: #4a148c; color: white; }
+  .award-card.ac-time    { background: #00695c; color: white; }
   .award-icon { font-size: 2rem; flex-shrink: 0; }
   .award-body {}
   .award-label { font-size: 0.7rem; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
@@ -192,10 +206,13 @@
   }
 
   /* ── SHAME CARDS ── */
-  .award-card.ac-shame-kd     { background: #b71c1c; color: white; }
-  .award-card.ac-shame-tk     { background: #e65100; color: white; }
-  .award-card.ac-shame-spk    { background: #827717; color: white; }
-  .award-card.ac-shame-hits   { background: #4e342e; color: white; }
+  .award-card.ac-shame-kd       { background: #b71c1c; color: white; }
+  .award-card.ac-shame-tk       { background: #e65100; color: white; }
+  .award-card.ac-shame-spk      { background: #827717; color: white; }
+  .award-card.ac-shame-hits     { background: #4e342e; color: white; }
+  .award-card.ac-shame-suicides { background: #6a1b9a; color: white; }
+  .award-card.ac-shame-deaths   { background: #37474f; color: white; }
+  .award-card.ac-shame-shots    { background: #bf360c; color: white; }
 
   /* ── LOADING / ERROR ── */
   .loading { text-align: center; padding: 60px; font-size: 1rem; color: #888; }
@@ -316,6 +333,14 @@
           <div class="award-stat" id="aw-kda-stat"></div>
         </div>
       </div>
+      <div class="award-card ac-time">
+        <div class="award-icon">🕐</div>
+        <div class="award-body">
+          <div class="award-label">Always On Duty</div>
+          <div class="award-name" id="aw-time-name">—</div>
+          <div class="award-stat" id="aw-time-stat"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Hall of Shame cards -->
@@ -332,7 +357,7 @@
       <div class="award-card ac-shame-tk">
         <div class="award-icon">🤦</div>
         <div class="award-body">
-          <div class="award-label">Teamkiller</div>
+          <div class="award-label">Most Valuable Opponent</div>
           <div class="award-name" id="sh-tk-name">—</div>
           <div class="award-stat" id="sh-tk-stat"></div>
         </div>
@@ -340,17 +365,41 @@
       <div class="award-card ac-shame-spk">
         <div class="award-icon">🥔</div>
         <div class="award-body">
-          <div class="award-label">Potato Aim</div>
+          <div class="award-label">Spray &amp; Pray Specialist</div>
           <div class="award-name" id="sh-spk-name">—</div>
           <div class="award-stat" id="sh-spk-stat"></div>
         </div>
       </div>
       <div class="award-card ac-shame-hits">
-        <div class="award-icon">🧽</div>
+        <div class="award-icon">🧲</div>
         <div class="award-body">
-          <div class="award-label">Bullet Sponge</div>
+          <div class="award-label">Bullet Magnet</div>
           <div class="award-name" id="sh-hits-name">—</div>
           <div class="award-stat" id="sh-hits-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-suicides">
+        <div class="award-icon">💥</div>
+        <div class="award-body">
+          <div class="award-label">Tactically Unfortunate</div>
+          <div class="award-name" id="sh-sui-name">—</div>
+          <div class="award-stat" id="sh-sui-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-deaths">
+        <div class="award-icon">⚰️</div>
+        <div class="award-body">
+          <div class="award-label">Body Bag Collector</div>
+          <div class="award-name" id="sh-deaths-name">—</div>
+          <div class="award-stat" id="sh-deaths-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-shots">
+        <div class="award-icon">🔊</div>
+        <div class="award-body">
+          <div class="award-label">Full-Auto Philosopher</div>
+          <div class="award-name" id="sh-shots-name">—</div>
+          <div class="award-stat" id="sh-shots-stat"></div>
         </div>
       </div>
     </div>
