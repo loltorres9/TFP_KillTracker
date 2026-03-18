@@ -1,5 +1,15 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
 
+// ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
+const UNIT_SEEDS = {
+  '2nd USC': ['[2nd USC] Panzerfanlol', '[2nd USC] Cpt. Eddie'],
+  'CNTO':    ['Pricepole', 'Clarke', 'Fishgrit'],
+  'PXG':     ['Darkling', 'Aquafox', 'Lortmil', 'glyn'],
+  'TFP':     ['Sindh', 'loltorres9', 'Dicksplash', 'Gortarius', 'Akarin', 'LucasC', 'Ocke', 'najt'],
+};
+const UNIT_COLORS = { '2nd USC': '#1a56db', 'CNTO': '#057a55', 'PXG': '#c27803', 'TFP': '#c0392b' };
+const UNIT_ORDER  = ['2nd USC', 'CNTO', 'PXG', 'TFP'];
+
 // Column indices in the CSV (0-based after splitting)
 // Source File(0), Mission(1), World(2), Username(3), Side(4), Group(5),
 // Kills OnFoot(6), Deaths OnFoot(7), KD OnFoot(8), TK OnFoot(9),
@@ -41,6 +51,8 @@ let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
 let vehSortAsc = false;
 let currentModalPlayer = null;
+let playerUnits = {};   // name -> unit string
+let selectedUnit = null; // null = all units
 
 // ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
 // Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
@@ -89,6 +101,8 @@ fetch(CSV_URL)
     }).filter(r => r["Username"]);
 
     buildAggregates();
+    playerUnits = classifyPlayerUnits(rawRows);
+    Object.values(aggPlayers).forEach(p => { p.unit = playerUnits[p.name] || null; });
     buildUI();
   })
   .catch(err => {
@@ -230,6 +244,118 @@ function buildAggregates() {
   });
 }
 
+// ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
+function classifyPlayerUnits(rows) {
+  // Build squad co-occurrence: players in the same (sourceFile, group) pair
+  const squads = {};
+  rows.forEach(r => {
+    const src   = r['Source File'] || '';
+    const group = r['Group'] || '';
+    const name  = r['Username'] || '';
+    if (!src || !group || !name || group.toLowerCase() === 'zeus') return;
+    const key = `${src}|||${group}`;
+    if (!squads[key]) squads[key] = new Set();
+    squads[key].add(name);
+  });
+
+  // Count how many squads each pair of players shared
+  const coOcc = {};
+  Object.values(squads).forEach(members => {
+    const arr = [...members];
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = 0; j < arr.length; j++) {
+        if (i === j) continue;
+        if (!coOcc[arr[i]]) coOcc[arr[i]] = {};
+        coOcc[arr[i]][arr[j]] = (coOcc[arr[i]][arr[j]] || 0) + 1;
+      }
+    }
+  });
+
+  // Start with seed assignments
+  const units = {};
+  Object.entries(UNIT_SEEDS).forEach(([unit, players]) => {
+    players.forEach(p => { units[p] = unit; });
+  });
+
+  // Auto-classify players whose name starts with [Tag] matching a unit
+  const allPlayers = [...new Set(rows.map(r => r['Username']).filter(Boolean))];
+  allPlayers.forEach(name => {
+    if (units[name]) return;
+    const m = name.match(/^\[([^\]]+)\]/);
+    if (!m) return;
+    const tag = m[1].toLowerCase();
+    const matched = UNIT_ORDER.find(u =>
+      u.toLowerCase() === tag || u.toLowerCase().replace('2nd ', '') === tag
+    );
+    if (matched) units[name] = matched;
+  });
+
+  // Iterative spreading: assign unclassified players based on co-occurrence scores
+  let changed = true;
+  while (changed) {
+    changed = false;
+    allPlayers.forEach(name => {
+      if (units[name]) return;
+      const neighbors = coOcc[name] || {};
+      const scores = {};
+      let total = 0;
+      Object.entries(neighbors).forEach(([neighbor, count]) => {
+        const u = units[neighbor];
+        if (u) { scores[u] = (scores[u] || 0) + count; total += count; }
+      });
+      if (total === 0) return;
+      const [bestUnit, bestScore] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+      // Assign only if the dominant unit accounts for ≥45% of co-occurrence weight
+      if (bestScore / total >= 0.45) {
+        units[name] = bestUnit;
+        changed = true;
+      }
+    });
+  }
+
+  return units;
+}
+
+function unitBadgeHTML(playerName) {
+  const unit = playerUnits[playerName];
+  if (!unit) return '';
+  const color = UNIT_COLORS[unit] || '#666';
+  return `<span class="unit-badge" style="background:${color}">${unit}</span>`;
+}
+
+function renderUnitFilter() {
+  const container = document.getElementById('unitFilterBtns');
+  if (!container) return;
+
+  // Count players per unit from the full aggPlayers (not filtered)
+  const counts = {};
+  UNIT_ORDER.forEach(u => { counts[u] = 0; });
+  counts['Unknown'] = 0;
+  Object.values(aggPlayers).forEach(p => {
+    const u = p.unit || 'Unknown';
+    if (counts[u] !== undefined) counts[u]++;
+    else counts['Unknown']++;
+  });
+
+  const allUnits = [null, ...UNIT_ORDER, 'Unknown'];
+  container.innerHTML = allUnits.map(u => {
+    const isActive = selectedUnit === u;
+    const color = u ? (UNIT_COLORS[u] || '#555') : null;
+    const label = u ? `${u} <span style="opacity:0.7;font-weight:400">${counts[u] || 0}</span>` : 'All';
+    const activeStyle = isActive && color ? `background:${color};color:white;border-color:${color}` :
+                        isActive          ? 'background:#333;color:white;border-color:#333' : '';
+    const dotStyle = !isActive && color ? `style="color:${color};margin-right:3px"` : '';
+    const dot = (!isActive && color) ? `<span ${dotStyle}>●</span>` : '';
+    return `<button class="unit-btn${isActive ? ' active' : ''}" style="${activeStyle}" onclick="_filterUnit(${u ? `'${u}'` : 'null'})">${dot}${label}</button>`;
+  }).join('');
+}
+
+window._filterUnit = function(unit) {
+  selectedUnit = unit;
+  renderUnitFilter();
+  filterChanged();
+};
+
 // ── BUILD UI ────────────────────────────────────────────────────────────
 function buildUI() {
   document.getElementById("loading").style.display = "none";
@@ -258,7 +384,7 @@ function _openCareerPageNoHistory(playerName) {
   applyFilters();
   const p = filteredPlayers.find(x => x.name === playerName);
   if (!p) return;
-  document.getElementById('careerPlayerName').textContent = p.name;
+  document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   const _cml = p.missions ? [...p.missions].sort((a, b) => {
     const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
     const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
@@ -316,6 +442,7 @@ function buildFilters() {
     showRegularEvents = true;
     selectedPlayers   = null;
     selectedMissions  = null;
+    selectedUnit      = null;
     document.getElementById("playerSearch").value   = "";
     document.getElementById("missionSearch").value  = "";
     document.getElementById("eventTypeSelect").value = "both";
@@ -354,7 +481,9 @@ function refreshPills() {
   const missionFiltered = selectedMissions
     ? eventRows.filter(r => selectedMissions.has(r["Mission"] || ""))
     : eventRows;
-  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))].sort();
+  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))]
+    .filter(name => selectedUnit === null || (playerUnits[name] || 'Unknown') === selectedUnit)
+    .sort();
 
   renderSelectablePills("missionPills", availMissions, selectedMissions, "missionSearch", (item, set) => {
     if (set === null) {
@@ -420,10 +549,12 @@ function applyFilters() {
     const mission = r["Mission"]  || "";
     const srcFile = r["Source File"] || "";
     const isLarge = isJointOp(srcFile);
-    const eventTypeOk   = isLarge ? showJointOps : showRegularEvents;
-    const playerOk  = selectedPlayers  === null || selectedPlayers.has(name);
-    const missionOk = selectedMissions === null || selectedMissions.has(mission);
-    return eventTypeOk && playerOk && missionOk;
+    const eventTypeOk = isLarge ? showJointOps : showRegularEvents;
+    const playerOk    = selectedPlayers  === null || selectedPlayers.has(name);
+    const missionOk   = selectedMissions === null || selectedMissions.has(mission);
+    const playerUnit  = playerUnits[name] || 'Unknown';
+    const unitOk      = selectedUnit === null || playerUnit === selectedUnit;
+    return eventTypeOk && playerOk && missionOk && unitOk;
   });
 
   // Re-aggregate only for filtered rows
@@ -527,6 +658,7 @@ function applyFilters() {
   const parts = [];
   if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
   if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
+  if (selectedUnit)     parts.push(selectedUnit);
   const evVal = document.getElementById("eventTypeSelect") ? document.getElementById("eventTypeSelect").value : "both";
   if (evVal !== "both") parts.push(evVal === "joint" ? "Joint Op only" : "Regular Op only");
   document.getElementById("filterCount").textContent =
@@ -537,6 +669,7 @@ function applyFilters() {
   renderLeader();
   renderInfantryTable();
   renderVehicleTable();
+  renderUnitFilter();
 }
 
 // ── STATS BAR ────────────────────────────────────────────────────────────
@@ -823,7 +956,7 @@ function openPlayerModal(playerName) {
   if (!p) return;
 
   currentModalPlayer = playerName;
-  document.getElementById('modalPlayerName').textContent = p.name;
+  document.getElementById('modalPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   const _mml = p.missions ? [...p.missions].sort((a, b) => {
     const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
     const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
@@ -861,7 +994,7 @@ function openCareerPage(playerName) {
   const p = filteredPlayers.find(x => x.name === playerName);
   if (!p) return;
 
-  document.getElementById('careerPlayerName').textContent = p.name;
+  document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   const _cml = p.missions ? [...p.missions].sort((a, b) => {
     const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
     const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';

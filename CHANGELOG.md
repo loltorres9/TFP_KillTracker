@@ -7,6 +7,7 @@ All notable changes to TFP Kill Tracker are documented here.
 ## [Unreleased] — dev branch
 
 - Move inline script to external `tracker.js` to fix Content-Security-Policy violation on GitHub Pages
+- **Unit classification** — players are automatically assigned to 2nd USC, CNTO, PXG, or TFP using squad co-occurrence analysis across all missions; unit filter pills added to the filter panel; unit badge shown on player modal and career page
 
 ---
 
