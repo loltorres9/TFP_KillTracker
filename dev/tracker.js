@@ -50,6 +50,8 @@ let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
 let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
 let vehSortAsc = false;
+const infAvgCols = new Set();
+const vehAvgCols = new Set();
 let currentModalPlayer = null;
 let playerUnits = {};   // name -> unit string
 let selectedUnit = null; // null = all units
@@ -1282,19 +1284,19 @@ function closeCareerPage() {
 const INF_COLS = [
   { label: "#",       key: "_rank",        numeric: false, sortKey: null },
   { label: "Player",  key: "name",         numeric: false, sortKey: "name" },
-  { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot" },
-  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot" },
-  { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot" },
+  { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot",  canAvg: true },
+  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot", canAvg: true },
+  { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot", canAvg: true },
   { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
-  { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass },
-  { label: "Suicides", key: "suicides",     numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "" },
-  { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot" },
-  { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot" },
+  { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass, canAvg: true },
+  { label: "Suicides", key: "suicides",    numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
+  { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot", canAvg: true },
+  { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot",  canAvg: true },
   { label: "Shots/Kill", key: "spkFoot",   numeric: true,  sortKey: "spkFoot",  fmt: v => v != null ? v.toFixed(1) : "—" },
   { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
   { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
-  { label: "Dist Run (km)", key: "distanceRun", numeric: true, sortKey: "distanceRun", fmt: v => v ? v.toFixed(1) : "—" },
+  { label: "Dist Run (km)", key: "distanceRun", numeric: true, sortKey: "distanceRun", fmt: v => v ? v.toFixed(1) : "—", canAvg: true },
   { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
 ];
 
@@ -1317,11 +1319,16 @@ function renderInfantryTable() {
     const cells = INF_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
       if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
-      let val = p[col.key];
-      if (col.fmt) val = col.fmt(val);
-      else if (val == null || val === "") val = "—";
-      const cls = col.css ? col.css(p[col.key]) : "";
-      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+      let raw = p[col.key];
+      let val;
+      if (col.canAvg && infAvgCols.has(ci) && p.missionCount > 0) {
+        val = (raw / p.missionCount).toFixed(2).replace(/\.?0+$/, "");
+      } else {
+        val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      }
+      const cls = col.css ? col.css(raw) : "";
+      const avgAttr = col.canAvg ? ` oncontextmenu="event.stopPropagation();_toggleAvg('inf',${ci});return false;"` : "";
+      return `<td${cls ? ` class="${cls}"` : ""}${avgAttr}>${val}</td>`;
     });
     return `<tr${hasTK ? ' class="tk-row"' : ""} onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
   }).join("");
@@ -1331,13 +1338,13 @@ function renderInfantryTable() {
 const VEH_COLS = [
   { label: "#",        key: "_rank",           numeric: false, sortKey: null },
   { label: "Player",   key: "name",            numeric: false, sortKey: "name" },
-  { label: "Kills (Veh)", key: "killsInVeh",   numeric: true,  sortKey: "killsInVeh" },
-  { label: "Deaths (Veh)", key: "deathsInVeh", numeric: true,  sortKey: "deathsInVeh" },
+  { label: "Kills (Veh)", key: "killsInVeh",   numeric: true,  sortKey: "killsInVeh",  canAvg: true },
+  { label: "Deaths (Veh)", key: "deathsInVeh", numeric: true,  sortKey: "deathsInVeh", canAvg: true },
   { label: "K/D (Veh)", key: "kdVeh",          numeric: true,  sortKey: "kdVeh",  fmt: v => v.toFixed(2), css: kdClass },
-  { label: "TK (Veh)", key: "tkInVeh",         numeric: true,  sortKey: "tkInVeh", css: tkClass },
-  { label: "Veh Kills (Veh)",  key: "vehKillsVeh",   numeric: true, sortKey: "vehKillsVeh" },
-  { label: "Shots (Veh)", key: "shotsInVeh",   numeric: true,  sortKey: "shotsInVeh" },
-  { label: "Hits Taken (Veh)", key: "hitsInVeh", numeric: true, sortKey: "hitsInVeh" },
+  { label: "TK (Veh)", key: "tkInVeh",         numeric: true,  sortKey: "tkInVeh", css: tkClass, canAvg: true },
+  { label: "Veh Kills (Veh)",  key: "vehKillsVeh",   numeric: true, sortKey: "vehKillsVeh", canAvg: true },
+  { label: "Shots (Veh)", key: "shotsInVeh",   numeric: true,  sortKey: "shotsInVeh",  canAvg: true },
+  { label: "Hits Taken (Veh)", key: "hitsInVeh", numeric: true, sortKey: "hitsInVeh",  canAvg: true },
   { label: "Shots/Kill (Veh)", key: "spkVeh",   numeric: true,  sortKey: "spkVeh", fmt: v => v != null ? v.toFixed(1) : "—" },
   { label: "Avg Dist (m)", key: "avgDistVeh",   numeric: true,  sortKey: "avgDistVeh", fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)", key: "maxLongestVeh", numeric: true,  sortKey: "maxLongestVeh", fmt: v => v || "—" },
@@ -1369,11 +1376,16 @@ function renderVehicleTable() {
     const cells = VEH_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
       if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
-      let val = p[col.key];
-      if (col.fmt) val = col.fmt(val);
-      else if (val == null || val === "") val = "—";
-      const cls = col.css ? col.css(p[col.key]) : "";
-      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+      let raw = p[col.key];
+      let val;
+      if (col.canAvg && vehAvgCols.has(ci) && p.missionCount > 0) {
+        val = (raw / p.missionCount).toFixed(2).replace(/\.?0+$/, "");
+      } else {
+        val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      }
+      const cls = col.css ? col.css(raw) : "";
+      const avgAttr = col.canAvg ? ` oncontextmenu="event.stopPropagation();_toggleAvg('veh',${ci});return false;"` : "";
+      return `<td${cls ? ` class="${cls}"` : ""}${avgAttr}>${val}</td>`;
     });
     return `<tr onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
   }).join("");
@@ -1382,11 +1394,14 @@ function renderVehicleTable() {
 // ── HELPERS ──────────────────────────────────────────────────────────────
 function renderTableHead(headId, cols, sortCol, sortAsc, tableId) {
   const fnName = tableId === "inf" ? "_sortInf" : "_sortVeh";
+  const avgCols = tableId === "inf" ? infAvgCols : vehAvgCols;
   document.getElementById(headId).innerHTML =
     `<tr>${cols.map((c,i) => {
       const arrow = i === sortCol ? (sortAsc ? " ▲" : " ▼") : " ⇅";
       const clickable = c.sortKey !== null;
-      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""} style="${clickable ? "" : "cursor:default"}">${c.label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+      const isAvg = avgCols.has(i);
+      const label = isAvg ? `<span style="opacity:0.6;font-size:0.7em">~/mission</span> ${c.label}` : c.label;
+      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}${isAvg ? ";background:rgba(255,255,255,0.08)" : ""}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
     }).join("")}</tr>`;
 }
 window._sortInf = function(col) {
@@ -1400,6 +1415,11 @@ window._sortVeh = function(col) {
   if (vehSortCol === col) vehSortAsc = !vehSortAsc;
   else { vehSortCol = col; vehSortAsc = !VEH_COLS[col].numeric; }
   renderVehicleTable();
+};
+window._toggleAvg = function(tableId, col) {
+  const avgCols = tableId === "inf" ? infAvgCols : vehAvgCols;
+  if (avgCols.has(col)) avgCols.delete(col); else avgCols.add(col);
+  if (tableId === "inf") renderInfantryTable(); else renderVehicleTable();
 };
 
 function sortPlayers(arr, colIdx, asc, cols) {
