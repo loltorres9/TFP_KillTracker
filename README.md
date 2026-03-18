@@ -5,7 +5,9 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 ## Features
 
 - **Infantry & Vehicle stats** — separate tables for on-foot and in-vehicle combat
-- **Award cards** — Hall of Fame and Hall of Shame cards for best/worst K/D, shots-per-kill, longest kill, teamkills, and hits taken; plus Executioner (most kills), Pro Sniper, and Perfect Aim
+- **Award cards** — Hall of Fame and Hall of Shame cards for best/worst K/D, shots-per-kill, longest kill, teamkills, hits taken, most/least distance run, and more
+- **Per-mission avg toggle** — right-click any raw-count column header or cell to switch between totals and per-mission averages; sorting respects the active mode; active column shows an amber `~/m` prefix
+- **Avg tooltip on awards** — hovering a stat line on any Hall of Fame/Shame card shows the per-mission average and mission count
 - **Top Killers chart** — horizontal bar chart of the leading infantry killers
 - **Filters** — narrow results by player name, mission, unit, event type (Joint Op / Regular Op), and Zeus status
   - Player pills support **multi-select** (left-click toggles); active pills are highlighted
@@ -19,6 +21,7 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 - **Joint Op detection** — automatically classifies events on the last Saturday/Sunday of each month as Joint Ops
 - **Teamkill highlighting** — rows with teamkills are visually flagged in red
 - **Time Played** — tracks seconds played per player, shown in the infantry table and career page
+- **Distance Run (km)** — total distance run per player tracked from OCAP movement data; teleport steps filtered out
 - **Query-param deep links** — `?player=Name` opens a career page directly; browser back/forward works
 
 ## Files
@@ -68,8 +71,9 @@ Stats are pulled from a public Google Sheets CSV. The sheet is expected to have 
 | 28 | Weapon Kills (JSON) | `{"WeaponName": killCount, …}` sorted by kills |
 | 29 | Suicides | |
 | 30 | Time Played (s) | Seconds present in the mission |
+| 31 | Distance Run (km) | Total distance run; teleport steps (>100 m) excluded |
 
-To point the tracker at a different sheet, update `CSV_URL` near the top of `index.html`.
+To point the tracker at a different sheet, update `CSV_URL` near the top of `tracker.js`.
 
 ## ImportScript Setup
 
