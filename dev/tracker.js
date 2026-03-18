@@ -912,7 +912,8 @@ function renderLeader() {
   }
 
   // Passenger Princess — least distance run (min 1h30m played to filter out short sessions)
-  const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 5400 && p.distanceRun > 0)
+  const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 5400 && p.distanceRun > 0
+    && !p.missionRows.some(r => (r["Group"] || "").toLowerCase() === "zeus"))
     .sort((a,b) => a.distanceRun - b.distanceRun)[0];
   if (shameDist) {
     document.getElementById("sh-dist-name").textContent = shameDist.name;
