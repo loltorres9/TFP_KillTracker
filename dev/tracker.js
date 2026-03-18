@@ -911,8 +911,8 @@ function renderLeader() {
     document.getElementById("sh-shots-stat").textContent = "";
   }
 
-  // Passenger Princess — least distance run (min 10 min played to filter out short sessions)
-  const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 600 && p.distanceRun > 0)
+  // Passenger Princess — least distance run (min 1h30m played to filter out short sessions)
+  const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 5400 && p.distanceRun > 0)
     .sort((a,b) => a.distanceRun - b.distanceRun)[0];
   if (shameDist) {
     document.getElementById("sh-dist-name").textContent = shameDist.name;
