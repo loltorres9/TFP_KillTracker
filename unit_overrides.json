@@ -1,4 +1,5 @@
 {
   "_comment": "Manual unit overrides. Format: \"PlayerName\": \"UnitName\". Valid units: 2nd USC, CNTO, PXG, TFP. Set to null to mark as Unknown.",
-  "_example": "\"SomePlayer\": \"TFP\""
+  "_example": "\"SomePlayer\": \"TFP\"",
+  "Goose": "2nd USC"
 }
