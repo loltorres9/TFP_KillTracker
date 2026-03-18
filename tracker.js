@@ -1010,72 +1010,56 @@ function buildCareerStatsHTML(p) {
   // ── Section 4: Kill breakdown by mission ──
   let missionHTML = `<div class="modal-section"><h3>Kill Breakdown by Mission</h3>
     <div style="overflow-x:auto">
-    <table class="mission-table"><thead>
-      <tr>
-        <th rowspan="2" style="vertical-align:bottom">Mission</th>
-        <th colspan="8" style="text-align:center;border-bottom:1px solid #ddd;color:#4a6fa5">Infantry (On Foot)</th>
-        <th colspan="8" style="text-align:center;border-bottom:1px solid #ddd;color:#8b5e3c">Vehicle</th>
-      </tr>
-      <tr>
-        <th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th><th>Avg Dist (m)</th>
-        <th>Kills</th><th>Deaths</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th><th>Avg Dist (m)</th><th>Destroyed</th>
-      </tr>
-    </thead><tbody>`;
+    <table class="mission-table"><thead><tr>
+      <th>Mission</th>
+      <th>Kills</th><th>Veh Kills</th><th>Deaths</th><th>K/D</th><th>TK</th>
+      <th>Suicides</th><th>Shots</th><th>Hits Taken</th><th>Shots/Kill</th>
+      <th>Avg Dist (m)</th><th>Longest (m)</th><th>Time Played</th>
+    </tr></thead><tbody>`;
 
   const missionMap = {};
   mRows.forEach(r => {
     const key = r["Mission"] || r["Source File"] || '—';
     if (!missionMap[key]) missionMap[key] = {
       mission: key,
-      k: 0, d: 0, tk: 0, sh: 0, lk: 0, adSum: 0, adN: 0,
-      kiv: 0, div: 0, tkiv: 0, siv: 0, lkiv: 0, adivSum: 0, adivN: 0,
-      vkof: 0, vkiv: 0
+      k: 0, vk: 0, d: 0, tk: 0, sui: 0, sh: 0, ht: 0,
+      lk: 0, adSum: 0, adN: 0, tp: 0
     };
-    const m = missionMap[key];
-    const kof  = NUM(r["Kills (On Foot)"]);
-    const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
-    const kiv  = NUM(r["Kills (In Vehicle)"]);
-    const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
+    const m   = missionMap[key];
+    const kof = NUM(r["Kills (On Foot)"]);
+    const aof = NUM(r["Avg Kill Dist On Foot (m)"]);
     m.k   += kof;
+    m.vk  += NUM(r["Vehicle Kills (On Foot)"]);
     m.d   += NUM(r["Deaths (On Foot)"]);
     m.tk  += NUM(r["Teamkills (On Foot)"]);
+    m.sui += NUM(r["Suicides"] || r["Suicides\r"] || "0");
     m.sh  += NUM(r["Shots (On Foot)"]);
+    m.ht  += NUM(r["Hits Taken (On Foot)"]);
     m.lk   = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
     if (kof > 0 && aof > 0) { m.adSum += aof * kof; m.adN += kof; }
-    m.kiv  += kiv;
-    m.div  += NUM(r["Deaths (In Vehicle)"]);
-    m.tkiv += NUM(r["Teamkills (In Vehicle)"]);
-    m.siv  += NUM(r["Shots (In Vehicle)"]);
-    m.lkiv  = Math.max(m.lkiv, NUM(r["Longest Kill In Vehicle (m)"]));
-    if (kiv > 0 && aiv > 0) { m.adivSum += aiv * kiv; m.adivN += kiv; }
-    m.vkof += NUM(r["Vehicle Kills (On Foot)"]);
-    m.vkiv += NUM(r["Vehicle Kills (In Vehicle)"]);
+    m.tp  += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
   });
   const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
 
   mergedMissions.forEach((m, i) => {
-    const kd    = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
-    const spk   = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
-    const ad    = m.adN > 0 ? Math.round(m.adSum / m.adN) + 'm' : '—';
-    const kdiv  = m.div > 0 ? (m.kiv / m.div).toFixed(2) : m.kiv.toFixed(2);
-    const spkiv = m.kiv > 0 ? (m.siv / m.kiv).toFixed(1) : '—';
-    const adiv  = m.adivN > 0 ? Math.round(m.adivSum / m.adivN) + 'm' : '—';
-    const destroyed = m.vkof + m.vkiv;
-    const bg    = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
+    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
+    const ad  = m.adN > 0 ? Math.round(m.adSum / m.adN) : '—';
+    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
     missionHTML += `<tr style="${bg}">
       <td>${m.mission}</td>
-      <td>${m.k}</td><td>${m.d}</td>
+      <td>${m.k}</td>
+      <td>${m.vk || '—'}</td>
+      <td>${m.d}</td>
       <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
-      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk}</td>
-      <td>${m.sh}</td><td>${spk}</td>
-      <td>${m.lk || '—'}</td>
+      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk || '—'}</td>
+      <td${m.sui>0?' style="color:var(--red)"':''}>${m.sui || '—'}</td>
+      <td>${m.sh}</td>
+      <td>${m.ht || '—'}</td>
+      <td>${spk}</td>
       <td>${ad}</td>
-      <td>${m.kiv || '—'}</td><td>${m.div || '—'}</td>
-      <td${m.tkiv>0?' style="color:var(--red);font-weight:700"':''}>${m.tkiv || '—'}</td>
-      <td>${m.siv || '—'}</td><td>${spkiv}</td>
-      <td>${m.lkiv || '—'}</td>
-      <td>${adiv}</td>
-      <td>${destroyed || '—'}</td>
+      <td>${m.lk || '—'}</td>
+      <td>${m.tp ? fmtTime(m.tp) : '—'}</td>
     </tr>`;
   });
   missionHTML += '</tbody></table></div></div>';
