@@ -972,11 +972,11 @@ function _buildMissionTbody(data) {
 window._sortMission = function(col) {
   if (missionSortCol === col) missionSortAsc = !missionSortAsc;
   else { missionSortCol = col; missionSortAsc = !MISSION_COLS[col].numeric; }
-  // Re-render all open mission tables (modal + career page use same IDs)
-  const thead = document.getElementById("missionThead");
-  const tbody = document.getElementById("missionTbody");
-  if (thead) thead.innerHTML = _buildMissionThead();
-  if (tbody) tbody.innerHTML = _buildMissionTbody(_missionData);
+  // Use querySelectorAll so both modal and career page (which share the DOM)
+  // are updated — getElementById only returns the first match and would miss
+  // whichever context isn't first in document order.
+  document.querySelectorAll(".js-mission-thead").forEach(el => { el.innerHTML = _buildMissionThead(); });
+  document.querySelectorAll(".js-mission-tbody").forEach(el => { el.innerHTML = _buildMissionTbody(_missionData); });
 };
 
 function buildCareerStatsHTML(p) {
@@ -1114,8 +1114,8 @@ function buildCareerStatsHTML(p) {
   const missionHTML = `<div class="modal-section"><h3>Kill Breakdown by Mission</h3>
     <div style="overflow-x:auto">
     <table class="mission-table">
-      <thead id="missionThead">${_buildMissionThead()}</thead>
-      <tbody id="missionTbody">${_buildMissionTbody(_missionData)}</tbody>
+      <thead class="js-mission-thead">${_buildMissionThead()}</thead>
+      <tbody class="js-mission-tbody">${_buildMissionTbody(_missionData)}</tbody>
     </table></div></div>`;
 
   return overallHTML + weaponHTML + bestHTML + missionHTML;
