@@ -187,11 +187,18 @@
     flex: 1 1 200px; border-radius: 8px; padding: 16px 20px;
     display: flex; align-items: center; gap: 14px; min-width: 180px;
   }
+  #shameRow {
+    flex-wrap: nowrap;
+  }
+  #shameRow .award-card {
+    flex: 1 1 0; min-width: 0; padding: 12px 14px;
+  }
   .award-card.ac-kills   { background: var(--charcoal); color: white; }
   .award-card.ac-longest { background: #1a237e; color: white; }
   .award-card.ac-spk     { background: #1b5e20; color: white; }
   .award-card.ac-kda     { background: #4a148c; color: white; }
   .award-card.ac-time    { background: #00695c; color: white; }
+  .award-card.ac-dist    { background: #0277bd; color: white; }
   .award-icon { font-size: 2rem; flex-shrink: 0; }
   .award-body {}
   .award-label { font-size: 0.7rem; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
@@ -213,6 +220,7 @@
   .award-card.ac-shame-suicides { background: #6a1b9a; color: white; }
   .award-card.ac-shame-deaths   { background: #37474f; color: white; }
   .award-card.ac-shame-shots    { background: #bf360c; color: white; }
+  .award-card.ac-shame-dist     { background: #558b2f; color: white; }
 
   /* ── LOADING / ERROR ── */
   .loading { text-align: center; padding: 60px; font-size: 1rem; color: #888; }
@@ -267,11 +275,12 @@
   .weapon-track { flex: 1; background: var(--bg); border-radius: 3px; height: 14px; }
   .weapon-fill  { height: 100%; background: var(--charcoal); border-radius: 3px; }
   .weapon-val   { font-size: 0.78rem; font-weight: 700; width: 28px; text-align: right; }
-  .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 900px; }
   .mission-table th {
-    background: var(--charcoal); color: white;
+    background: var(--charcoal); color: white; cursor: pointer;
     padding: 7px 10px; text-align: right; font-family: 'Oswald', sans-serif; font-size: 0.78rem;
   }
+  .mission-table th:hover { background: var(--charcoal-light); }
   .mission-table th:first-child { text-align: left; }
   .mission-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; }
   .mission-table td:first-child { text-align: left; font-weight: 600; }
@@ -288,6 +297,7 @@
 </head>
 <body>
 
+<div id="avgTooltip" style="display:none;position:fixed;background:#1a1a2e;color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:0.78rem;pointer-events:none;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>
 
 <div class="container">
   <div id="loading" class="loading">Loading mission data…</div>
@@ -341,13 +351,20 @@
           <div class="award-stat" id="aw-time-stat"></div>
         </div>
       </div>
+      <div class="award-card ac-dist">
+        <div class="award-icon">🏃</div>
+        <div class="award-body">
+          <div class="award-label">Ultra Runner</div>
+          <div class="award-name" id="aw-dist-name">—</div>
+          <div class="award-stat" id="aw-dist-stat"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Hall of Shame cards -->
     <div class="hall-label" id="hallShameLabel" style="display:none">💀 Hall of Shame</div>
     <div class="awards-row" id="shameRow" style="display:none">
       <div class="award-card ac-shame-kd">
-        <div class="award-icon">🪦</div>
         <div class="award-body">
           <div class="award-label">Cannon Fodder</div>
           <div class="award-name" id="sh-kd-name">—</div>
@@ -355,7 +372,6 @@
         </div>
       </div>
       <div class="award-card ac-shame-tk">
-        <div class="award-icon">🤦</div>
         <div class="award-body">
           <div class="award-label">Most Valuable Opponent</div>
           <div class="award-name" id="sh-tk-name">—</div>
@@ -363,7 +379,6 @@
         </div>
       </div>
       <div class="award-card ac-shame-spk">
-        <div class="award-icon">🥔</div>
         <div class="award-body">
           <div class="award-label">Spray &amp; Pray Specialist</div>
           <div class="award-name" id="sh-spk-name">—</div>
@@ -371,7 +386,6 @@
         </div>
       </div>
       <div class="award-card ac-shame-hits">
-        <div class="award-icon">🧲</div>
         <div class="award-body">
           <div class="award-label">Bullet Magnet</div>
           <div class="award-name" id="sh-hits-name">—</div>
@@ -379,7 +393,6 @@
         </div>
       </div>
       <div class="award-card ac-shame-suicides">
-        <div class="award-icon">💥</div>
         <div class="award-body">
           <div class="award-label">Tactically Unfortunate</div>
           <div class="award-name" id="sh-sui-name">—</div>
@@ -387,7 +400,6 @@
         </div>
       </div>
       <div class="award-card ac-shame-deaths">
-        <div class="award-icon">⚰️</div>
         <div class="award-body">
           <div class="award-label">Body Bag Collector</div>
           <div class="award-name" id="sh-deaths-name">—</div>
@@ -395,11 +407,17 @@
         </div>
       </div>
       <div class="award-card ac-shame-shots">
-        <div class="award-icon">🔊</div>
         <div class="award-body">
           <div class="award-label">Full-Auto Philosopher</div>
           <div class="award-name" id="sh-shots-name">—</div>
           <div class="award-stat" id="sh-shots-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-dist">
+        <div class="award-body">
+          <div class="award-label">Passenger Princess</div>
+          <div class="award-name" id="sh-dist-name">—</div>
+          <div class="award-stat" id="sh-dist-stat"></div>
         </div>
       </div>
     </div>

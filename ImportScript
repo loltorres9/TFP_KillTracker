@@ -40,7 +40,8 @@ function importOCAP(forceReimport = false) {
     "Top Weapon", "Weapon Kills (JSON)",
     // Misc
     "Suicides",
-    "Time Played (s)"
+    "Time Played (s)",
+    "Distance Run (km)"
   ];
   if (statsSheet.getLastRow() === 0) {
     statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
@@ -152,9 +153,36 @@ function importOCAP(forceReimport = false) {
           suicides: 0,
           isZeus: isZeus(e),
           timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
+          distanceRun: 0,
         };
       }
     });
+    // Pre-compute distance run on foot (sum of 2D distance between consecutive frames
+    // where the player is alive and not in a vehicle).
+    // Steps larger than maxStepMeters are treated as teleports and ignored.
+    // Max sprint speed in Arma is ~7 m/s; 25 m/s * captureDelay gives a generous ceiling.
+    const maxStepMeters = 25 * (data.captureDelay || 1);
+    Object.keys(players).forEach(id => {
+      const entity = entities[id];
+      if (!entity || !Array.isArray(entity.positions)) return;
+      const pos = entity.positions;
+      let dist = 0;
+      for (let i = 1; i < pos.length; i++) {
+        const prev = pos[i - 1];
+        const cur = pos[i];
+        // pos entry: [[x,y,z], bearing, alive, inVehicle, ...]
+        if (!Array.isArray(prev) || !Array.isArray(cur)) continue;
+        const prevAlive = prev[2] === 1, curAlive = cur[2] === 1;
+        const prevOnFoot = prev[3] === 0, curOnFoot = cur[3] === 0;
+        if (!prevAlive || !curAlive || !prevOnFoot || !curOnFoot) continue;
+        const [px, py] = prev[0];
+        const [cx, cy] = cur[0];
+        const step = Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
+        if (step <= maxStepMeters) dist += step;
+      }
+      players[id].distanceRun = Math.round(dist);
+    });
+
     // Pre-compute shots fired per context
     Object.keys(players).forEach(id => {
       const p = players[id];
@@ -168,6 +196,15 @@ function importOCAP(forceReimport = false) {
           p.shotsOnFoot++;
         }
       });
+    });
+    // Pre-build a set of "name:frame" for disconnect events so we can
+    // detect crash/disconnect-induced self-kills and exclude them from suicides.
+    // "disconnected" events store the player name (not entity ID), and a player can
+    // reconnect mid-mission and get a new entity ID — so we key by name to correctly
+    // cover all of a player's entities across reconnects.
+    const disconnectFrames = new Set();
+    (data.events || []).forEach(event => {
+      if (event[1] === "disconnected") disconnectFrames.add(`${event[2]}:${event[0]}`);
     });
     // Process events
     (data.events || []).forEach(event => {
@@ -193,7 +230,21 @@ function importOCAP(forceReimport = false) {
         // Killer must be a known player
         if (killerId === null || players[killerId] === undefined) return;
         if (killerId === victimId) {
-          if (players[victimId] !== undefined) players[victimId].suicides++;
+          // Skip if the player disconnected within 1 frame of the self-kill —
+          // the game engine generates a self-kill as a side-effect of a crash/DC,
+          // and the disconnect event can land on the same frame or an adjacent one.
+          // Use the victim's name for the lookup because: (a) disconnect events store
+          // the name, not the entity ID, and (b) a reconnected player gets a new entity
+          // ID, so keying by name correctly covers all entities across reconnects.
+          const victimName = victim ? victim.name : null;
+          const isDisconnectKill = victimName && (
+            disconnectFrames.has(`${victimName}:${frame - 1}`) ||
+            disconnectFrames.has(`${victimName}:${frame}`) ||
+            disconnectFrames.has(`${victimName}:${frame + 1}`)
+          );
+          if (!isDisconnectKill) {
+            players[victimId].suicides++;
+          }
           return;
         }
         const isSameSide = victim && killer && victim.side === killer.side;
@@ -261,6 +312,7 @@ function importOCAP(forceReimport = false) {
         p.shotsInVehicle = 0;
         p.hitsTakenInVehicle = 0;
         p.suicides = 0;
+        p.distanceRun = 0;
         p.killDistOnFoot = [];
         p.killDistInVehicle = [];
         p.weaponKills = {};
@@ -312,6 +364,7 @@ function importOCAP(forceReimport = false) {
         weaponJson,
         p.suicides,
         Math.round(p.timePlayed),
+        parseFloat((p.distanceRun / 1000).toFixed(1)),
       ]);
     });
     // Sort by on-foot kills descending
