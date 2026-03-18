@@ -447,6 +447,13 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXM
 
 const NUM = v => parseFloat(v) || 0;
 
+function fmtTime(secs) {
+  if (!secs) return "—";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function normalizeRole(role) {
   return role.trim()
     .replace(/@.*$/, '')
@@ -578,6 +585,7 @@ function buildAggregates() {
         missionRows: [],
         longestKillWeapon: "",  // weapon used for the longest kill
         roleCounts: {},
+        timePlayed: 0,
       };
     }
     const p = aggPlayers[name];
@@ -616,6 +624,7 @@ function buildAggregates() {
     p.shotsOnFoot  += sof;
     p.hitsOnFoot   += hof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
     const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
     if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
@@ -863,7 +872,7 @@ function applyFilters() {
         name,
         missions: new Set(),
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
-        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0, timePlayed: 0,
         maxLongestFoot: 0, avgDistFootSum: 0, avgDistFootN: 0,
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
@@ -904,6 +913,7 @@ function applyFilters() {
     p.killsOnFoot  += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
     p.shotsOnFoot  += sof; p.hitsOnFoot   += hof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
     const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
     if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
     if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
@@ -1346,6 +1356,7 @@ const INF_COLS = [
   { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
   { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
+  { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
 ];
 
 function renderInfantryTable() {
