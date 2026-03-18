@@ -948,18 +948,22 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
 });
 
-// ── AVG-PER-MISSION TOOLTIP (right-click on award stats) ─────────────────
+// ── AVG-PER-MISSION TOOLTIP (hover on award stats) ───────────────────────
 const avgTooltip = document.getElementById('avgTooltip');
-document.addEventListener('contextmenu', e => {
+document.addEventListener('mouseover', e => {
   const el = e.target.closest('[data-avg]');
   if (!el) return;
-  e.preventDefault();
   avgTooltip.textContent = 'Avg: ' + el.dataset.avg;
   avgTooltip.style.display = 'block';
-  avgTooltip.style.left = (e.clientX + 10) + 'px';
-  avgTooltip.style.top  = (e.clientY + 10) + 'px';
 });
-document.addEventListener('click',  () => avgTooltip.style.display = 'none');
+document.addEventListener('mousemove', e => {
+  if (avgTooltip.style.display === 'none') return;
+  avgTooltip.style.left = (e.clientX + 12) + 'px';
+  avgTooltip.style.top  = (e.clientY + 12) + 'px';
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('[data-avg]')) avgTooltip.style.display = 'none';
+});
 document.addEventListener('scroll', () => avgTooltip.style.display = 'none', true);
 
 // ── PER-MISSION TABLE SORT STATE ─────────────────────────────────────────
