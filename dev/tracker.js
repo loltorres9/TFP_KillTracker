@@ -910,6 +910,75 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
 });
 
+// ── PER-MISSION TABLE SORT STATE ─────────────────────────────────────────
+const MISSION_COLS = [
+  { label: "Mission",      key: "mission", numeric: false },
+  { label: "Kills",        key: "k",       numeric: true  },
+  { label: "Veh Kills",    key: "vk",      numeric: true  },
+  { label: "Deaths",       key: "d",       numeric: true  },
+  { label: "K/D",          key: "_kd",     numeric: true  },
+  { label: "TK",           key: "tk",      numeric: true  },
+  { label: "Suicides",     key: "sui",     numeric: true  },
+  { label: "Shots",        key: "sh",      numeric: true  },
+  { label: "Hits Taken",   key: "ht",      numeric: true  },
+  { label: "Shots/Kill",   key: "_spk",    numeric: true  },
+  { label: "Avg Dist (m)", key: "_ad",     numeric: true  },
+  { label: "Longest (m)",  key: "lk",      numeric: true  },
+  { label: "Time Played",  key: "tp",      numeric: true  },
+];
+let missionSortCol = 1; // default: Kills
+let missionSortAsc = false;
+let _missionData   = [];
+
+function _buildMissionThead() {
+  return `<tr>${MISSION_COLS.map((c, i) => {
+    const arrow = i === missionSortCol ? (missionSortAsc ? " ▲" : " ▼") : " ⇅";
+    return `<th onclick="window._sortMission(${i})">${c.label}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join("")}</tr>`;
+}
+
+function _buildMissionTbody(data) {
+  const col = MISSION_COLS[missionSortCol];
+  const sorted = [...data].sort((a, b) => {
+    let va = a[col.key], vb = b[col.key];
+    if (va == null) va = missionSortAsc ? Infinity : -Infinity;
+    if (vb == null) vb = missionSortAsc ? Infinity : -Infinity;
+    if (!col.numeric) return missionSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+    return missionSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+  return sorted.map((m, i) => {
+    const kd  = m._kd  != null ? m._kd.toFixed(2)  : "—";
+    const spk = m._spk != null ? m._spk.toFixed(1) : "—";
+    const ad  = m._ad  != null ? Math.round(m._ad) : "—";
+    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    return `<tr style="${bg}">
+      <td>${m.mission}</td>
+      <td>${m.k}</td>
+      <td>${m.vk || "—"}</td>
+      <td>${m.d}</td>
+      <td style="color:${m._kd>=2?'var(--green)':m._kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
+      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk || "—"}</td>
+      <td${m.sui>0?' style="color:var(--red)"':''}>${m.sui || "—"}</td>
+      <td>${m.sh}</td>
+      <td>${m.ht || "—"}</td>
+      <td>${spk}</td>
+      <td>${ad}</td>
+      <td>${m.lk || "—"}</td>
+      <td>${m.tp ? fmtTime(m.tp) : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+window._sortMission = function(col) {
+  if (missionSortCol === col) missionSortAsc = !missionSortAsc;
+  else { missionSortCol = col; missionSortAsc = !MISSION_COLS[col].numeric; }
+  // Re-render all open mission tables (modal + career page use same IDs)
+  const thead = document.getElementById("missionThead");
+  const tbody = document.getElementById("missionTbody");
+  if (thead) thead.innerHTML = _buildMissionThead();
+  if (tbody) tbody.innerHTML = _buildMissionTbody(_missionData);
+};
+
 function buildCareerStatsHTML(p) {
   // ── Section 1: Overall stats summary ──
   const overallHTML = `
@@ -1008,22 +1077,14 @@ function buildCareerStatsHTML(p) {
   bestHTML += '</div>';
 
   // ── Section 4: Kill breakdown by mission ──
-  let missionHTML = `<div class="modal-section"><h3>Kill Breakdown by Mission</h3>
-    <div style="overflow-x:auto">
-    <table class="mission-table"><thead><tr>
-      <th>Mission</th>
-      <th>Kills</th><th>Veh Kills</th><th>Deaths</th><th>K/D</th><th>TK</th>
-      <th>Suicides</th><th>Shots</th><th>Hits Taken</th><th>Shots/Kill</th>
-      <th>Avg Dist (m)</th><th>Longest (m)</th><th>Time Played</th>
-    </tr></thead><tbody>`;
-
   const missionMap = {};
   mRows.forEach(r => {
     const key = r["Mission"] || r["Source File"] || '—';
     if (!missionMap[key]) missionMap[key] = {
       mission: key,
       k: 0, vk: 0, d: 0, tk: 0, sui: 0, sh: 0, ht: 0,
-      lk: 0, adSum: 0, adN: 0, tp: 0
+      lk: 0, _adSum: 0, _adN: 0, tp: 0,
+      _kd: null, _spk: null, _ad: null
     };
     const m   = missionMap[key];
     const kof = NUM(r["Kills (On Foot)"]);
@@ -1036,33 +1097,26 @@ function buildCareerStatsHTML(p) {
     m.sh  += NUM(r["Shots (On Foot)"]);
     m.ht  += NUM(r["Hits Taken (On Foot)"]);
     m.lk   = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
-    if (kof > 0 && aof > 0) { m.adSum += aof * kof; m.adN += kof; }
+    if (kof > 0 && aof > 0) { m._adSum += aof * kof; m._adN += kof; }
     m.tp  += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
   });
-  const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
-
-  mergedMissions.forEach((m, i) => {
-    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
-    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
-    const ad  = m.adN > 0 ? Math.round(m.adSum / m.adN) : '—';
-    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
-    missionHTML += `<tr style="${bg}">
-      <td>${m.mission}</td>
-      <td>${m.k}</td>
-      <td>${m.vk || '—'}</td>
-      <td>${m.d}</td>
-      <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
-      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk || '—'}</td>
-      <td${m.sui>0?' style="color:var(--red)"':''}>${m.sui || '—'}</td>
-      <td>${m.sh}</td>
-      <td>${m.ht || '—'}</td>
-      <td>${spk}</td>
-      <td>${ad}</td>
-      <td>${m.lk || '—'}</td>
-      <td>${m.tp ? fmtTime(m.tp) : '—'}</td>
-    </tr>`;
+  // Pre-compute derived sort keys
+  Object.values(missionMap).forEach(m => {
+    m._kd  = m.d > 0 ? m.k / m.d : m.k;
+    m._spk = m.k > 0 ? m.sh / m.k : null;
+    m._ad  = m._adN > 0 ? m._adSum / m._adN : null;
   });
-  missionHTML += '</tbody></table></div></div>';
+  // Reset sort to default (kills desc) each time a new player's stats are opened
+  missionSortCol = 1;
+  missionSortAsc = false;
+  _missionData = Object.values(missionMap);
+
+  const missionHTML = `<div class="modal-section"><h3>Kill Breakdown by Mission</h3>
+    <div style="overflow-x:auto">
+    <table class="mission-table">
+      <thead id="missionThead">${_buildMissionThead()}</thead>
+      <tbody id="missionTbody">${_buildMissionTbody(_missionData)}</tbody>
+    </table></div></div>`;
 
   return overallHTML + weaponHTML + bestHTML + missionHTML;
 }

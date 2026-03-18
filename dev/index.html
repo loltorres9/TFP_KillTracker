@@ -269,9 +269,10 @@
   .weapon-val   { font-size: 0.78rem; font-weight: 700; width: 28px; text-align: right; }
   .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 900px; }
   .mission-table th {
-    background: var(--charcoal); color: white;
+    background: var(--charcoal); color: white; cursor: pointer;
     padding: 7px 10px; text-align: right; font-family: 'Oswald', sans-serif; font-size: 0.78rem;
   }
+  .mission-table th:hover { background: var(--charcoal-light); }
   .mission-table th:first-child { text-align: left; }
   .mission-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; }
   .mission-table td:first-child { text-align: left; font-weight: 600; }
