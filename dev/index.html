@@ -631,6 +631,7 @@ function buildUI() {
 
 // Internal versions that update the DOM without pushing another history entry
 function _openCareerPageNoHistory(playerName) {
+  window.parent.postMessage({ tfpPlayer: playerName }, '*');
   selectedPlayers = new Set([playerName]);
   applyFilters();
   const p = filteredPlayers.find(x => x.name === playerName);
@@ -657,6 +658,7 @@ function _openCareerPageNoHistory(playerName) {
 }
 
 function _closeCareerPageNoHistory() {
+  window.parent.postMessage({ tfpPlayer: null }, '*');
   selectedPlayers = null;
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
@@ -1165,6 +1167,7 @@ function openCareerPage(playerName) {
   const url = new URL(window.location.href);
   url.searchParams.set('player', playerName);
   history.pushState({ player: playerName }, '', url);
+  window.parent.postMessage({ tfpPlayer: playerName }, '*');
 
   selectedPlayers = new Set([playerName]);
   applyFilters();
@@ -1201,6 +1204,7 @@ function closeCareerPage() {
   const url = new URL(window.location.href);
   url.searchParams.delete('player');
   history.pushState({}, '', url);
+  window.parent.postMessage({ tfpPlayer: null }, '*');
 
   document.getElementById('careerHeader').style.display  = 'none';
   document.getElementById('careerStats').style.display   = 'none';
