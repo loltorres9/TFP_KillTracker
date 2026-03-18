@@ -192,6 +192,7 @@
   .award-card.ac-spk     { background: #1b5e20; color: white; }
   .award-card.ac-kda     { background: #4a148c; color: white; }
   .award-card.ac-time    { background: #00695c; color: white; }
+  .award-card.ac-dist    { background: #0277bd; color: white; }
   .award-icon { font-size: 2rem; flex-shrink: 0; }
   .award-body {}
   .award-label { font-size: 0.7rem; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
@@ -213,6 +214,7 @@
   .award-card.ac-shame-suicides { background: #6a1b9a; color: white; }
   .award-card.ac-shame-deaths   { background: #37474f; color: white; }
   .award-card.ac-shame-shots    { background: #bf360c; color: white; }
+  .award-card.ac-shame-dist     { background: #558b2f; color: white; }
 
   /* ── LOADING / ERROR ── */
   .loading { text-align: center; padding: 60px; font-size: 1rem; color: #888; }
@@ -342,6 +344,14 @@
           <div class="award-stat" id="aw-time-stat"></div>
         </div>
       </div>
+      <div class="award-card ac-dist">
+        <div class="award-icon">🏃</div>
+        <div class="award-body">
+          <div class="award-label">Ultra Runner</div>
+          <div class="award-name" id="aw-dist-name">—</div>
+          <div class="award-stat" id="aw-dist-stat"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Hall of Shame cards -->
@@ -401,6 +411,14 @@
           <div class="award-label">Full-Auto Philosopher</div>
           <div class="award-name" id="sh-shots-name">—</div>
           <div class="award-stat" id="sh-shots-stat"></div>
+        </div>
+      </div>
+      <div class="award-card ac-shame-dist">
+        <div class="award-icon">👸</div>
+        <div class="award-body">
+          <div class="award-label">Passenger Princess</div>
+          <div class="award-name" id="sh-dist-name">—</div>
+          <div class="award-stat" id="sh-dist-stat"></div>
         </div>
       </div>
     </div>
