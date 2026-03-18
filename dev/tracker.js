@@ -1,0 +1,1052 @@
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
+
+// Column indices in the CSV (0-based after splitting)
+// Source File(0), Mission(1), World(2), Username(3), Side(4), Group(5),
+// Kills OnFoot(6), Deaths OnFoot(7), KD OnFoot(8), TK OnFoot(9),
+// Shots OnFoot(10), Hits OnFoot(11), SPK OnFoot(12), AvgDist OnFoot(13), LongestOnFoot(14),
+// Kills InVeh(15), Deaths InVeh(16), KD InVeh(17), TK InVeh(18),
+// VehKills OnFoot(19), VehKills InVeh(20),
+// Shots InVeh(21), Hits InVeh(22), SPK InVeh(23), AvgDist InVeh(24), LongestInVeh(25)
+
+const NUM = v => parseFloat(v) || 0;
+
+function fmtTime(secs) {
+  if (!secs) return "—";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function normalizeRole(role) {
+  return role.trim()
+    .replace(/@.*$/, '')
+    .replace(/\s+(Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|\d+)$/i, '')
+    .replace(/\s+(Red|Blue|Green|Yellow|White|Black|Orange|Purple|Teal|Pink|Cyan|Lime|Maroon|Navy|Olive|Silver|Violet|Magenta)$/i, '')
+    .trim();
+}
+
+function missionDate(missionName) {
+  const m = missionName.match(/\((\d{4}-\d{2}-\d{2})\)/);
+  if (!m) return missionName;
+  const [y, mo, d] = m[1].split('-');
+  return `${d}/${mo}/${y}`;
+}
+
+let rawRows = [];    // one entry per CSV row
+let aggPlayers = {}; // aggregated by player name across missions
+let filteredPlayers = [];
+
+let infSortCol = 2;   // col index 2 = Kills in INF_COLS
+let infSortAsc = false;
+let vehSortCol = 2;   // col index 2 = Kills in VEH_COLS
+let vehSortAsc = false;
+let currentModalPlayer = null;
+
+// ── EVENT TYPE DETECTION ─────────────────────────────────────────────────
+// Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
+function isJointOp(filename) {
+  // Joint Op = last Saturday of the month AND the Sunday immediately after it
+  const m = filename.match(/(\d{4})_(\d{2})_(\d{2})/);
+  if (!m) return false;
+  const year = parseInt(m[1]), month = parseInt(m[2]) - 1, day = parseInt(m[3]);
+  const d = new Date(year, month, day);
+  const dow = d.getDay(); // 0=Sun, 6=Sat
+  if (dow === 6) {
+    // Saturday — is it the last one of the month?
+    return new Date(year, month, day + 7).getMonth() !== month;
+  }
+  if (dow === 0) {
+    // Sunday — was yesterday the last Saturday of its month?
+    const prevSat = new Date(year, month, day - 1);
+    if (prevSat.getDay() !== 6) return false; // sanity check
+    // Check prev Saturday is the last Saturday of ITS own month
+    const nextSatFromPrev = new Date(prevSat.getFullYear(), prevSat.getMonth(), prevSat.getDate() + 7);
+    return nextSatFromPrev.getMonth() !== prevSat.getMonth();
+  }
+  return false;
+}
+
+let showJointOps   = true;
+let showRegularEvents = true;
+let zeusFilter = "all";
+
+// ── FETCH & PARSE ────────────────────────────────────────────────────────
+fetch(CSV_URL)
+  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+  .then(csv => {
+    const lines = csv.trim().split("\n");
+    const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
+    rawRows = lines.slice(1).map(line => {
+      // Handle CSV fields with commas in quotes
+      const cols = parseCSVLine(line);
+      const obj = {};
+      header.forEach((h,i) => {
+        const raw = cols[i] || "";
+        // Don't strip quotes from JSON columns
+        obj[h] = h === "Weapon Kills (JSON)" ? raw.trim() : raw.replace(/"/g,"").replace(/\r/g,"").trim();
+      });
+      return obj;
+    }).filter(r => r["Username"]);
+
+    buildAggregates();
+    buildUI();
+  })
+  .catch(err => {
+    document.getElementById("loading").style.display = "none";
+    const el = document.getElementById("error");
+    el.style.display = "";
+    el.textContent = "Failed to load data: " + err.message;
+  });
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuotes && line[i+1] === '"') {
+        cur += '"'; i++; // escaped quote "" -> "
+      } else {
+        inQuotes = !inQuotes; // toggle quoted mode, don't add the delimiter quote
+      }
+    } else if (c === ',' && !inQuotes) {
+      result.push(cur); cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── AGGREGATE ───────────────────────────────────────────────────────────
+function buildAggregates() {
+  aggPlayers = {};
+  rawRows.forEach(r => {
+    const name = r["Username"] || r["Username\r"] || "";
+    if (!name) return;
+    if (!aggPlayers[name]) {
+      aggPlayers[name] = {
+        name,
+        missions: new Set(),
+        worlds: new Set(),
+        // On-foot
+        killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0,
+        killDistOnFoot: [], // collect distances for avg/max
+        suicides: 0,
+        // In-vehicle
+        killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
+        vehKillsFoot: 0, vehKillsVeh: 0,
+        shotsInVeh: 0, hitsInVeh: 0,
+        killDistInVeh: [],
+        maxLongestFoot: 0, maxLongestVeh: 0,
+        avgDistFootSum: 0, avgDistFootN: 0,
+        avgDistVehSum: 0,  avgDistVehN: 0,
+        weaponKills: {},
+        missionRows: [],
+        longestKillWeapon: "",  // weapon used for the longest kill
+        roleCounts: {},
+        timePlayed: 0,
+      };
+    }
+    const p = aggPlayers[name];
+    const mission = r["Mission"] || r["Mission\r"] || "";
+    p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
+    const world = r["World"] || "";
+    if (world) p.worlds.add(world);
+
+    const kof  = NUM(r["Kills (On Foot)"]);
+    const dof  = NUM(r["Deaths (On Foot)"]);
+    const tkof = NUM(r["Teamkills (On Foot)"]);
+    const sof  = NUM(r["Shots (On Foot)"]);
+    const hof  = NUM(r["Hits Taken (On Foot)"]);
+    const lof  = NUM(r["Longest Kill On Foot (m)"]);
+    const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
+
+    const kiv  = NUM(r["Kills (In Vehicle)"]);
+    const div2 = NUM(r["Deaths (In Vehicle)"]);
+    const tkiv = NUM(r["Teamkills (In Vehicle)"]);
+    const vkof = NUM(r["Vehicle Kills (On Foot)"]);
+    const vkiv = NUM(r["Vehicle Kills (In Vehicle)"]);
+    const siv  = NUM(r["Shots (In Vehicle)"]);
+    const hiv  = NUM(r["Hits Taken (In Vehicle)"]);
+    const liv  = NUM(r["Longest Kill In Vehicle (m)"]);
+    const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
+
+    p.killsOnFoot  += kof;
+    p.deathsOnFoot += dof;
+    p.tkOnFoot     += tkof;
+    p.shotsOnFoot  += sof;
+    p.hitsOnFoot   += hof;
+    p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
+    const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
+    if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
+    if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
+
+    p.killsInVeh  += kiv;
+    p.deathsInVeh += div2;
+    p.tkInVeh     += tkiv;
+    p.vehKillsFoot+= vkof;
+    p.vehKillsVeh += vkiv;
+    p.shotsInVeh  += siv;
+    p.hitsInVeh   += hiv;
+    if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
+    if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
+
+    // Weapons + mission rows (for modal)
+    try {
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
+      const wmap = JSON.parse(weaponJson);
+      Object.entries(wmap).forEach(([w, c]) => {
+        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+      });
+    } catch(e) {}
+    p.missionRows.push(r);
+  });
+
+  // Compute derived fields
+  Object.values(aggPlayers).forEach(p => {
+    const totalDeaths = p.deathsOnFoot + p.deathsInVeh;
+    const totalKills  = p.killsOnFoot  + p.killsInVeh;
+    p.kdFoot = p.deathsOnFoot > 0 ? p.killsOnFoot / p.deathsOnFoot : p.killsOnFoot;
+    p.kdVeh  = p.deathsInVeh  > 0 ? p.killsInVeh  / p.deathsInVeh  : p.killsInVeh;
+    p.spkFoot = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
+    p.spkVeh  = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
+    p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
+    p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
+  });
+}
+
+// ── BUILD UI ────────────────────────────────────────────────────────────
+function buildUI() {
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("content").style.display = "";
+
+  buildFilters();
+  applyFilters();
+
+  // ── Deep-link: ?player=Name ──────────────────────────────────────────────
+  const _dlPlayer = new URLSearchParams(window.location.search).get('player');
+  if (_dlPlayer) openCareerPage(_dlPlayer);
+
+  window.addEventListener('popstate', e => {
+    const name = e.state && e.state.player;
+    if (name) {
+      _openCareerPageNoHistory(name);
+    } else {
+      _closeCareerPageNoHistory();
+    }
+  });
+}
+
+// Internal versions that update the DOM without pushing another history entry
+function _openCareerPageNoHistory(playerName) {
+  selectedPlayers = new Set([playerName]);
+  applyFilters();
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+  document.getElementById('careerPlayerName').textContent = p.name;
+  const _cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
+  document.getElementById('careerPlayerSub').textContent =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('statsBar').style.display         = 'none';
+  document.getElementById('awardsRow').style.display        = 'none';
+  document.getElementById('hallFameLabel').style.display    = 'none';
+  document.getElementById('shameRow').style.display         = 'none';
+  document.getElementById('hallShameLabel').style.display   = 'none';
+  document.querySelector('.chart-section').style.display    = 'none';
+  document.querySelector('.filter-panel').style.display     = 'none';
+  document.getElementById('careerHeader').style.display     = '';
+  document.getElementById('careerStats').style.display      = '';
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+function _closeCareerPageNoHistory() {
+  selectedPlayers = null;
+  document.getElementById('careerHeader').style.display  = 'none';
+  document.getElementById('careerStats').style.display   = 'none';
+  document.getElementById('statsBar').style.display      = '';
+  document.querySelector('.chart-section').style.display = '';
+  document.querySelector('.filter-panel').style.display  = '';
+  applyFilters();
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+// selectedPlayers / selectedMissions = null means "all", Set means explicit selection
+let selectedPlayers  = null;
+let selectedMissions = null;
+
+function buildFilters() {
+  // Wire up event type toggles
+  document.getElementById("eventTypeSelect").onchange = () => {
+    const val = document.getElementById("eventTypeSelect").value;
+    showJointOps      = val === "both" || val === "joint";
+    showRegularEvents = val === "both" || val === "regular";
+    selectedPlayers  = null;
+    selectedMissions = null;
+    refreshPills();
+    filterChanged();
+  };
+
+  document.getElementById("resetFilters").onclick = () => {
+    showJointOps      = true;
+    showRegularEvents = true;
+    selectedPlayers   = null;
+    selectedMissions  = null;
+    document.getElementById("playerSearch").value   = "";
+    document.getElementById("missionSearch").value  = "";
+    document.getElementById("eventTypeSelect").value = "both";
+    document.getElementById("zeusFilterSelect").value = "all";
+    zeusFilter = "all";
+    refreshPills();
+    filterChanged();
+  };
+
+  document.getElementById("playerSearch").oninput  = refreshPills;
+  document.getElementById("missionSearch").oninput = refreshPills;
+  document.getElementById("zeusFilterSelect").onchange = () => {
+    zeusFilter = document.getElementById("zeusFilterSelect").value;
+    selectedPlayers = null; selectedMissions = null;
+    refreshPills(); filterChanged();
+  };
+
+  refreshPills();
+}
+
+function getEventFilteredRows() {
+  return rawRows.filter(r => {
+    const src = r["Source File"] || "";
+    const isLarge = isJointOp(src);
+    return isLarge ? showJointOps : showRegularEvents;
+  });
+}
+
+function refreshPills() {
+  const eventRows = getEventFilteredRows();
+
+  // Available missions given current event type
+  const availMissions = [...new Set(eventRows.map(r => r["Mission"] || "").filter(Boolean))].sort();
+
+  // Available players given current event type + selected missions
+  const missionFiltered = selectedMissions
+    ? eventRows.filter(r => selectedMissions.has(r["Mission"] || ""))
+    : eventRows;
+  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))].sort();
+
+  renderSelectablePills("missionPills", availMissions, selectedMissions, "missionSearch", (item, set) => {
+    if (set === null) {
+      // First explicit click — select only this one
+      selectedMissions = new Set([item]);
+    } else if (set.has(item)) {
+      set.delete(item);
+      // If nothing left selected, go back to "all"
+      selectedMissions = set.size > 0 ? set : null;
+    } else {
+      set.add(item);
+    }
+    // Reset player selection when mission filter changes
+    selectedPlayers = null;
+    refreshPills();
+    filterChanged();
+  });
+
+  renderCareerPills("playerPills", availPlayers, "playerSearch");
+}
+
+function renderCareerPills(containerId, items, searchId) {
+  const container = document.getElementById(containerId);
+  const searchVal = document.getElementById(searchId).value.toLowerCase();
+  container.innerHTML = "";
+  items
+    .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
+    .forEach(item => {
+      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = item;
+      pill.onclick = () => filterToPlayer(item);
+      pill.oncontextmenu = (e) => { e.preventDefault(); openCareerPage(item); };
+      container.appendChild(pill);
+    });
+}
+
+function renderSelectablePills(containerId, items, selectedSet, searchId, onSelect) {
+  // selectedSet === null means "all active"; a Set means explicit selection
+  const container = document.getElementById(containerId);
+  const searchVal = document.getElementById(searchId).value.toLowerCase();
+  container.innerHTML = "";
+  items
+    .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
+    .forEach(item => {
+      const isActive = selectedSet === null || selectedSet.has(item);
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = item;
+      pill.onclick = () => onSelect(item, selectedSet);
+      container.appendChild(pill);
+    });
+}
+
+function filterChanged() {
+  applyFilters();
+}
+
+function applyFilters() {
+  const filtered = rawRows.filter(r => {
+    const name    = r["Username"] || "";
+    const mission = r["Mission"]  || "";
+    const srcFile = r["Source File"] || "";
+    const isLarge = isJointOp(srcFile);
+    const eventTypeOk   = isLarge ? showJointOps : showRegularEvents;
+    const playerOk  = selectedPlayers  === null || selectedPlayers.has(name);
+    const missionOk = selectedMissions === null || selectedMissions.has(mission);
+    return eventTypeOk && playerOk && missionOk;
+  });
+
+  // Re-aggregate only for filtered rows
+  const tempAgg = {};
+  filtered.forEach(r => {
+    const name = r["Username"] || "";
+    if (!name) return;
+    if (!tempAgg[name]) {
+      tempAgg[name] = {
+        name,
+        missions: new Set(),
+        killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0, timePlayed: 0,
+        maxLongestFoot: 0, avgDistFootSum: 0, avgDistFootN: 0,
+        killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
+        vehKillsFoot: 0, vehKillsVeh: 0,
+        shotsInVeh: 0, hitsInVeh: 0,
+        maxLongestVeh: 0, avgDistVehSum: 0, avgDistVehN: 0,
+        weaponKills: {},   // weapon -> total kills across missions
+        missionRows: [],   // raw per-mission rows for modal
+        roleCounts: {},    // normalized role -> appearances
+      };
+    }
+    const p = tempAgg[name];
+    const mission = r["Mission"] || "";
+    p.missions.add(mission);
+
+    const rawRole = r["Role"] || r["Group"] || "";
+    if (rawRole) {
+      const normRole = normalizeRole(rawRole);
+      if (normRole) p.roleCounts[normRole] = (p.roleCounts[normRole] || 0) + 1;
+    }
+
+    const kof  = NUM(r["Kills (On Foot)"]);
+    const dof  = NUM(r["Deaths (On Foot)"]);
+    const tkof = NUM(r["Teamkills (On Foot)"]);
+    const sof  = NUM(r["Shots (On Foot)"]);
+    const hof  = NUM(r["Hits Taken (On Foot)"]);
+    const lof  = NUM(r["Longest Kill On Foot (m)"]);
+    const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
+    const kiv  = NUM(r["Kills (In Vehicle)"]);
+    const div2 = NUM(r["Deaths (In Vehicle)"]);
+    const tkiv = NUM(r["Teamkills (In Vehicle)"]);
+    const vkof = NUM(r["Vehicle Kills (On Foot)"]);
+    const vkiv = NUM(r["Vehicle Kills (In Vehicle)"]);
+    const siv  = NUM(r["Shots (In Vehicle)"]);
+    const hiv  = NUM(r["Hits Taken (In Vehicle)"]);
+    const liv  = NUM(r["Longest Kill In Vehicle (m)"]);
+    const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
+
+    p.killsOnFoot  += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
+    p.shotsOnFoot  += sof; p.hitsOnFoot   += hof;
+    p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
+    const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
+    if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
+    if (kof > 0 && aof > 0) { p.avgDistFootSum += aof * kof; p.avgDistFootN += kof; }
+
+    p.killsInVeh  += kiv; p.deathsInVeh += div2; p.tkInVeh += tkiv;
+    p.vehKillsFoot+= vkof; p.vehKillsVeh += vkiv;
+    p.shotsInVeh  += siv; p.hitsInVeh   += hiv;
+    if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
+    if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
+
+    // Weapons + mission rows (for modal)
+    try {
+      const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
+      const wmap = JSON.parse(weaponJson);
+      Object.entries(wmap).forEach(([w, c]) => {
+        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+      });
+    } catch(e) {}
+    p.missionRows.push(r);
+  });
+
+  Object.values(tempAgg).forEach(p => {
+    p.kdFoot  = p.deathsOnFoot > 0 ? p.killsOnFoot / p.deathsOnFoot : p.killsOnFoot;
+    p.kdVeh   = p.deathsInVeh  > 0 ? p.killsInVeh  / p.deathsInVeh  : p.killsInVeh;
+    p.spkFoot = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
+    p.spkVeh  = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
+    p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
+    p.missionCount = p.missions.size;
+    const _rs = Object.entries(p.roleCounts || {}).sort((a, b) => b[1] - a[1]);
+    p.topRole = _rs.length > 0 ? _rs[0][0] : null;
+    p.topRoleCount = _rs.length > 0 ? _rs[0][1] : 0;
+  });
+
+  filteredPlayers = Object.values(tempAgg).filter(p => {
+    const playerOk = selectedPlayers === null || selectedPlayers.has(p.name);
+    const isZeus = p.missionRows && p.missionRows.some(r =>
+      (r["Group"] || "").toLowerCase() === "zeus"
+    );
+    const zeusOk = zeusFilter === "all"
+      || (zeusFilter === "no-zeus"   && !isZeus)
+      || (zeusFilter === "zeus-only" &&  isZeus);
+    return playerOk && zeusOk;
+  });
+
+  const totalCount = Object.keys(aggPlayers).length;
+  const parts = [];
+  if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
+  if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
+  const evVal = document.getElementById("eventTypeSelect") ? document.getElementById("eventTypeSelect").value : "both";
+  if (evVal !== "both") parts.push(evVal === "joint" ? "Joint Op only" : "Regular Op only");
+  document.getElementById("filterCount").textContent =
+    parts.length ? `Filtered: ${parts.join(" · ")}` : `${filteredPlayers.length} players`;
+
+  renderStats();
+  renderChart();
+  renderLeader();
+  renderInfantryTable();
+  renderVehicleTable();
+}
+
+// ── STATS BAR ────────────────────────────────────────────────────────────
+function renderStats() {
+  const totKillsFoot = filteredPlayers.reduce((s,p) => s + p.killsOnFoot, 0);
+  const totDeaths    = filteredPlayers.reduce((s,p) => s + p.deathsOnFoot + p.deathsInVeh, 0);
+  const totTK        = filteredPlayers.reduce((s,p) => s + p.tkOnFoot + p.tkInVeh, 0);
+  const totVehKills  = filteredPlayers.reduce((s,p) => s + p.vehKillsFoot + p.vehKillsVeh, 0);
+  const totKillsVeh  = filteredPlayers.reduce((s,p) => s + p.killsInVeh, 0);
+  const missions     = new Set(filteredPlayers.flatMap(p => [...p.missions])).size;
+  const avgKD        = filteredPlayers.length ? (filteredPlayers.reduce((s,p)=>s+p.kdFoot,0)/filteredPlayers.length).toFixed(2) : "0.00";
+
+  const cards = [
+    { val: totKillsFoot, lbl: "Infantry Kills" },
+    { val: totKillsVeh,  lbl: "Kills from Vehicles" },
+    { val: totDeaths,    lbl: "Total Deaths" },
+    { val: totTK,        lbl: "Teamkills" },
+    { val: totVehKills,  lbl: "Vehicles Destroyed" },
+    { val: filteredPlayers.length, lbl: "Players" },
+    { val: missions,     lbl: "Missions" },
+    { val: avgKD,        lbl: "Avg K/D (Infantry)" },
+  ];
+  document.getElementById("statsBar").innerHTML = cards.map(c =>
+    `<div class="stat-card"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`
+  ).join("");
+}
+
+// ── CHART ────────────────────────────────────────────────────────────────
+function renderChart() {
+  const top = [...filteredPlayers].sort((a,b) => b.killsOnFoot - a.killsOnFoot).slice(0,10);
+  if (!top.length) { document.getElementById("chartBars").innerHTML = ""; return; }
+  const max = top[0].killsOnFoot || 1;
+  document.getElementById("chartBars").innerHTML = top.map(p =>
+    `<div class="bar-row">
+      <div class="bar-label" title="${p.name}">${p.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(p.killsOnFoot/max*100).toFixed(1)}%"></div></div>
+      <div class="bar-val">${p.killsOnFoot}</div>
+    </div>`
+  ).join("");
+}
+
+// ── AWARD CARDS ──────────────────────────────────────────────────────────
+function renderLeader() {
+  const row       = document.getElementById("awardsRow");
+  const shameRow  = document.getElementById("shameRow");
+  const fameLabel = document.getElementById("hallFameLabel");
+  const shameLabel= document.getElementById("hallShameLabel");
+  const eligible  = filteredPlayers.filter(p => p.killsOnFoot > 0);
+  if (!eligible.length) {
+    row.style.display = shameRow.style.display = "none";
+    fameLabel.style.display = shameLabel.style.display = "none";
+    return;
+  }
+  row.style.display = shameRow.style.display = "flex";
+  fameLabel.style.display = shameLabel.style.display = "";
+
+  // Executioner — most on-foot kills
+  const byKills = [...eligible].sort((a,b) => b.killsOnFoot - a.killsOnFoot)[0];
+  document.getElementById("aw-kills-name").textContent = byKills.name;
+  document.getElementById("aw-kills-stat").textContent =
+    `${byKills.killsOnFoot} kills · K/D ${byKills.kdFoot.toFixed(2)}`;
+
+  // Pro Sniper — highest maxLongestFoot (min 2 kills to avoid flukes)
+  const byLong = [...eligible].filter(p => p.killsOnFoot >= 2)
+    .sort((a,b) => b.maxLongestFoot - a.maxLongestFoot)[0];
+  if (byLong && byLong.maxLongestFoot > 0) {
+    document.getElementById("aw-long-name").textContent = byLong.name;
+    const longWeapon = byLong.longestKillWeapon ? ` · ${byLong.longestKillWeapon}` : "";
+    document.getElementById("aw-long-stat").textContent =
+      `${byLong.maxLongestFoot} m · avg ${Math.round(byLong.avgDistFoot)} m${longWeapon}`;
+  } else {
+    document.getElementById("aw-long-name").textContent = "—";
+    document.getElementById("aw-long-stat").textContent = "";
+  }
+
+  // Perfect Aim — lowest shots per kill (min 3 kills to filter noise)
+  // spkFoot >= 1 means at least 1 shot fired per kill (no knife/0-shot kills skewing it)
+  const bySpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
+    .sort((a,b) => a.spkFoot - b.spkFoot)[0];
+  if (bySpk) {
+    document.getElementById("aw-spk-name").textContent = bySpk.name;
+    document.getElementById("aw-spk-stat").textContent =
+      `${bySpk.spkFoot.toFixed(1)} shots/kill · ${bySpk.killsOnFoot} kills`;
+  } else {
+    document.getElementById("aw-spk-name").textContent = "—";
+    document.getElementById("aw-spk-stat").textContent = "";
+  }
+
+  // K/D Player — highest kdFoot (min 3 kills)
+  const byKda = [...eligible].filter(p => p.killsOnFoot >= 3)
+    .sort((a,b) => b.kdFoot - a.kdFoot)[0];
+  if (byKda) {
+    document.getElementById("aw-kda-name").textContent = byKda.name;
+    document.getElementById("aw-kda-stat").textContent =
+      `${byKda.kdFoot.toFixed(2)} K/D · ${byKda.killsOnFoot}K / ${byKda.deathsOnFoot}D`;
+  } else {
+    document.getElementById("aw-kda-name").textContent = "—";
+    document.getElementById("aw-kda-stat").textContent = "";
+  }
+
+  // ── HALL OF SHAME ────────────────────────────────────────────────────
+
+  // Cannon Fodder — worst K/D (min 3 kills to avoid flukes, must have died at least once)
+  const shameKd = [...eligible].filter(p => p.killsOnFoot >= 3 && p.deathsOnFoot > 0)
+    .sort((a,b) => a.kdFoot - b.kdFoot)[0];
+  if (shameKd) {
+    document.getElementById("sh-kd-name").textContent = shameKd.name;
+    document.getElementById("sh-kd-stat").textContent =
+      `${shameKd.kdFoot.toFixed(2)} K/D · ${shameKd.killsOnFoot}K / ${shameKd.deathsOnFoot}D`;
+  } else {
+    document.getElementById("sh-kd-name").textContent = "—";
+    document.getElementById("sh-kd-stat").textContent = "";
+  }
+
+  // Teamkiller — most total teamkills (on foot + vehicle)
+  const shameTk = [...filteredPlayers]
+    .map(p => ({ ...p, totalTK: p.tkOnFoot + p.tkInVeh }))
+    .filter(p => p.totalTK > 0)
+    .sort((a,b) => b.totalTK - a.totalTK)[0];
+  if (shameTk) {
+    document.getElementById("sh-tk-name").textContent = shameTk.name;
+    document.getElementById("sh-tk-stat").textContent =
+      `${shameTk.totalTK} teamkills (${shameTk.tkOnFoot} foot · ${shameTk.tkInVeh} veh)`;
+  } else {
+    document.getElementById("sh-tk-name").textContent = "—";
+    document.getElementById("sh-tk-stat").textContent = "";
+  }
+
+  // Potato Aim — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
+  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
+    .sort((a,b) => b.spkFoot - a.spkFoot)[0];
+  if (shameSpk) {
+    document.getElementById("sh-spk-name").textContent = shameSpk.name;
+    document.getElementById("sh-spk-stat").textContent =
+      `${shameSpk.spkFoot.toFixed(1)} shots/kill · ${shameSpk.killsOnFoot} kills`;
+  } else {
+    document.getElementById("sh-spk-name").textContent = "—";
+    document.getElementById("sh-spk-stat").textContent = "";
+  }
+
+  // Bullet Sponge — most hits taken on foot
+  const shameHits = [...filteredPlayers].filter(p => p.hitsOnFoot > 0)
+    .sort((a,b) => b.hitsOnFoot - a.hitsOnFoot)[0];
+  if (shameHits) {
+    document.getElementById("sh-hits-name").textContent = shameHits.name;
+    document.getElementById("sh-hits-stat").textContent =
+      `${shameHits.hitsOnFoot} hits taken`;
+  } else {
+    document.getElementById("sh-hits-name").textContent = "—";
+    document.getElementById("sh-hits-stat").textContent = "";
+  }
+}
+
+
+// ── PLAYER MODAL ─────────────────────────────────────────────────────────
+function closeModal(e) {
+  if (e.target === document.getElementById('playerModal')) {
+    document.getElementById('playerModal').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
+});
+
+function buildCareerStatsHTML(p) {
+  // ── Section 1: Overall stats summary ──
+  const overallHTML = `
+    <div class="modal-section">
+      <h3>Overall Infantry Stats</h3>
+      <div class="modal-grid">
+        ${mStat(p.killsOnFoot, 'Kills')}
+        ${mStat(p.deathsOnFoot, 'Deaths')}
+        ${mStat(p.kdFoot.toFixed(2), 'K/D')}
+        ${mStat(p.tkOnFoot, 'Teamkills')}
+        ${mStat(p.shotsOnFoot, 'Shots Fired')}
+        ${mStat(p.spkFoot != null ? p.spkFoot.toFixed(1) : '—', 'Shots / Kill')}
+        ${mStat(p.maxLongestFoot ? p.maxLongestFoot + 'm' : '—', 'Longest Kill', p.longestKillWeapon || '')}
+        ${mStat(p.avgDistFoot ? Math.round(p.avgDistFoot) + 'm' : '—', 'Avg Kill Dist')}
+      </div>
+    </div>`;
+
+  // ── Section 2: Weapon breakdown ──
+  const weapons = Object.entries(p.weaponKills || {}).sort((a,b) => b[1]-a[1]);
+  let weaponHTML = '<div class="modal-section"><h3>Weapon Kill Breakdown</h3>';
+  if (weapons.length === 0) {
+    weaponHTML += '<p style="color:#888;font-size:0.82rem">No weapon data available — re-import missions with the updated script to populate this.</p>';
+  } else {
+    const maxW = weapons[0][1];
+    const totalKillsW = weapons.reduce((s,[,c]) => s+c, 0);
+    weapons.slice(0, 15).forEach(([weapon, kills]) => {
+      const pct = (kills / maxW * 100).toFixed(1);
+      const sharePct = (kills / totalKillsW * 100).toFixed(0);
+      weaponHTML += `
+        <div class="weapon-bar-row">
+          <div class="weapon-label" title="${weapon}">${weapon}</div>
+          <div class="weapon-track"><div class="weapon-fill" style="width:${pct}%"></div></div>
+          <div class="weapon-val">${kills}</div>
+          <div style="font-size:0.72rem;color:#888;width:50px;text-align:right">${sharePct}%</div>
+        </div>`;
+    });
+  }
+  weaponHTML += '</div>';
+
+  // ── Section 3: Best single mission ──
+  const mRows = p.missionRows || [];
+  let bestHTML = '<div class="modal-section"><h3>Best Single Mission</h3>';
+  if (mRows.length > 0) {
+    const best = mRows.reduce((b, r) => {
+      const k = NUM(r["Kills (On Foot)"]);
+      return k > NUM(b["Kills (On Foot)"]) ? r : b;
+    }, mRows[0]);
+    const bk  = NUM(best["Kills (On Foot)"]);
+    const bd  = NUM(best["Deaths (On Foot)"]);
+    const bkd = bd > 0 ? (bk/bd).toFixed(2) : bk.toFixed(2);
+    const btk = NUM(best["Teamkills (On Foot)"]);
+    const blk = NUM(best["Longest Kill On Foot (m)"]);
+    bestHTML += `
+      <div class="best-mission-card">
+        <div class="bm-name">${best["Mission"] || best["Source File"] || '—'}</div>
+        <div class="bm-stats">
+          <span>⚔️ ${bk} kills</span>
+          <span>💀 ${bd} deaths</span>
+          <span>📊 K/D ${bkd}</span>
+          ${btk > 0 ? '<span>⚠️ ' + btk + ' TK</span>' : ''}
+          ${blk > 0 ? '<span>🎯 ' + blk + 'm longest</span>' : ''}
+        </div>
+      </div>`;
+  } else {
+    bestHTML += '<p style="color:#888;font-size:0.82rem">No mission data available.</p>';
+  }
+  bestHTML += '</div>';
+
+  // ── Section 4: Kill breakdown by mission ──
+  let missionHTML = '<div class="modal-section"><h3>Kill Breakdown by Mission</h3><table class="mission-table"><thead><tr>';
+  missionHTML += '<th>Mission</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>TK</th><th>Shots</th><th>Shots/Kill</th><th>Longest (m)</th></tr></thead><tbody>';
+
+  const missionMap = {};
+  mRows.forEach(r => {
+    const key = r["Mission"] || r["Source File"] || '—';
+    if (!missionMap[key]) missionMap[key] = { mission: key, k: 0, d: 0, tk: 0, sh: 0, lk: 0 };
+    const m = missionMap[key];
+    m.k  += NUM(r["Kills (On Foot)"]);
+    m.d  += NUM(r["Deaths (On Foot)"]);
+    m.tk += NUM(r["Teamkills (On Foot)"]);
+    m.sh += NUM(r["Shots (On Foot)"]);
+    m.lk  = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
+  });
+  const mergedMissions = Object.values(missionMap).sort((a, b) => b.k - a.k);
+
+  mergedMissions.forEach((m, i) => {
+    const kd  = m.d > 0 ? (m.k / m.d).toFixed(2) : m.k.toFixed(2);
+    const spk = m.k > 0 ? (m.sh / m.k).toFixed(1) : '—';
+    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    missionHTML += `<tr style="${bg}">
+      <td>${m.mission}</td>
+      <td>${m.k}</td><td>${m.d}</td>
+      <td style="color:${kd>=2?'var(--green)':kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
+      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk}</td>
+      <td>${m.sh}</td><td>${spk}</td>
+      <td>${m.lk || '—'}</td>
+    </tr>`;
+  });
+  missionHTML += '</tbody></table></div>';
+
+  return overallHTML + weaponHTML + bestHTML + missionHTML;
+}
+
+function filterToPlayer(playerName) {
+  if (selectedPlayers === null) {
+    selectedPlayers = new Set([playerName]);
+  } else if (selectedPlayers.has(playerName)) {
+    selectedPlayers.delete(playerName);
+    if (selectedPlayers.size === 0) selectedPlayers = null;
+  } else {
+    selectedPlayers.add(playerName);
+  }
+  refreshPills();
+  filterChanged();
+}
+
+function openPlayerModal(playerName) {
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+
+  currentModalPlayer = playerName;
+  document.getElementById('modalPlayerName').textContent = p.name;
+  const _mml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _mActive = _mml.length > 1 ? `${missionDate(_mml[0])} – ${missionDate(_mml[_mml.length - 1])}` : (_mml[0] ? missionDate(_mml[0]) : '—');
+  document.getElementById('modalPlayerSub').innerHTML =
+    `<div class="co-col"><div><b>Combat Missions:</b> ${p.missionCount}</div></div>` +
+    `<div class="co-col"><div><b>Active:</b> ${_mActive}</div></div>` +
+    (p.timePlayed ? `<div class="co-col"><div><b>Time Played:</b> ${fmtTime(p.timePlayed)}</div></div>` : '') +
+    (p.topRole ? `<div class="co-col"><div><b>Top Role:</b> ${p.topRole} (${p.topRoleCount})</div></div>` : '');
+  document.getElementById('modalMaximizeBtn').onclick = () => {
+    document.getElementById('playerModal').classList.remove('open');
+    openCareerPage(currentModalPlayer);
+  };
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('playerModal').classList.add('open');
+}
+
+function mStat(val, lbl, sub) {
+  return `<div class="modal-stat"><div class="ms-val">${val}</div><div class="ms-lbl">${lbl}</div>${sub ? `<div class="ms-sub" title="${sub}">${sub}</div>` : ''}</div>`;
+}
+
+// ── CAREER PAGE ──────────────────────────────────────────────────────────
+function openCareerPage(playerName) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('player', playerName);
+  history.pushState({ player: playerName }, '', url);
+
+  selectedPlayers = new Set([playerName]);
+  applyFilters();
+
+  const p = filteredPlayers.find(x => x.name === playerName);
+  if (!p) return;
+
+  document.getElementById('careerPlayerName').textContent = p.name;
+  const _cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
+  document.getElementById('careerPlayerSub').textContent =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+
+  document.getElementById('statsBar').style.display         = 'none';
+  document.getElementById('awardsRow').style.display        = 'none';
+  document.getElementById('hallFameLabel').style.display    = 'none';
+  document.getElementById('shameRow').style.display         = 'none';
+  document.getElementById('hallShameLabel').style.display   = 'none';
+  document.querySelector('.chart-section').style.display    = 'none';
+  document.querySelector('.filter-panel').style.display     = 'none';
+  document.getElementById('careerHeader').style.display     = '';
+  document.getElementById('careerStats').style.display      = '';
+
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+function closeCareerPage() {
+  selectedPlayers = null;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('player');
+  history.pushState({}, '', url);
+
+  document.getElementById('careerHeader').style.display  = 'none';
+  document.getElementById('careerStats').style.display   = 'none';
+  document.getElementById('statsBar').style.display      = '';
+  document.querySelector('.chart-section').style.display = '';
+  document.querySelector('.filter-panel').style.display  = '';
+
+  applyFilters(); // renderLeader handles awardsRow visibility
+  refreshPills();
+  window.scrollTo(0, 0);
+}
+
+// ── INFANTRY TABLE ───────────────────────────────────────────────────────
+const INF_COLS = [
+  { label: "#",       key: "_rank",        numeric: false, sortKey: null },
+  { label: "Player",  key: "name",         numeric: false, sortKey: "name" },
+  { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot" },
+  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot" },
+  { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot" },
+  { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass },
+  { label: "Suicides", key: "suicides",     numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "" },
+  { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot" },
+  { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot" },
+  { label: "Shots/Kill", key: "spkFoot",   numeric: true,  sortKey: "spkFoot",  fmt: v => v != null ? v.toFixed(1) : "—" },
+  { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
+  { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
+  { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
+  { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
+];
+
+function renderInfantryTable() {
+  const sorted = sortPlayers([...filteredPlayers], infSortCol, infSortAsc, INF_COLS);
+  // Rank is always by on-foot kills regardless of sort
+  const byKills = [...filteredPlayers].sort((a,b) => b.killsOnFoot - a.killsOnFoot);
+  const rankMap = {};
+  byKills.forEach((p,i) => rankMap[p.name] = i+1);
+
+  renderTableHead("infantryHead", INF_COLS, infSortCol, infSortAsc, "inf");
+
+  const tbody = document.getElementById("infantryBody");
+  tbody.innerHTML = sorted.map(p => {
+    const rank = rankMap[p.name];
+    const rankStr = rank === 1 ? `<span class="rank-gold">🥇</span>` :
+                    rank === 2 ? `<span class="rank-silver">🥈</span>` :
+                    rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
+    const hasTK = p.tkOnFoot > 0;
+    const cells = INF_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
+      let val = p[col.key];
+      if (col.fmt) val = col.fmt(val);
+      else if (val == null || val === "") val = "—";
+      const cls = col.css ? col.css(p[col.key]) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr${hasTK ? ' class="tk-row"' : ""} onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
+  }).join("");
+}
+
+// ── VEHICLE TABLE ────────────────────────────────────────────────────────
+const VEH_COLS = [
+  { label: "#",        key: "_rank",           numeric: false, sortKey: null },
+  { label: "Player",   key: "name",            numeric: false, sortKey: "name" },
+  { label: "Kills (Veh)", key: "killsInVeh",   numeric: true,  sortKey: "killsInVeh" },
+  { label: "Deaths (Veh)", key: "deathsInVeh", numeric: true,  sortKey: "deathsInVeh" },
+  { label: "K/D (Veh)", key: "kdVeh",          numeric: true,  sortKey: "kdVeh",  fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK (Veh)", key: "tkInVeh",         numeric: true,  sortKey: "tkInVeh", css: tkClass },
+  { label: "Veh Kills (Veh)",  key: "vehKillsVeh",   numeric: true, sortKey: "vehKillsVeh" },
+  { label: "Shots (Veh)", key: "shotsInVeh",   numeric: true,  sortKey: "shotsInVeh" },
+  { label: "Hits Taken (Veh)", key: "hitsInVeh", numeric: true, sortKey: "hitsInVeh" },
+  { label: "Shots/Kill (Veh)", key: "spkVeh",   numeric: true,  sortKey: "spkVeh", fmt: v => v != null ? v.toFixed(1) : "—" },
+  { label: "Avg Dist (m)", key: "avgDistVeh",   numeric: true,  sortKey: "avgDistVeh", fmt: v => v ? Math.round(v) : "—" },
+  { label: "Longest (m)", key: "maxLongestVeh", numeric: true,  sortKey: "maxLongestVeh", fmt: v => v || "—" },
+  { label: "Missions",  key: "missionCount",   numeric: true,  sortKey: "missionCount" },
+];
+
+function renderVehicleTable() {
+  // Only show players who have some vehicle activity
+  const vehPlayers = filteredPlayers.filter(p =>
+    p.killsInVeh > 0 || p.deathsInVeh > 0 || p.vehKillsFoot > 0 || p.vehKillsVeh > 0
+  );
+  const sorted = sortPlayers([...vehPlayers], vehSortCol, vehSortAsc, VEH_COLS);
+  const byKills = [...vehPlayers].sort((a,b) => b.killsInVeh - a.killsInVeh);
+  const rankMap = {};
+  byKills.forEach((p,i) => rankMap[p.name] = i+1);
+
+  renderTableHead("vehicleHead", VEH_COLS, vehSortCol, vehSortAsc, "veh");
+
+  const tbody = document.getElementById("vehicleBody");
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="${VEH_COLS.length}" style="text-align:center;padding:20px;color:#888">No vehicle combat data for selected filters</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = sorted.map(p => {
+    const rank = rankMap[p.name];
+    const rankStr = rank === 1 ? `<span class="rank-gold">🥇</span>` :
+                    rank === 2 ? `<span class="rank-silver">🥈</span>` :
+                    rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
+    const cells = VEH_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td><span>${p.name}</span><button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
+      let val = p[col.key];
+      if (col.fmt) val = col.fmt(val);
+      else if (val == null || val === "") val = "—";
+      const cls = col.css ? col.css(p[col.key]) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')"> ${cells.join("")}</tr>`;
+  }).join("");
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────
+function renderTableHead(headId, cols, sortCol, sortAsc, tableId) {
+  const fnName = tableId === "inf" ? "_sortInf" : "_sortVeh";
+  document.getElementById(headId).innerHTML =
+    `<tr>${cols.map((c,i) => {
+      const arrow = i === sortCol ? (sortAsc ? " ▲" : " ▼") : " ⇅";
+      const clickable = c.sortKey !== null;
+      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""} style="${clickable ? "" : "cursor:default"}">${c.label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+    }).join("")}</tr>`;
+}
+window._sortInf = function(col) {
+  if (INF_COLS[col].sortKey === null) return;
+  if (infSortCol === col) infSortAsc = !infSortAsc;
+  else { infSortCol = col; infSortAsc = !INF_COLS[col].numeric; }
+  renderInfantryTable();
+};
+window._sortVeh = function(col) {
+  if (VEH_COLS[col].sortKey === null) return;
+  if (vehSortCol === col) vehSortAsc = !vehSortAsc;
+  else { vehSortCol = col; vehSortAsc = !VEH_COLS[col].numeric; }
+  renderVehicleTable();
+};
+
+function sortPlayers(arr, colIdx, asc, cols) {
+  const key = cols[colIdx].sortKey;
+  if (!key) return arr;
+  return arr.sort((a,b) => {
+    let va = a[key], vb = b[key];
+    if (va == null) va = asc ? Infinity : -Infinity;
+    if (vb == null) vb = asc ? Infinity : -Infinity;
+    return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+}
+
+function kdClass(v) {
+  if (v >= 2)   return "kd-good";
+  if (v < 0.8)  return "kd-bad";
+  return "";
+}
+
+function tkClass(v) {
+  return v > 0 ? "tk-cell" : "";
+}
+
