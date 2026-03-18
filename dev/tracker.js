@@ -311,8 +311,8 @@ function classifyPlayerUnits(rows) {
       });
       if (total === 0) return;
       const [bestUnit, bestScore] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-      // Assign only if the dominant unit accounts for ≥90% of co-occurrence weight
-      if (bestScore / total >= 0.90) {
+      // Assign only if the dominant unit accounts for ≥99% of co-occurrence weight
+      if (bestScore / total >= 0.99) {
         units[name] = bestUnit;
         changed = true;
       }
