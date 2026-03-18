@@ -373,17 +373,16 @@ function renderUnitFilter() {
     const isActive = selectedUnit === u;
     const color = u ? (UNIT_COLORS[u] || '#555') : null;
     const label = u ? `${u} <span style="opacity:0.7;font-weight:400">${counts[u] || 0}</span>` : 'All';
-    const activeStyle = isActive && color ? `background:${color};color:white;border-color:${color}` :
-                        isActive          ? 'background:#333;color:white;border-color:#333' : '';
-    const dotStyle = !isActive && color ? `style="color:${color};margin-right:3px"` : '';
-    const dot = (!isActive && color) ? `<span ${dotStyle}>●</span>` : '';
-    return `<button class="unit-btn${isActive ? ' active' : ''}" style="${activeStyle}" onclick="_filterUnit(${u ? `'${u}'` : 'null'})">${dot}${label}</button>`;
+    const dotStyle = color ? `style="color:${isActive ? 'white' : color};margin-right:3px"` : '';
+    const dot = color ? `<span ${dotStyle}>●</span>` : '';
+    return `<button class="unit-btn${isActive ? ' active' : ''}" onclick="_filterUnit(${u ? `'${u}'` : 'null'})">${dot}${label}</button>`;
   }).join('');
 }
 
 window._filterUnit = function(unit) {
   selectedUnit = unit;
   renderUnitFilter();
+  refreshPills();
   filterChanged();
 };
 
