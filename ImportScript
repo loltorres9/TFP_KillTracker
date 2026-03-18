@@ -1,71 +1,107 @@
-function importOCAP() {
+function importOCAP(forceReimport = false) {
   const parentFolder = DriveApp.getFoldersByName("Kill Tracker").next();
-
   const folders = parentFolder.getFolders();
   let inputFolder;
   let archiveFolder;
-
   while (folders.hasNext()) {
     const f = folders.next();
     if (f.getName() === "OCAP_Logs") inputFolder = f;
     if (f.getName() === "OCAP_Logs_Archive") archiveFolder = f;
   }
-
   if (!inputFolder || !archiveFolder) {
     throw new Error("Folders OCAP_Logs or OCAP_Logs_Archive not found");
   }
-
   const files = inputFolder.getFiles();
-
   if (!files.hasNext()) {
     Logger.log("No new files found.");
     return;
   }
-
-  // ── Build set of already-imported filenames from column A of player_stats ──
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const existingSheet = ss.getSheetByName("player_stats");
+  let statsSheet = ss.getSheetByName("player_stats");
+  if (!statsSheet) {
+    statsSheet = ss.insertSheet("player_stats");
+  }
+  // Column schema
+  const header = [
+    // Mission info
+    "Source File", "Mission", "World",
+    // Player info
+    "Username", "Side", "Group", "Role",
+    // Infantry (on-foot) stats
+    "Kills (On Foot)", "Deaths (On Foot)", "K/D (On Foot)",
+    "Teamkills (On Foot)", "Shots (On Foot)", "Hits Taken (On Foot)",
+    "Shots/Kill (On Foot)", "Avg Kill Dist On Foot (m)", "Longest Kill On Foot (m)",
+    // Vehicle stats
+    "Kills (In Vehicle)", "Deaths (In Vehicle)", "K/D (In Vehicle)",
+    "Teamkills (In Vehicle)", "Vehicle Kills (On Foot)", "Vehicle Kills (In Vehicle)",
+    "Shots (In Vehicle)", "Hits Taken (In Vehicle)",
+    "Shots/Kill (In Vehicle)", "Avg Kill Dist In Vehicle (m)", "Longest Kill In Vehicle (m)",
+    // Weapon stats
+    "Top Weapon", "Weapon Kills (JSON)",
+    // Misc
+    "Suicides",
+    "Time Played (s)"
+  ];
+  if (statsSheet.getLastRow() === 0) {
+    statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
+  } else {
+    // Migrate: append any columns that exist in header but not yet in the sheet
+    const existingHeader = statsSheet.getRange(1, 1, 1, statsSheet.getLastColumn()).getValues()[0];
+    header.forEach((col, i) => {
+      if (!existingHeader.includes(col)) {
+        statsSheet.getRange(1, i + 1).setValue(col);
+        Logger.log(`Added missing header column: ${col}`);
+      }
+    });
+  }
+  // Build set of already-imported filenames from column A
   const importedFiles = new Set();
-  if (existingSheet && existingSheet.getLastRow() > 1) {
-    const existing = existingSheet.getRange(2, 1, existingSheet.getLastRow() - 1, 1).getValues();
-    existing.forEach(row => { if (row[0]) importedFiles.add(String(row[0]).trim()); });
+  if (statsSheet.getLastRow() > 1) {
+    const existing = statsSheet.getRange(2, 1, statsSheet.getLastRow() - 1, 1).getValues();
+    existing.forEach(row => {
+      if (row[0]) importedFiles.add(String(row[0]).trim());
+    });
     Logger.log(`Found ${importedFiles.size} already-imported filename(s) in sheet.`);
   }
-
-  if (!files.hasNext()) {
-    Logger.log("No new files found.");
-    return;
+  function deleteExistingRowsForFile(sheet, sourceFileName) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return 0;
+    const values = sheet.getRange(2, 1, lastRow - 1, 1).getValues(); // column A = Source File
+    const rowsToDelete = [];
+    values.forEach((row, i) => {
+      if (String(row[0]).trim() === sourceFileName) {
+        rowsToDelete.push(i + 2); // actual sheet row number
+      }
+    });
+    // Delete bottom-up so row indexes don't shift
+    for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+      sheet.deleteRow(rowsToDelete[i]);
+    }
+    return rowsToDelete.length;
   }
-
   const file = files.next();
   const name = file.getName();
-
   if (!name.endsWith(".json.gz")) {
     Logger.log(`Skipped (not .json.gz): ${name}`);
     return;
   }
-
-  if (importedFiles.has(name)) {
+  if (importedFiles.has(name) && !forceReimport) {
     Logger.log(`Skipped (already imported): ${name}`);
     archiveFolder.addFile(file);
     inputFolder.removeFile(file);
     return;
   }
-
   try {
     Logger.log(`Processing: ${name}`);
-
     const blob = file.getBlob();
     const unzippedBlob = Utilities.ungzip(blob);
     const text = unzippedBlob.getDataAsString();
     const data = JSON.parse(text);
-
-    // ── Entity lookup ────────────────────────────────────────────────────
+    // Entity lookup
     const entities = {};
     (data.entities || []).forEach(e => {
       entities[e.id] = e;
     });
-
     // Helper: get a player's inVehicle status at a specific frame
     // positions entry: [[x,y,z], bearing, alive, inVehicle(0/1), name, framesFired, role]
     function isInVehicleAtFrame(entity, frame) {
@@ -76,56 +112,50 @@ function importOCAP() {
       const pos = entity.positions[idx];
       return Array.isArray(pos) && pos[3] === 1;
     }
-
-    // ── Zeus detection ──────────────────────────────────────────────────────
+    // Zeus detection
     function isZeus(entity) {
       if (!entity) return false;
       const group = (entity.group || "").toLowerCase();
-      const role  = (entity.role  || "").toLowerCase();
+      const role = (entity.role || "").toLowerCase();
       return group === "zeus" || role.startsWith("zeus");
     }
-
-    // ── Build player stats ───────────────────────────────────────────────
+    // Build player stats
     const players = {};
     (data.entities || []).forEach(e => {
       if (e.isPlayer === 1) {
         players[e.id] = {
-          name:    e.name,
-          side:    e.side,
-          role:    e.role || "",  // e.g. "Squad Leader@1-1"
-          group:   e.group || "",
-
+          name: e.name,
+          side: e.side,
+          role: e.role || "",
+          group: e.group || "",
           // Infantry (on-foot) stats
-          killsOnFoot:          0,
-          deathsOnFoot:         0,   // died while on foot
-          teamkillsOnFoot:      0,
-          shotsOnFoot:          0,
-          hitsTakenOnFoot:      0,
-          killDistOnFoot:       [],  // distances of on-foot kills
-
+          killsOnFoot: 0,
+          deathsOnFoot: 0,
+          teamkillsOnFoot: 0,
+          shotsOnFoot: 0,
+          hitsTakenOnFoot: 0,
+          killDistOnFoot: [],
           // Vehicle stats
-          killsInVehicle:       0,   // player killed enemy infantry while in a vehicle
-          deathsInVehicle:      0,   // died while in a vehicle
-          teamkillsInVehicle:   0,
-          vehicleKillsOnFoot:   0,   // destroyed enemy vehicle while on foot
-          vehicleKillsInVehicle:0,   // destroyed enemy vehicle while in a vehicle
-          shotsInVehicle:       0,
-          hitsTakenInVehicle:   0,
-          killDistInVehicle:    [],  // distances of kills made from a vehicle
-
-          // Shots are per-frame so we need to know when they fired
-          // We'll split shots during event processing
-          // Store raw framesFired for shot counting per context
+          killsInVehicle: 0,
+          deathsInVehicle: 0,
+          teamkillsInVehicle: 0,
+          vehicleKillsOnFoot: 0,
+          vehicleKillsInVehicle: 0,
+          shotsInVehicle: 0,
+          hitsTakenInVehicle: 0,
+          killDistInVehicle: [],
+          // Shot frames
           framesFired: Array.isArray(e.framesFired) ? e.framesFired : [],
-          weaponKills: {},   // weapon name -> kill count (on-foot only)
+          // Weapon stats
+          weaponKills: {},
+          // Misc
           suicides: 0,
           isZeus: isZeus(e),
+          timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
         };
       }
     });
-
-    // ── Pre-compute shots fired per context (on-foot vs in-vehicle) ──────
-    // framesFired is an array of frame numbers where the player fired
+    // Pre-compute shots fired per context
     Object.keys(players).forEach(id => {
       const p = players[id];
       const entity = entities[id];
@@ -139,25 +169,19 @@ function importOCAP() {
         }
       });
     });
-
-    // ── Process events ───────────────────────────────────────────────────
+    // Process events
     (data.events || []).forEach(event => {
-      const frame     = event[0];
-      const type      = event[1];
-      const victimId  = event[2];
-      const killerInfo= event[3];
-      const distance  = event[4] || 0;
-
+      const frame = event[0];
+      const type = event[1];
+      const victimId = event[2];
+      const killerInfo = event[3];
+      const distance = event[4] || 0;
       if (type === "killed") {
-        const victim   = entities[victimId];
+        const victim = entities[victimId];
         const killerId = killerInfo ? killerInfo[0] : null;
-        const killer   = killerId != null ? entities[killerId] : null;
-        const weapon   = killerInfo && killerInfo[1] ? killerInfo[1] : "";
-
+        const killer = killerId != null ? entities[killerId] : null;
         const victimType = victim ? victim.type : null;
-        const killerType = killer ? killer.type : null;
-
-        // ── Deaths ──
+        // Deaths
         if (victimType === "unit" && players[victimId] !== undefined) {
           const victimInVehicle = isInVehicleAtFrame(entities[victimId], frame);
           if (victimInVehicle) {
@@ -166,17 +190,14 @@ function importOCAP() {
             players[victimId].deathsOnFoot++;
           }
         }
-
-        // ── Killer must be a known player ──
+        // Killer must be a known player
         if (killerId === null || players[killerId] === undefined) return;
         if (killerId === victimId) {
           if (players[victimId] !== undefined) players[victimId].suicides++;
           return;
         }
-
-        const isSameSide = victim && victim.side === killer.side;
+        const isSameSide = victim && killer && victim.side === killer.side;
         const killerInVehicle = isInVehicleAtFrame(entities[killerId], frame);
-
         if (victimType === "vehicle") {
           if (!isSameSide) {
             if (killerInVehicle) {
@@ -185,7 +206,6 @@ function importOCAP() {
               players[killerId].vehicleKillsOnFoot++;
             }
           }
-
         } else if (victimType === "unit") {
           if (isSameSide) {
             if (killerInVehicle) {
@@ -200,14 +220,12 @@ function importOCAP() {
             } else {
               players[killerId].killsOnFoot++;
               players[killerId].killDistOnFoot.push(distance);
-              // Track weapon usage (on-foot kills only)
               const weapon = (killerInfo && killerInfo[1]) ? killerInfo[1] : "Unknown";
               players[killerId].weaponKills[weapon] = (players[killerId].weaponKills[weapon] || 0) + 1;
             }
           }
         }
       }
-
       if (type === "hit") {
         if (players[victimId] !== undefined) {
           const victimInVehicle = isInVehicleAtFrame(entities[victimId], frame);
@@ -219,38 +237,6 @@ function importOCAP() {
         }
       }
     });
-
-    // ── Write to player_stats ────────────────────────────────────────────
-    let statsSheet = ss.getSheetByName("player_stats");
-    if (!statsSheet) {
-      statsSheet = ss.insertSheet("player_stats");
-    }
-
-    // Column schema (26 columns)
-    const header = [
-      // Mission info
-      "Source File", "Mission", "World",
-      // Player info
-      "Username", "Side", "Group", "Role",
-      // Infantry (on-foot) stats
-      "Kills (On Foot)", "Deaths (On Foot)", "K/D (On Foot)",
-      "Teamkills (On Foot)", "Shots (On Foot)", "Hits Taken (On Foot)",
-      "Shots/Kill (On Foot)", "Avg Kill Dist On Foot (m)", "Longest Kill On Foot (m)",
-      // Vehicle stats
-      "Kills (In Vehicle)", "Deaths (In Vehicle)", "K/D (In Vehicle)",
-      "Teamkills (In Vehicle)", "Vehicle Kills (On Foot)", "Vehicle Kills (In Vehicle)",
-      "Shots (In Vehicle)", "Hits Taken (In Vehicle)",
-      "Shots/Kill (In Vehicle)", "Avg Kill Dist In Vehicle (m)", "Longest Kill In Vehicle (m)",
-      // Weapon stats
-      "Top Weapon", "Weapon Kills (JSON)",
-      // Misc
-      "Suicides"
-    ];
-
-    if (statsSheet.getLastRow() === 0) {
-      statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
-    }
-
     const missionName = (() => {
       const base = data.missionName || "";
       const m = name.match(/(\d{4})_(\d{2})_(\d{2})/);
@@ -259,34 +245,41 @@ function importOCAP() {
     })();
     const worldName = data.worldName || "";
     const rows = [];
-
     Object.values(players).forEach(p => {
-      // Zeus: zero all combat stats, only missions played is meaningful
+      // Zeus: zero all combat stats
       if (p.isZeus) {
-        p.killsOnFoot = p.deathsOnFoot = p.teamkillsOnFoot = p.shotsOnFoot = p.hitsTakenOnFoot = 0;
-        p.killsInVehicle = p.deathsInVehicle = p.teamkillsInVehicle = 0;
-        p.vehicleKillsOnFoot = p.vehicleKillsInVehicle = 0;
-        p.shotsInVehicle = p.hitsTakenInVehicle = p.suicides = 0;
-        p.killDistOnFoot = []; p.killDistInVehicle = [];
+        p.killsOnFoot = 0;
+        p.deathsOnFoot = 0;
+        p.teamkillsOnFoot = 0;
+        p.shotsOnFoot = 0;
+        p.hitsTakenOnFoot = 0;
+        p.killsInVehicle = 0;
+        p.deathsInVehicle = 0;
+        p.teamkillsInVehicle = 0;
+        p.vehicleKillsOnFoot = 0;
+        p.vehicleKillsInVehicle = 0;
+        p.shotsInVehicle = 0;
+        p.hitsTakenInVehicle = 0;
+        p.suicides = 0;
+        p.killDistOnFoot = [];
+        p.killDistInVehicle = [];
         p.weaponKills = {};
       }
-      const kdFoot   = p.deathsOnFoot   > 0 ? (p.killsOnFoot   / p.deathsOnFoot).toFixed(2)   : p.killsOnFoot.toFixed(2);
-      const kdVeh    = p.deathsInVehicle> 0 ? (p.killsInVehicle/ p.deathsInVehicle).toFixed(2) : p.killsInVehicle.toFixed(2);
-
-      const spkFoot  = p.killsOnFoot   > 0 ? (p.shotsOnFoot   / p.killsOnFoot).toFixed(1)   : "";
-      const spkVeh   = p.killsInVehicle> 0 ? (p.shotsInVehicle/ p.killsInVehicle).toFixed(1) : "";
-
-      const avgFoot  = p.killDistOnFoot.length   > 0 ? (p.killDistOnFoot.reduce((a,b)=>a+b,0)   / p.killDistOnFoot.length).toFixed(0)   : "";
-      const avgVeh   = p.killDistInVehicle.length> 0 ? (p.killDistInVehicle.reduce((a,b)=>a+b,0)/ p.killDistInVehicle.length).toFixed(0) : "";
-
-      const lkFoot   = p.killDistOnFoot.length   > 0 ? Math.max(...p.killDistOnFoot)   : "";
-      const lkVeh    = p.killDistInVehicle.length > 0 ? Math.max(...p.killDistInVehicle) : "";
-
-      // Weapon stats
+      const kdFoot = p.deathsOnFoot > 0 ? (p.killsOnFoot / p.deathsOnFoot).toFixed(2) : p.killsOnFoot.toFixed(2);
+      const kdVeh = p.deathsInVehicle > 0 ? (p.killsInVehicle / p.deathsInVehicle).toFixed(2) : p.killsInVehicle.toFixed(2);
+      const spkFoot = p.killsOnFoot > 0 ? (p.shotsOnFoot / p.killsOnFoot).toFixed(1) : "";
+      const spkVeh = p.killsInVehicle > 0 ? (p.shotsInVehicle / p.killsInVehicle).toFixed(1) : "";
+      const avgFoot = p.killDistOnFoot.length > 0
+        ? (p.killDistOnFoot.reduce((a, b) => a + b, 0) / p.killDistOnFoot.length).toFixed(0)
+        : "";
+      const avgVeh = p.killDistInVehicle.length > 0
+        ? (p.killDistInVehicle.reduce((a, b) => a + b, 0) / p.killDistInVehicle.length).toFixed(0)
+        : "";
+      const lkFoot = p.killDistOnFoot.length > 0 ? Math.max(...p.killDistOnFoot) : "";
+      const lkVeh = p.killDistInVehicle.length > 0 ? Math.max(...p.killDistInVehicle) : "";
       const weaponEntries = Object.entries(p.weaponKills).sort((a, b) => b[1] - a[1]);
       const topWeapon = weaponEntries.length > 0 ? weaponEntries[0][0] : "";
       const weaponJson = weaponEntries.length > 0 ? JSON.stringify(Object.fromEntries(weaponEntries)) : "";
-
       rows.push([
         name,
         missionName,
@@ -303,7 +296,7 @@ function importOCAP() {
         p.hitsTakenOnFoot,
         spkFoot !== "" ? parseFloat(spkFoot) : "",
         avgFoot !== "" ? parseFloat(avgFoot) : "",
-        lkFoot  !== "" ? lkFoot              : "",
+        lkFoot !== "" ? lkFoot : "",
         p.killsInVehicle,
         p.deathsInVehicle,
         parseFloat(kdVeh),
@@ -314,30 +307,39 @@ function importOCAP() {
         p.hitsTakenInVehicle,
         spkVeh !== "" ? parseFloat(spkVeh) : "",
         avgVeh !== "" ? parseFloat(avgVeh) : "",
-        lkVeh  !== "" ? lkVeh              : "",
+        lkVeh !== "" ? lkVeh : "",
         topWeapon,
         weaponJson,
         p.suicides,
+        Math.round(p.timePlayed),
       ]);
     });
-
     // Sort by on-foot kills descending
-    rows.sort((a, b) => b[6] - a[6]);
-
+    rows.sort((a, b) => b[7] - a[7]);
+    // If reimporting, remove existing rows for this source file first
+    if (forceReimport || importedFiles.has(name)) {
+      const deletedCount = deleteExistingRowsForFile(statsSheet, name);
+      if (deletedCount > 0) {
+        Logger.log(`Removed ${deletedCount} existing row(s) for ${name}`);
+      }
+    }
     if (rows.length > 0) {
       statsSheet.getRange(
-        statsSheet.getLastRow() + 1, 1, rows.length, rows[0].length
+        statsSheet.getLastRow() + 1,
+        1,
+        rows.length,
+        rows[0].length
       ).setValues(rows);
     }
-
-    // ── Archive ──────────────────────────────────────────────────────────
+    // Archive processed file
     archiveFolder.addFile(file);
     inputFolder.removeFile(file);
-
     Logger.log(`Import complete: ${name} — ${rows.length} players written`);
-
   } catch (err) {
     Logger.log(`Error processing ${name}: ${err}`);
     throw err;
   }
+}
+function reimportOCAP() {
+  importOCAP(true);
 }
