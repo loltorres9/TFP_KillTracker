@@ -1305,7 +1305,7 @@ const INF_COLS = [
 ];
 
 function renderInfantryTable() {
-  const sorted = sortPlayers([...filteredPlayers], infSortCol, infSortAsc, INF_COLS);
+  const sorted = sortPlayers([...filteredPlayers], infSortCol, infSortAsc, INF_COLS, infAvgCols);
   // Rank is always by on-foot kills regardless of sort
   const byKills = [...filteredPlayers].sort((a,b) => b.killsOnFoot - a.killsOnFoot);
   const rankMap = {};
@@ -1360,7 +1360,7 @@ function renderVehicleTable() {
   const vehPlayers = filteredPlayers.filter(p =>
     p.killsInVeh > 0 || p.deathsInVeh > 0 || p.vehKillsFoot > 0 || p.vehKillsVeh > 0
   );
-  const sorted = sortPlayers([...vehPlayers], vehSortCol, vehSortAsc, VEH_COLS);
+  const sorted = sortPlayers([...vehPlayers], vehSortCol, vehSortAsc, VEH_COLS, vehAvgCols);
   const byKills = [...vehPlayers].sort((a,b) => b.killsInVeh - a.killsInVeh);
   const rankMap = {};
   byKills.forEach((p,i) => rankMap[p.name] = i+1);
@@ -1426,11 +1426,17 @@ window._toggleAvg = function(tableId, col) {
   if (tableId === "inf") renderInfantryTable(); else renderVehicleTable();
 };
 
-function sortPlayers(arr, colIdx, asc, cols) {
-  const key = cols[colIdx].sortKey;
+function sortPlayers(arr, colIdx, asc, cols, avgCols) {
+  const col = cols[colIdx];
+  const key = col.sortKey;
   if (!key) return arr;
+  const useAvg = avgCols && avgCols.has(colIdx) && col.canAvg;
   return arr.sort((a,b) => {
     let va = a[key], vb = b[key];
+    if (useAvg) {
+      va = a.missionCount > 0 ? va / a.missionCount : 0;
+      vb = b.missionCount > 0 ? vb / b.missionCount : 0;
+    }
     if (va == null) va = asc ? Infinity : -Infinity;
     if (vb == null) vb = asc ? Infinity : -Infinity;
     return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
