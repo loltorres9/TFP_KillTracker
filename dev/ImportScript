@@ -158,7 +158,10 @@ function importOCAP(forceReimport = false) {
       }
     });
     // Pre-compute distance run on foot (sum of 2D distance between consecutive frames
-    // where the player is alive and not in a vehicle)
+    // where the player is alive and not in a vehicle).
+    // Steps larger than maxStepMeters are treated as teleports and ignored.
+    // Max sprint speed in Arma is ~7 m/s; 25 m/s * captureDelay gives a generous ceiling.
+    const maxStepMeters = 25 * (data.captureDelay || 1);
     Object.keys(players).forEach(id => {
       const entity = entities[id];
       if (!entity || !Array.isArray(entity.positions)) return;
@@ -174,7 +177,8 @@ function importOCAP(forceReimport = false) {
         if (!prevAlive || !curAlive || !prevOnFoot || !curOnFoot) continue;
         const [px, py] = prev[0];
         const [cx, cy] = cur[0];
-        dist += Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
+        const step = Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
+        if (step <= maxStepMeters) dist += step;
       }
       players[id].distanceRun = Math.round(dist);
     });
