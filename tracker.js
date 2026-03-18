@@ -156,6 +156,7 @@ function buildAggregates() {
         shotsOnFoot: 0, hitsOnFoot: 0,
         killDistOnFoot: [], // collect distances for avg/max
         suicides: 0,
+        distanceRun: 0,
         // In-vehicle
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
@@ -207,6 +208,7 @@ function buildAggregates() {
     p.shotsOnFoot  += sof;
     p.hitsOnFoot   += hof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.distanceRun  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
     p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
     const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
     if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
@@ -597,7 +599,7 @@ function applyFilters() {
         name,
         missions: new Set(),
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
-        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0, timePlayed: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0, distanceRun: 0, timePlayed: 0,
         maxLongestFoot: 0, avgDistFootSum: 0, avgDistFootN: 0,
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
@@ -638,6 +640,7 @@ function applyFilters() {
     p.killsOnFoot  += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
     p.shotsOnFoot  += sof; p.hitsOnFoot   += hof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
+    p.distanceRun  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
     p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
     const topWeaponRow = r["Top Weapon"] || r["Top Weapon\r"] || "";
     if (lof > p.maxLongestFoot) { p.maxLongestFoot = lof; p.longestKillWeapon = topWeaponRow; }
@@ -924,6 +927,7 @@ const MISSION_COLS = [
   { label: "Shots/Kill",   key: "_spk",    numeric: true  },
   { label: "Avg Dist (m)", key: "_ad",     numeric: true  },
   { label: "Longest (m)",  key: "lk",      numeric: true  },
+  { label: "Dist Run (km)", key: "dr",     numeric: true  },
   { label: "Time Played",  key: "tp",      numeric: true  },
 ];
 let missionSortCol = 1; // default: Kills
@@ -964,6 +968,7 @@ function _buildMissionTbody(data) {
       <td>${spk}</td>
       <td>${ad}</td>
       <td>${m.lk || "—"}</td>
+      <td>${m.dr ? m.dr.toFixed(1) : "—"}</td>
       <td>${m.tp ? fmtTime(m.tp) : "—"}</td>
     </tr>`;
   }).join("");
@@ -993,6 +998,7 @@ function buildCareerStatsHTML(p) {
         ${mStat(p.spkFoot != null ? p.spkFoot.toFixed(1) : '—', 'Shots / Kill')}
         ${mStat(p.maxLongestFoot ? p.maxLongestFoot + 'm' : '—', 'Longest Kill', p.longestKillWeapon || '')}
         ${mStat(p.avgDistFoot ? Math.round(p.avgDistFoot) + 'm' : '—', 'Avg Kill Dist')}
+        ${mStat(p.distanceRun ? p.distanceRun.toFixed(1) + ' km' : '—', 'Dist Run')}
       </div>
     </div>`;
 
@@ -1044,6 +1050,7 @@ function buildCareerStatsHTML(p) {
     const blkiv = NUM(best["Longest Kill In Vehicle (m)"]);
     const badiv = NUM(best["Avg Kill Dist In Vehicle (m)"]);
     const bsui  = NUM(best["Suicides"] || best["Suicides\r"] || "0");
+    const bdist = NUM(best["Distance Run (km)"] || best["Distance Run (km)\r"] || "0");
     bestHTML += `
       <div class="best-mission-card">
         <div class="bm-name">${best["Mission"] || best["Source File"] || '—'}</div>
@@ -1058,6 +1065,7 @@ function buildCareerStatsHTML(p) {
           ${blk > 0 ? '<span>📏 ' + blk + 'm longest</span>' : ''}
           ${bad > 0 ? '<span>📐 ' + Math.round(bad) + 'm avg dist</span>' : ''}
           ${bsui > 0 ? '<span style="color:#888">💣 ' + bsui + ' suicides</span>' : ''}
+          ${bdist > 0 ? '<span>🏃 ' + bdist.toFixed(1) + ' km run</span>' : ''}
           ${(bkiv > 0 || bdiv > 0 || bvkof > 0 || bvkiv > 0) ? `
             <span style="font-weight:700;color:#888;width:100%;font-size:0.75rem;text-transform:uppercase;letter-spacing:.05em;margin-top:4px">Vehicle</span>
             <span>🚗 ${bkiv} kills</span>
@@ -1083,7 +1091,7 @@ function buildCareerStatsHTML(p) {
     if (!missionMap[key]) missionMap[key] = {
       mission: key,
       k: 0, vk: 0, d: 0, tk: 0, sui: 0, sh: 0, ht: 0,
-      lk: 0, _adSum: 0, _adN: 0, tp: 0,
+      lk: 0, _adSum: 0, _adN: 0, dr: 0, tp: 0,
       _kd: null, _spk: null, _ad: null
     };
     const m   = missionMap[key];
@@ -1098,6 +1106,7 @@ function buildCareerStatsHTML(p) {
     m.ht  += NUM(r["Hits Taken (On Foot)"]);
     m.lk   = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
     if (kof > 0 && aof > 0) { m._adSum += aof * kof; m._adN += kof; }
+    m.dr  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
     m.tp  += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
   });
   // Pre-compute derived sort keys
@@ -1238,6 +1247,7 @@ const INF_COLS = [
   { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
   { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
+  { label: "Dist Run (km)", key: "distanceRun", numeric: true, sortKey: "distanceRun", fmt: v => v ? v.toFixed(1) : "—" },
   { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
 ];
 

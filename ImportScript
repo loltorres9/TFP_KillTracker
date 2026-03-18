@@ -40,8 +40,8 @@ function importOCAP(forceReimport = false) {
     "Top Weapon", "Weapon Kills (JSON)",
     // Misc
     "Suicides",
-    "Time Played (s)",
-    "Distance Run (m)"
+    "Distance Run (km)",
+    "Time Played (s)"
   ];
   if (statsSheet.getLastRow() === 0) {
     statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
@@ -363,8 +363,8 @@ function importOCAP(forceReimport = false) {
         topWeapon,
         weaponJson,
         p.suicides,
+        parseFloat((p.distanceRun / 1000).toFixed(1)),
         Math.round(p.timePlayed),
-        p.distanceRun,
       ]);
     });
     // Sort by on-foot kills descending
