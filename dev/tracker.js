@@ -814,6 +814,17 @@ function renderLeader() {
     document.getElementById("aw-time-stat").textContent = "";
   }
 
+  // Ultra Runner — most distance run
+  const byDist = [...filteredPlayers].filter(p => p.distanceRun > 0)
+    .sort((a,b) => b.distanceRun - a.distanceRun)[0];
+  if (byDist) {
+    document.getElementById("aw-dist-name").textContent = byDist.name;
+    document.getElementById("aw-dist-stat").textContent = `${byDist.distanceRun.toFixed(1)} km`;
+  } else {
+    document.getElementById("aw-dist-name").textContent = "—";
+    document.getElementById("aw-dist-stat").textContent = "";
+  }
+
   // ── HALL OF SHAME ────────────────────────────────────────────────────
 
   // Cannon Fodder — worst K/D (min 3 kills to avoid flukes, must have died at least once)
@@ -898,6 +909,17 @@ function renderLeader() {
   } else {
     document.getElementById("sh-shots-name").textContent = "—";
     document.getElementById("sh-shots-stat").textContent = "";
+  }
+
+  // Passenger Princess — least distance run (min 10 min played to filter out short sessions)
+  const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 600 && p.distanceRun >= 0)
+    .sort((a,b) => a.distanceRun - b.distanceRun)[0];
+  if (shameDist) {
+    document.getElementById("sh-dist-name").textContent = shameDist.name;
+    document.getElementById("sh-dist-stat").textContent = `${shameDist.distanceRun.toFixed(1)} km`;
+  } else {
+    document.getElementById("sh-dist-name").textContent = "—";
+    document.getElementById("sh-dist-stat").textContent = "";
   }
 }
 
