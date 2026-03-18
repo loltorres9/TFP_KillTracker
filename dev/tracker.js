@@ -800,6 +800,17 @@ function renderLeader() {
     document.getElementById("aw-kda-stat").textContent = "";
   }
 
+  // Always On Duty — most time played
+  const byTime = [...filteredPlayers].filter(p => p.timePlayed > 0)
+    .sort((a,b) => b.timePlayed - a.timePlayed)[0];
+  if (byTime) {
+    document.getElementById("aw-time-name").textContent = byTime.name;
+    document.getElementById("aw-time-stat").textContent = fmtTime(byTime.timePlayed);
+  } else {
+    document.getElementById("aw-time-name").textContent = "—";
+    document.getElementById("aw-time-stat").textContent = "";
+  }
+
   // ── HALL OF SHAME ────────────────────────────────────────────────────
 
   // Cannon Fodder — worst K/D (min 3 kills to avoid flukes, must have died at least once)
@@ -814,7 +825,7 @@ function renderLeader() {
     document.getElementById("sh-kd-stat").textContent = "";
   }
 
-  // Teamkiller — most total teamkills (on foot + vehicle)
+  // Most Valuable Opponent — most total teamkills (on foot + vehicle)
   const shameTk = [...filteredPlayers]
     .map(p => ({ ...p, totalTK: p.tkOnFoot + p.tkInVeh }))
     .filter(p => p.totalTK > 0)
@@ -828,7 +839,7 @@ function renderLeader() {
     document.getElementById("sh-tk-stat").textContent = "";
   }
 
-  // Potato Aim — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
+  // Spray & Pray Specialist — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
   const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
     .sort((a,b) => b.spkFoot - a.spkFoot)[0];
   if (shameSpk) {
@@ -840,7 +851,7 @@ function renderLeader() {
     document.getElementById("sh-spk-stat").textContent = "";
   }
 
-  // Bullet Sponge — most hits taken on foot
+  // Bullet Magnet — most hits taken on foot
   const shameHits = [...filteredPlayers].filter(p => p.hitsOnFoot > 0)
     .sort((a,b) => b.hitsOnFoot - a.hitsOnFoot)[0];
   if (shameHits) {
@@ -850,6 +861,40 @@ function renderLeader() {
   } else {
     document.getElementById("sh-hits-name").textContent = "—";
     document.getElementById("sh-hits-stat").textContent = "";
+  }
+
+  // Tactically Unfortunate — most suicides
+  const shameSui = [...filteredPlayers].filter(p => p.suicides > 0)
+    .sort((a,b) => b.suicides - a.suicides)[0];
+  if (shameSui) {
+    document.getElementById("sh-sui-name").textContent = shameSui.name;
+    document.getElementById("sh-sui-stat").textContent = `${shameSui.suicides} suicides`;
+  } else {
+    document.getElementById("sh-sui-name").textContent = "—";
+    document.getElementById("sh-sui-stat").textContent = "";
+  }
+
+  // Body Bag Collector — most deaths on foot
+  const shameDeaths = [...filteredPlayers].filter(p => p.deathsOnFoot > 0)
+    .sort((a,b) => b.deathsOnFoot - a.deathsOnFoot)[0];
+  if (shameDeaths) {
+    document.getElementById("sh-deaths-name").textContent = shameDeaths.name;
+    document.getElementById("sh-deaths-stat").textContent = `${shameDeaths.deathsOnFoot} deaths`;
+  } else {
+    document.getElementById("sh-deaths-name").textContent = "—";
+    document.getElementById("sh-deaths-stat").textContent = "";
+  }
+
+  // Full-Auto Philosopher — most bullets fired on foot
+  const shameShots = [...filteredPlayers].filter(p => p.shotsOnFoot > 0)
+    .sort((a,b) => b.shotsOnFoot - a.shotsOnFoot)[0];
+  if (shameShots) {
+    document.getElementById("sh-shots-name").textContent = shameShots.name;
+    document.getElementById("sh-shots-stat").textContent =
+      `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
+  } else {
+    document.getElementById("sh-shots-name").textContent = "—";
+    document.getElementById("sh-shots-stat").textContent = "";
   }
 }
 
