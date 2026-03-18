@@ -267,12 +267,13 @@
   .weapon-track { flex: 1; background: var(--bg); border-radius: 3px; height: 14px; }
   .weapon-fill  { height: 100%; background: var(--charcoal); border-radius: 3px; }
   .weapon-val   { font-size: 0.78rem; font-weight: 700; width: 28px; text-align: right; }
-  .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .mission-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 900px; }
   .mission-table th {
     background: var(--charcoal); color: white;
     padding: 7px 10px; text-align: right; font-family: 'Oswald', sans-serif; font-size: 0.78rem;
   }
   .mission-table th:first-child { text-align: left; }
+  .mission-table th[colspan] { text-align: center; border-bottom: 1px solid rgba(255,255,255,0.25); padding-bottom: 4px; }
   .mission-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; }
   .mission-table td:first-child { text-align: left; font-weight: 600; }
   .mission-table tr:hover td { background: var(--row-hover); }
