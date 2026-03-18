@@ -83,9 +83,11 @@ let showRegularEvents = true;
 let zeusFilter = "all";
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
-fetch(CSV_URL)
-  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
-  .then(csv => {
+Promise.all([
+  fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
+  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+])
+  .then(([csv, overrides]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -102,6 +104,10 @@ fetch(CSV_URL)
 
     buildAggregates();
     playerUnits = classifyPlayerUnits(rawRows);
+    // Apply manual overrides from unit_overrides.json on top of auto-classification
+    Object.entries(overrides).forEach(([name, unit]) => {
+      playerUnits[name] = unit;
+    });
     Object.values(aggPlayers).forEach(p => { p.unit = playerUnits[p.name] || null; });
     buildUI();
   })
@@ -323,6 +329,37 @@ function unitBadgeHTML(playerName) {
   return `<span class="unit-badge" style="background:${color}">${unit}</span>`;
 }
 
+function unitReassignHTML(playerName) {
+  const current = playerUnits[playerName] || 'Unknown';
+  const units = [...UNIT_ORDER, null];
+  const btns = units.map(u => {
+    const label = u || 'Unknown';
+    const color = u ? UNIT_COLORS[u] : '#888';
+    const active = current === (u || 'Unknown');
+    const bg = active ? color : 'white';
+    const fg = active ? 'white' : '#333';
+    const border = active ? `2px solid ${color}` : '1px solid #ddd';
+    return `<button class="unit-reassign-btn" style="background:${bg};color:${fg};border:${border}"
+      onclick="copyUnitCorrection('${playerName.replace(/'/g,"\\'")}', ${u ? `'${u}'` : 'null'})">${label}</button>`;
+  }).join('');
+
+  return `<div class="unit-reassign-row">
+    <span class="unit-reassign-label">Wrong unit?</span>
+    <div class="unit-reassign-btns">${btns}</div>
+    <span class="unit-reassign-hint" id="unitCopyFeedback_${playerName.replace(/\W/g,'_')}"></span>
+  </div>`;
+}
+
+window.copyUnitCorrection = function(playerName, unit) {
+  const label = unit || 'Unknown';
+  const text = `Move ${playerName} to ${label}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const id = `unitCopyFeedback_${playerName.replace(/\W/g,'_')}`;
+    const el = document.getElementById(id);
+    if (el) { el.textContent = `"${text}" copied — paste it to Claude`; setTimeout(() => { el.textContent = ''; }, 4000); }
+  });
+};
+
 function renderUnitFilter() {
   const container = document.getElementById('unitFilterBtns');
   if (!container) return;
@@ -395,7 +432,7 @@ function _openCareerPageNoHistory(playerName) {
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
-  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
   document.getElementById('hallFameLabel').style.display    = 'none';
@@ -974,7 +1011,7 @@ function openPlayerModal(playerName) {
   };
 
   const body = document.getElementById('modalBody');
-  body.innerHTML = buildCareerStatsHTML(p);
+  body.innerHTML = unitReassignHTML(p.name) + buildCareerStatsHTML(p);
   document.getElementById('playerModal').classList.add('open');
 }
 
@@ -1005,7 +1042,7 @@ function openCareerPage(playerName) {
     `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
-  document.getElementById('careerStats').innerHTML = buildCareerStatsHTML(p);
+  document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display         = 'none';
   document.getElementById('awardsRow').style.display        = 'none';
