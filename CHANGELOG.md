@@ -7,84 +7,73 @@ All notable changes to TFP Kill Tracker are documented here.
 ## 2026-03-18
 
 ### Added
-- **Unit classification** — players are automatically assigned to 2nd USC, CNTO, PXG, or TFP using squad co-occurrence analysis across all missions; unit filter pills added to the filter panel; unit badge shown on player modal and career page
-- **`unit_overrides.json`** — manual override file in the repo; corrections are applied on top of auto-classification at load time; "Wrong unit?" selector in player modal and career page copies the correction for reporting
+- **Unit classification** — players are automatically assigned to 2nd USC, CNTO, PXG, or TFP using squad co-occurrence analysis; classification requires ≥99% dominant co-occurrence weight to avoid misclassifying players who guest in other squads
+- **`unit_overrides.json`** — repo-level file for manual unit corrections applied on top of auto-classification; includes 8 initial overrides
+- **Unit filter pills** — pill buttons in the filter panel (styled with unit colours) auto-narrow the player list on selection; badge shown on player modal and career page
+- **"Wrong unit?" selector** — in player modal and career page; copies the correction JSON for reporting
+- **Always On Duty award** — Hall of Fame card for the player with the most time played
+- **Background colours** on all Hall of Fame and Hall of Shame award cards
 
 ### Changed
-- Move inline script to external `tracker.js` to fix Content-Security-Policy violation on GitHub Pages
-
----
-
-## 2026-03-14
-
-### Added
-- **Time Played stat** — tracks seconds played per player, shown in the infantry table, player modal, and career page header
-- **Hall of Fame & Hall of Shame** — award cards for best/worst K/D, shots-per-kill, longest kill, and most teamkills/hits taken
-- **forceReimport support in ImportScript** — allows re-processing already-imported files without manual sheet cleanup
+- Moved inline `<script>` to external `tracker.js` file — fixes Content-Security-Policy violation that blocked JavaScript on GitHub Pages
 
 ### Fixed
-- Missing Time Played column on existing sheets when re-importing
+- Unit filter pill active-state background colour not applying correctly
 
 ---
 
-## 2026-02-XX
+## 2026-03-18 (earlier)
 
 ### Added
-- **Query-param deep links** — `?player=Name` in the URL opens the career page directly
-- **Browser history support** — back/forward navigation works on career pages
-- **Top Role in career header** — shows most-played role and appearance count
+- **Time Played stat** — seconds present in mission, tracked per player and shown in the infantry table, player modal, and career page header
+- **Hall of Fame & Hall of Shame** — award cards for best/worst K/D, shots-per-kill, longest kill, most teamkills, and most hits taken
+- **`forceReimport` support in ImportScript** — `reimportOCAP()` entry point deletes existing rows for a file before re-importing, no manual sheet cleanup needed
+
+### Fixed
+- Missing Time Played column when running ImportScript against an existing sheet (now migrates header automatically)
+
+---
+
+## 2026-03-17
+
+### Added
+- **Player Career Stats page** — full-screen per-player view with overall stats, weapon kill breakdown bar chart, best single mission card, and per-mission kill table
+- **Maximize button** on player modal — opens the full career page
+- **Multi-select player filter** — left-click player pills to filter the table; right-click to open the career page directly
+- **Mission multi-select** — mission pills support the same left-click toggle behaviour
+- **Top Role in career header** — shows most-played role and how many missions it was used
+- **Active date range** — player's first and last mission dates shown in the career header, sorted chronologically using extracted `YYYY-MM-DD` dates from filenames
+- **Weapon kill breakdown** — ranked bar chart of kills per weapon in the player modal (top 15 weapons)
+- **Query-param deep links** — `?player=Name` in the URL opens a career page directly; browser back/forward navigation works
+- **ImportScript** (Google Apps Script) — imports OCAP `.json.gz` files from Google Drive into the `player_stats` Google Sheet; archives processed files automatically
+- **GitHub Actions deploy workflow** — auto-deploys `main` to production and `claude/*` branches to `/dev/` preview
+- **Favicon** (`favicon.svg`) — fixes 404 error in browser tab
 
 ### Changed
-- Role normalisation strips `@suffix`, colour names, and NATO phonetic suffixes before aggregating
+- Row click now filters the player list; right-click on a row opens the full career page
+- Role normalisation strips `@ suffix`, colour names (Red, Blue, etc.), and NATO phonetic suffixes before aggregating to top role
+- Career modal shows merged stats when a player appears in multiple rows for the same mission
+- Center-aligned all table columns except Player Name
+
+### Fixed
+- Player pill active state not updating when toggling filters
+- Active date range sort comparing raw mission name strings instead of extracted dates
 
 ### Reverted
 - postMessage iframe deep-link support (removed due to side effects)
 
 ---
 
-## 2026-01-XX
-
-### Added
-- **Player Career Stats page** — full-screen per-player view with overall stats, weapon breakdown, best mission, and kill breakdown by mission
-- **Maximize button** on player modal to open career page
-- **Multi-select player filter** — left-click pills to filter the table, right-click to open career page
-- **Mission chronological sorting** — active date range shown in career header uses extracted `YYYY-MM-DD` dates
-- **Weapon kill breakdown** in player modal with bar chart (top 15 weapons)
-- **Best single mission card** in player modal
-- **Merge duplicate missions** in modal — combines rows from the same mission
-
-### Fixed
-- Active date sort comparing raw mission names instead of extracted dates
-- Player pill active state not updating when toggling filters
-- Click behaviour: row click filters list, right-click opens fullscreen profile
-
----
-
-## 2025-12-XX
-
-### Added
-- **ImportScript** (Google Apps Script) — imports OCAP `.json.gz` files from Google Drive into the stats spreadsheet
-- **Hall of Fame award cards** — Executioner, Pro Sniper, Perfect Aim, Best K/D
-- **Zeus filter** — exclude or isolate Zeus players from the leaderboard
-- **Event type filter** — separate Joint Ops from regular weekly events
-- **Vehicle combat table** — separate leaderboard for in-vehicle stats
-- **Shots/Kill, Avg Kill Distance, Longest Kill** columns in infantry table
-- **Favicon** to fix 404 browser tab error
-
-### Changed
-- Renamed "Top Killer" award to "Executioner"
-- Center-aligned all table columns except Player Name
-
-### Fixed
-- Regex for Joint Op detection to correctly match filename date format
-
----
-
-## 2025-11-XX — Initial Release
+## 2026-03-17 — Initial Release
 
 ### Added
 - CSV-driven leaderboard pulling from a published Google Sheet
-- Infantry kills, deaths, K/D, teamkills, vehicle kills table
-- Top 10 kills bar chart
+- Separate infantry and vehicle combat tables
+- Award cards: Executioner (most kills), Pro Sniper (longest kill), Perfect Aim (best shots-per-kill), Best K/D
+- Top 10 kills horizontal bar chart
 - Mission and player filter pills
-- Basic player stats modal
+- Zeus filter — exclude or isolate Zeus (game master) players
+- Event type filter — Joint Ops vs regular weekly events (auto-detected by date)
+- Vehicle kills, shots/kill, avg kill distance, longest kill columns in infantry table
+- Player stats modal with per-mission breakdown
+- Teamkill row highlighting in red
