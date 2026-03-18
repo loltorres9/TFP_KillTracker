@@ -75,6 +75,21 @@
   }
   .btn-reset:hover { background: var(--bg); }
 
+  /* ── UNIT FILTER ── */
+  .unit-btn {
+    padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg); color: #333;
+    font-family: 'Open Sans', sans-serif; font-weight: 600;
+    transition: all 0.15s; user-select: none;
+  }
+  .unit-btn:hover { filter: brightness(0.93); }
+  .unit-btn.active { color: white; }
+  .unit-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 0.68rem; font-weight: 700; color: white;
+    letter-spacing: 0.4px; vertical-align: middle; margin-left: 8px;
+  }
+
   /* ── CAREER VIEW ── */
   .career-pills-label {
     font-size: 0.72rem; color: var(--charcoal); font-weight: 600;
@@ -365,6 +380,10 @@
       <div class="filter-actions">
         <button class="btn-reset" id="resetFilters">Reset Filters</button>
         <span style="font-size:0.78rem;color:#888" id="filterCount"></span>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Unit</div>
+        <div id="unitFilterBtns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
       </div>
       <div style="margin-top:12px">
         <div style="font-size:0.75rem;color:#666;font-weight:600;margin-bottom:6px;">Event Type</div>
