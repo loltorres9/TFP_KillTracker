@@ -1,9 +1,4 @@
 function importOCAP(forceReimport = false) {
-  // Delete any pending self-scheduled triggers first so we never pile up
-  ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "importOCAP") ScriptApp.deleteTrigger(t);
-  });
-
   const parentFolder = DriveApp.getFoldersByName("Kill Tracker").next();
   const folders = parentFolder.getFolders();
   let inputFolder;
@@ -20,19 +15,6 @@ function importOCAP(forceReimport = false) {
   if (!files.hasNext()) {
     Logger.log("No new files found.");
     return;
-  }
-
-  // Helper: schedule another run in 1 minute if more files still exist in the folder
-  function scheduleNextRunIfNeeded() {
-    if (inputFolder.getFiles().hasNext()) {
-      ScriptApp.newTrigger("importOCAP")
-        .timeBased()
-        .after(60 * 1000)
-        .create();
-      Logger.log("More files remain — scheduled next import run in 1 minute.");
-    } else {
-      Logger.log("All files processed.");
-    }
   }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let statsSheet = ss.getSheetByName("player_stats");
@@ -107,7 +89,6 @@ function importOCAP(forceReimport = false) {
     Logger.log(`Skipped (already imported): ${name}`);
     archiveFolder.addFile(file);
     inputFolder.removeFile(file);
-    scheduleNextRunIfNeeded();
     return;
   }
   try {
@@ -377,7 +358,6 @@ function importOCAP(forceReimport = false) {
     archiveFolder.addFile(file);
     inputFolder.removeFile(file);
     Logger.log(`Import complete: ${name} — ${rows.length} players written`);
-    scheduleNextRunIfNeeded();
   } catch (err) {
     Logger.log(`Error processing ${name}: ${err}`);
     throw err;
