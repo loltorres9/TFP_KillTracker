@@ -1404,8 +1404,8 @@ function renderTableHead(headId, cols, sortCol, sortAsc, tableId) {
       const arrow = i === sortCol ? (sortAsc ? " ▲" : " ▼") : " ⇅";
       const clickable = c.sortKey !== null;
       const isAvg = avgCols.has(i);
-      const label = isAvg ? `<span style="opacity:0.6;font-size:0.7em">~/mission</span> ${c.label}` : c.label;
-      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}${isAvg ? ";background:rgba(255,255,255,0.08)" : ""}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+      const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
+      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
     }).join("")}</tr>`;
 }
 window._sortInf = function(col) {
