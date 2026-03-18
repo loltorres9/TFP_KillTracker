@@ -4,6 +4,24 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
+## 2026-03-18 (latest)
+
+### Added
+- **Distance Run (km) stat** — tracked per player from OCAP movement data; teleport steps (>100 m jumps) filtered out to avoid GPS drift. Shown in infantry table, player modal, and career page
+- **Ultra Runner award** (Hall of Fame) — player with the most total distance run
+- **Passenger Princess award** (Hall of Shame) — player with the least distance run; requires ≥1h30m playtime, excludes Zeus players, and only awards when a real value (>0) exists
+- **Per-mission avg toggle on table columns** — right-click any raw-count column header or cell (Kills, Deaths, Shots, Hits Taken, TK, Suicides, Dist Run, Veh Kills) to toggle between totals and per-mission averages; active column shows an amber `~/m` prefix in the header
+- **Hover tooltip on Hall of Fame/Shame stats** — hovering the stat line on any award card shows the per-mission average and mission count
+
+### Changed
+- Hall of Shame cards no longer show emoji icons
+- Hall of Shame row forced to a single line on desktop (no wrapping at 1080p+)
+
+### Fixed
+- Distance Run column not populating after import — migration code was overwriting the `Time Played (s)` header; fixed by placing `Distance Run (km)` last in the ImportScript schema so it always appends safely
+
+---
+
 ## 2026-03-18
 
 ### Added
