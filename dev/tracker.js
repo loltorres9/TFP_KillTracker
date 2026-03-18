@@ -764,6 +764,8 @@ function renderLeader() {
   document.getElementById("aw-kills-name").textContent = byKills.name;
   document.getElementById("aw-kills-stat").textContent =
     `${byKills.killsOnFoot} kills · K/D ${byKills.kdFoot.toFixed(2)}`;
+  document.getElementById("aw-kills-stat").dataset.avg =
+    `${(byKills.killsOnFoot / byKills.missions.size).toFixed(1)} kills/mission (${byKills.missions.size} missions)`;
 
   // Pro Sniper — highest maxLongestFoot (min 2 kills to avoid flukes)
   const byLong = [...eligible].filter(p => p.killsOnFoot >= 2)
@@ -819,7 +821,9 @@ function renderLeader() {
     .sort((a,b) => b.distanceRun - a.distanceRun)[0];
   if (byDist) {
     document.getElementById("aw-dist-name").textContent = byDist.name;
-    document.getElementById("aw-dist-stat").textContent = `${byDist.distanceRun.toFixed(1)} km`;
+    const awDistStat = document.getElementById("aw-dist-stat");
+    awDistStat.textContent = `${byDist.distanceRun.toFixed(1)} km`;
+    awDistStat.dataset.avg = `${(byDist.distanceRun / byDist.missions.size).toFixed(1)} km/mission (${byDist.missions.size} missions)`;
   } else {
     document.getElementById("aw-dist-name").textContent = "—";
     document.getElementById("aw-dist-stat").textContent = "";
@@ -870,8 +874,9 @@ function renderLeader() {
     .sort((a,b) => b.hitsOnFoot - a.hitsOnFoot)[0];
   if (shameHits) {
     document.getElementById("sh-hits-name").textContent = shameHits.name;
-    document.getElementById("sh-hits-stat").textContent =
-      `${shameHits.hitsOnFoot} hits taken`;
+    const shHitsStat = document.getElementById("sh-hits-stat");
+    shHitsStat.textContent = `${shameHits.hitsOnFoot} hits taken`;
+    shHitsStat.dataset.avg = `${(shameHits.hitsOnFoot / shameHits.missions.size).toFixed(1)} hits/mission (${shameHits.missions.size} missions)`;
   } else {
     document.getElementById("sh-hits-name").textContent = "—";
     document.getElementById("sh-hits-stat").textContent = "";
@@ -893,7 +898,9 @@ function renderLeader() {
     .sort((a,b) => b.deathsOnFoot - a.deathsOnFoot)[0];
   if (shameDeaths) {
     document.getElementById("sh-deaths-name").textContent = shameDeaths.name;
-    document.getElementById("sh-deaths-stat").textContent = `${shameDeaths.deathsOnFoot} deaths`;
+    const shDeathsStat = document.getElementById("sh-deaths-stat");
+    shDeathsStat.textContent = `${shameDeaths.deathsOnFoot} deaths`;
+    shDeathsStat.dataset.avg = `${(shameDeaths.deathsOnFoot / shameDeaths.missions.size).toFixed(1)} deaths/mission (${shameDeaths.missions.size} missions)`;
   } else {
     document.getElementById("sh-deaths-name").textContent = "—";
     document.getElementById("sh-deaths-stat").textContent = "";
@@ -904,8 +911,9 @@ function renderLeader() {
     .sort((a,b) => b.shotsOnFoot - a.shotsOnFoot)[0];
   if (shameShots) {
     document.getElementById("sh-shots-name").textContent = shameShots.name;
-    document.getElementById("sh-shots-stat").textContent =
-      `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
+    const shShotsStat = document.getElementById("sh-shots-stat");
+    shShotsStat.textContent = `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
+    shShotsStat.dataset.avg = `${Math.round(shameShots.shotsOnFoot / shameShots.missions.size).toLocaleString()} shots/mission (${shameShots.missions.size} missions)`;
   } else {
     document.getElementById("sh-shots-name").textContent = "—";
     document.getElementById("sh-shots-stat").textContent = "";
@@ -917,7 +925,9 @@ function renderLeader() {
     .sort((a,b) => a.distanceRun - b.distanceRun)[0];
   if (shameDist) {
     document.getElementById("sh-dist-name").textContent = shameDist.name;
-    document.getElementById("sh-dist-stat").textContent = `${shameDist.distanceRun.toFixed(1)} km`;
+    const shDistStat = document.getElementById("sh-dist-stat");
+    shDistStat.textContent = `${shameDist.distanceRun.toFixed(1)} km`;
+    shDistStat.dataset.avg = `${(shameDist.distanceRun / shameDist.missions.size).toFixed(1)} km/mission (${shameDist.missions.size} missions)`;
   } else {
     document.getElementById("sh-dist-name").textContent = "—";
     document.getElementById("sh-dist-stat").textContent = "";
@@ -935,6 +945,20 @@ function closeModal(e) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('playerModal').classList.remove('open');
 });
+
+// ── AVG-PER-MISSION TOOLTIP (right-click on award stats) ─────────────────
+const avgTooltip = document.getElementById('avgTooltip');
+document.addEventListener('contextmenu', e => {
+  const el = e.target.closest('[data-avg]');
+  if (!el) return;
+  e.preventDefault();
+  avgTooltip.textContent = 'Avg: ' + el.dataset.avg;
+  avgTooltip.style.display = 'block';
+  avgTooltip.style.left = (e.clientX + 10) + 'px';
+  avgTooltip.style.top  = (e.clientY + 10) + 'px';
+});
+document.addEventListener('click',  () => avgTooltip.style.display = 'none');
+document.addEventListener('scroll', () => avgTooltip.style.display = 'none', true);
 
 // ── PER-MISSION TABLE SORT STATE ─────────────────────────────────────────
 const MISSION_COLS = [
