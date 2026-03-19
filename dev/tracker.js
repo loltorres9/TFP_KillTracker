@@ -1458,21 +1458,22 @@ function tkClass(v) {
 // ── UNIT LEADERBOARD ─────────────────────────────────────────────────────
 let unitSortCol = 3; // default: Kills (On Foot)
 let unitSortAsc = false;
+const unitAvgCols = new Set();
 
 const UNIT_COLS = [
   { label: "#",             key: "_rank",         numeric: false, sortKey: null },
   { label: "Unit",          key: "unit",          numeric: false, sortKey: "unit" },
   { label: "Players",       key: "playerCount",   numeric: true,  sortKey: "playerCount" },
-  { label: "Kills",         key: "killsOnFoot",   numeric: true,  sortKey: "killsOnFoot" },
-  { label: "Deaths",        key: "deathsOnFoot",  numeric: true,  sortKey: "deathsOnFoot" },
+  { label: "Kills",         key: "killsOnFoot",   numeric: true,  sortKey: "killsOnFoot",   canAvg: true },
+  { label: "Deaths",        key: "deathsOnFoot",  numeric: true,  sortKey: "deathsOnFoot",  canAvg: true },
   { label: "K/D",           key: "kd",            numeric: true,  sortKey: "kd",           fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",            key: "tkOnFoot",      numeric: true,  sortKey: "tkOnFoot",     css: tkClass },
-  { label: "Veh Kills",     key: "killsInVeh",    numeric: true,  sortKey: "killsInVeh" },
-  { label: "Kills/Player",  key: "killsPerPlayer",numeric: true,  sortKey: "killsPerPlayer", fmt: v => v.toFixed(1) },
+  { label: "Veh Kills",     key: "killsInVeh",    numeric: true,  sortKey: "killsInVeh",    canAvg: true },
+  { label: "Kills/Player",  key: "killsPerPlayer",numeric: true,  sortKey: "killsPerPlayer", fmt: v => v.toFixed(1), canAvg: true },
   { label: "Avg K/D",       key: "avgKd",         numeric: true,  sortKey: "avgKd",        fmt: v => v.toFixed(2), css: kdClass },
   { label: "Missions",      key: "missionCount",  numeric: true,  sortKey: "missionCount" },
-  { label: "Dist Run (km)", key: "distanceRun",   numeric: true,  sortKey: "distanceRun",  fmt: v => v.toFixed(1) },
-  { label: "Time Played",   key: "timePlayed",    numeric: true,  sortKey: "timePlayed",   fmt: fmtTime },
+  { label: "Dist Run (km)", key: "distanceRun",   numeric: true,  sortKey: "distanceRun",  fmt: v => v.toFixed(1), canAvg: true },
+  { label: "Time Played",   key: "timePlayed",    numeric: true,  sortKey: "timePlayed",   fmt: fmtTime, canAvg: true },
 ];
 
 function buildUnitStats() {
@@ -1515,10 +1516,12 @@ function renderUnitLeaderboard() {
 
   const col = UNIT_COLS[unitSortCol];
   const key = col.sortKey;
+  const useAvg = unitAvgCols.has(unitSortCol) && col.canAvg;
   const sorted = [...unitStats];
   if (key) {
     sorted.sort((a, b) => {
-      let va = a[key], vb = b[key];
+      let va = useAvg && a.missionCount > 0 ? a[key] / a.missionCount : a[key];
+      let vb = useAvg && b.missionCount > 0 ? b[key] / b.missionCount : b[key];
       if (va == null) va = unitSortAsc ? Infinity : -Infinity;
       if (vb == null) vb = unitSortAsc ? Infinity : -Infinity;
       if (typeof va === 'string') return unitSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -1534,7 +1537,9 @@ function renderUnitLeaderboard() {
   thead.innerHTML = `<tr>${UNIT_COLS.map((c, i) => {
     const arrow = i === unitSortCol ? (unitSortAsc ? " ▲" : " ▼") : " ⇅";
     const clickable = c.sortKey !== null;
-    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""} style="${clickable ? "" : "cursor:default"}">${c.label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+    const isAvg = unitAvgCols.has(i);
+    const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
+    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
   }).join("")}</tr>`;
 
   const tbody = document.getElementById("unitBody");
@@ -1552,10 +1557,17 @@ function renderUnitLeaderboard() {
     const cells = UNIT_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${rankStr}</td>`;
       if (ci === 1) return `<td style="text-align:left"><span class="unit-badge" style="background:${color}">${u.unit}</span></td>`;
-      const raw = u[col.key];
-      const val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      let raw = u[col.key];
+      let val;
+      if (col.canAvg && unitAvgCols.has(ci) && u.missionCount > 0) {
+        const avgVal = raw / u.missionCount;
+        val = col.fmt ? col.fmt(avgVal) : avgVal.toFixed(2).replace(/\.?0+$/, "");
+      } else {
+        val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      }
       const cls = col.css ? col.css(raw) : "";
-      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+      const avgAttr = col.canAvg ? ` oncontextmenu="_toggleAvgUnit(${ci});return false;"` : "";
+      return `<td${cls ? ` class="${cls}"` : ""}${avgAttr}>${val}</td>`;
     });
     return `<tr>${cells.join("")}</tr>`;
   }).join("");
@@ -1565,6 +1577,10 @@ window._sortUnit = function(col) {
   if (UNIT_COLS[col].sortKey === null) return;
   if (unitSortCol === col) unitSortAsc = !unitSortAsc;
   else { unitSortCol = col; unitSortAsc = !UNIT_COLS[col].numeric; }
+  renderUnitLeaderboard();
+};
+window._toggleAvgUnit = function(col) {
+  if (unitAvgCols.has(col)) unitAvgCols.delete(col); else unitAvgCols.add(col);
   renderUnitLeaderboard();
 };
 
