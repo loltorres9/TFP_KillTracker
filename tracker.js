@@ -392,10 +392,46 @@ window._filterUnit = function(unit) {
 };
 
 // ── BUILD UI ────────────────────────────────────────────────────────────
+// ── COLLAPSIBLE SECTIONS ─────────────────────────────────────────────────
+const SECTION_DEFAULTS = {
+  infantry: true, vehicle: true,
+  'unit-lb': false, 'mission-hist': false, weapons: false,
+  maps: false, roles: false, attendance: false,
+  'kd-trend': false, comparison: false,
+};
+
+function toggleSection(key) {
+  const content = document.getElementById('sc-' + key);
+  const arrow   = document.getElementById('arr-' + key);
+  if (!content) return;
+  const opening = content.style.display === 'none';
+  content.style.display = opening ? '' : 'none';
+  if (arrow) arrow.textContent = opening ? '▼' : '▶';
+  try {
+    const s = JSON.parse(localStorage.getItem('tfp-sections') || '{}');
+    s[key] = opening;
+    localStorage.setItem('tfp-sections', JSON.stringify(s));
+  } catch(e) {}
+}
+window.toggleSection = toggleSection;
+
+function initSectionStates() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('tfp-sections') || '{}'); } catch(e) {}
+  Object.entries(SECTION_DEFAULTS).forEach(([key, defaultOpen]) => {
+    const open    = key in saved ? saved[key] : defaultOpen;
+    const content = document.getElementById('sc-' + key);
+    const arrow   = document.getElementById('arr-' + key);
+    if (content) content.style.display = open ? '' : 'none';
+    if (arrow)   arrow.textContent = open ? '▼' : '▶';
+  });
+}
+
 function buildUI() {
   document.getElementById("loading").style.display = "none";
   document.getElementById("content").style.display = "";
 
+  initSectionStates();
   buildFilters();
   applyFilters();
 
