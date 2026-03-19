@@ -45,6 +45,7 @@ function missionDate(missionName) {
 let rawRows = [];    // one entry per CSV row
 let aggPlayers = {}; // aggregated by player name across missions
 let filteredPlayers = [];
+let filteredRows = []; // rawRows filtered to match filteredPlayers (set in applyFilters)
 
 let infSortCol = 2;   // col index 2 = Kills in INF_COLS
 let infSortAsc = false;
@@ -384,17 +385,53 @@ function renderUnitFilter() {
 }
 
 window._filterUnit = function(unit) {
-  selectedUnit = unit;
+  selectedUnit = (selectedUnit === unit) ? null : unit;
   renderUnitFilter();
   refreshPills();
   filterChanged();
 };
 
 // ── BUILD UI ────────────────────────────────────────────────────────────
+// ── COLLAPSIBLE SECTIONS ─────────────────────────────────────────────────
+const SECTION_DEFAULTS = {
+  infantry: true, vehicle: true,
+  'unit-lb': false, 'mission-hist': false, weapons: false,
+  maps: false, roles: false, attendance: false,
+  'kd-trend': false, comparison: false,
+};
+
+function toggleSection(key) {
+  const content = document.getElementById('sc-' + key);
+  const arrow   = document.getElementById('arr-' + key);
+  if (!content) return;
+  const opening = content.style.display === 'none';
+  content.style.display = opening ? '' : 'none';
+  if (arrow) arrow.textContent = opening ? '▼' : '▶';
+  try {
+    const s = JSON.parse(localStorage.getItem('tfp-sections') || '{}');
+    s[key] = opening;
+    localStorage.setItem('tfp-sections', JSON.stringify(s));
+  } catch(e) {}
+}
+window.toggleSection = toggleSection;
+
+function initSectionStates() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('tfp-sections') || '{}'); } catch(e) {}
+  Object.entries(SECTION_DEFAULTS).forEach(([key, defaultOpen]) => {
+    const open    = key in saved ? saved[key] : defaultOpen;
+    const content = document.getElementById('sc-' + key);
+    const arrow   = document.getElementById('arr-' + key);
+    if (content) content.style.display = open ? '' : 'none';
+    if (arrow)   arrow.textContent = open ? '▼' : '▶';
+  });
+}
+
 function buildUI() {
   document.getElementById("loading").style.display = "none";
   document.getElementById("content").style.display = "";
 
+  initSectionStates();
   buildFilters();
   applyFilters();
 
@@ -430,26 +467,30 @@ function _openCareerPageNoHistory(playerName) {
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
-  document.getElementById('statsBar').style.display         = 'none';
-  document.getElementById('awardsRow').style.display        = 'none';
-  document.getElementById('hallFameLabel').style.display    = 'none';
-  document.getElementById('shameRow').style.display         = 'none';
-  document.getElementById('hallShameLabel').style.display   = 'none';
-  document.querySelector('.chart-section').style.display    = 'none';
-  document.querySelector('.filter-panel').style.display     = 'none';
-  document.getElementById('careerHeader').style.display     = '';
-  document.getElementById('careerStats').style.display      = '';
+  document.getElementById('statsBar').style.display                   = 'none';
+  document.getElementById('awardsRow').style.display                  = 'none';
+  document.getElementById('hallFameLabel').style.display              = 'none';
+  document.getElementById('shameRow').style.display                   = 'none';
+  document.getElementById('hallShameLabel').style.display             = 'none';
+  document.querySelector('.chart-section').style.display              = 'none';
+  document.querySelector('.filter-panel').style.display               = 'none';
+  document.getElementById('unitLeaderboardSection').style.display     = 'none';
+  document.getElementById('extraLeaderboardSections').style.display   = 'none';
+  document.getElementById('careerHeader').style.display               = '';
+  document.getElementById('careerStats').style.display                = '';
   refreshPills();
   window.scrollTo(0, 0);
 }
 
 function _closeCareerPageNoHistory() {
   selectedPlayers = null;
-  document.getElementById('careerHeader').style.display  = 'none';
-  document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('statsBar').style.display      = '';
-  document.querySelector('.chart-section').style.display = '';
-  document.querySelector('.filter-panel').style.display  = '';
+  document.getElementById('careerHeader').style.display               = 'none';
+  document.getElementById('careerStats').style.display                = 'none';
+  document.getElementById('statsBar').style.display                   = '';
+  document.querySelector('.chart-section').style.display              = '';
+  document.querySelector('.filter-panel').style.display               = '';
+  document.getElementById('unitLeaderboardSection').style.display     = '';
+  document.getElementById('extraLeaderboardSections').style.display   = '';
   applyFilters();
   refreshPills();
   window.scrollTo(0, 0);
@@ -546,7 +587,7 @@ function renderCareerPills(containerId, items, searchId) {
   items
     .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
     .forEach(item => {
-      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
+      const isActive = selectedPlayers === null || selectedPlayers.has(item);
       const pill = document.createElement("span");
       pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
@@ -689,6 +730,10 @@ function applyFilters() {
     return playerOk && zeusOk;
   });
 
+  // Align filteredRows with filteredPlayers (respects zeus filter too)
+  const _fpNames = new Set(filteredPlayers.map(p => p.name));
+  filteredRows = filtered.filter(r => _fpNames.has(r["Username"] || ""));
+
   const totalCount = Object.keys(aggPlayers).length;
   const parts = [];
   if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
@@ -704,6 +749,16 @@ function applyFilters() {
   renderLeader();
   renderInfantryTable();
   renderVehicleTable();
+  renderUnitLeaderboard();
+  renderMissionHistory();
+  renderWeaponLeaderboard();
+  renderWorldStats();
+  renderRoleLeaderboard();
+  renderAttendanceTracker();
+  refreshKdTrendSubjects();
+  renderKdTrend();
+  refreshCompareSelects();
+  renderComparison();
   renderUnitFilter();
 }
 
@@ -860,7 +915,7 @@ function renderLeader() {
   }
 
   // Spray & Pray Specialist — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
-  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
+  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 20 && p.missions.size >= 2 && p.spkFoot != null && p.spkFoot >= 1)
     .sort((a,b) => b.spkFoot - a.spkFoot)[0];
   if (shameSpk) {
     document.getElementById("sh-spk-name").textContent = shameSpk.name;
@@ -915,7 +970,8 @@ function renderLeader() {
     document.getElementById("sh-shots-name").textContent = shameShots.name;
     const shShotsStat = document.getElementById("sh-shots-stat");
     shShotsStat.textContent = `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
-    shShotsStat.dataset.avg = `${Math.round(shameShots.shotsOnFoot / shameShots.missions.size).toLocaleString()} shots/mission (${shameShots.missions.size} missions)`;
+    const shotsCost = (shameShots.shotsOnFoot * 0.50).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    shShotsStat.dataset.avg = `${Math.round(shameShots.shotsOnFoot / shameShots.missions.size).toLocaleString()} shots/mission (${shameShots.missions.size} missions) · €${shotsCost} in bullets`;
   } else {
     document.getElementById("sh-shots-name").textContent = "—";
     document.getElementById("sh-shots-stat").textContent = "";
@@ -966,22 +1022,34 @@ document.addEventListener('mouseout', e => {
 });
 document.addEventListener('scroll', () => avgTooltip.style.display = 'none', true);
 
+// ── SHARED INFANTRY STAT COLUMNS ─────────────────────────────────────────
+// Single source of truth for infantry stats. Both the main leaderboard
+// (INF_COLS) and the per-mission breakdown (MISSION_COLS) are derived
+// from this array. To add/remove/rename a stat, edit only this array.
+//
+// aggKey    – key on the aggregated player object (used in INF leaderboard)
+// missionKey – key on the per-mission row object (used in mission breakdown)
+// afterMissions – if true, column appears after the "Missions" column in INF
+const SHARED_INF_STAT_COLS = [
+  { label: "Kills",         aggKey: "killsOnFoot",    missionKey: "k",    numeric: true,  canAvg: true },
+  { label: "Veh Kills",     aggKey: "vehKillsFoot",   missionKey: "vk",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Deaths",        aggKey: "deathsOnFoot",   missionKey: "d",    numeric: true,  canAvg: true },
+  { label: "K/D",           aggKey: "kdFoot",         missionKey: "_kd",  numeric: true,  fmt: v => v != null ? v.toFixed(2) : "—", css: kdClass },
+  { label: "TK",            aggKey: "tkOnFoot",       missionKey: "tk",   numeric: true,  fmt: v => v || "—", css: tkClass, canAvg: true },
+  { label: "Suicides",      aggKey: "suicides",       missionKey: "sui",  numeric: true,  fmt: v => v || "—", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
+  { label: "Shots",         aggKey: "shotsOnFoot",    missionKey: "sh",   numeric: true,  canAvg: true },
+  { label: "Hits Taken",    aggKey: "hitsOnFoot",     missionKey: "ht",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Shots/Kill",    aggKey: "spkFoot",        missionKey: "_spk", numeric: true,  fmt: v => v != null ? v.toFixed(1) : "—" },
+  { label: "Avg Dist (m)",  aggKey: "avgDistFoot",    missionKey: "_ad",  numeric: true,  fmt: v => v ? Math.round(v) : "—" },
+  { label: "Longest (m)",   aggKey: "maxLongestFoot", missionKey: "lk",   numeric: true,  fmt: v => v || "—" },
+  { label: "Dist Run (km)", aggKey: "distanceRun",    missionKey: "dr",   numeric: true,  fmt: v => v ? v.toFixed(1) : "—", canAvg: true, afterMissions: true },
+  { label: "Time Played",   aggKey: "timePlayed",     missionKey: "tp",   numeric: true,  fmt: v => v ? fmtTime(v) : "—", afterMissions: true },
+];
+
 // ── PER-MISSION TABLE SORT STATE ─────────────────────────────────────────
 const MISSION_COLS = [
-  { label: "Mission",      key: "mission", numeric: false },
-  { label: "Kills",        key: "k",       numeric: true  },
-  { label: "Veh Kills",    key: "vk",      numeric: true  },
-  { label: "Deaths",       key: "d",       numeric: true  },
-  { label: "K/D",          key: "_kd",     numeric: true  },
-  { label: "TK",           key: "tk",      numeric: true  },
-  { label: "Suicides",     key: "sui",     numeric: true  },
-  { label: "Shots",        key: "sh",      numeric: true  },
-  { label: "Hits Taken",   key: "ht",      numeric: true  },
-  { label: "Shots/Kill",   key: "_spk",    numeric: true  },
-  { label: "Avg Dist (m)", key: "_ad",     numeric: true  },
-  { label: "Longest (m)",  key: "lk",      numeric: true  },
-  { label: "Dist Run (km)", key: "dr",     numeric: true  },
-  { label: "Time Played",  key: "tp",      numeric: true  },
+  { label: "Mission", key: "mission", numeric: false },
+  ...SHARED_INF_STAT_COLS.map(c => ({ label: c.label, key: c.missionKey, numeric: c.numeric, fmt: c.fmt, css: c.css })),
 ];
 let missionSortCol = 1; // default: Kills
 let missionSortAsc = false;
@@ -1004,26 +1072,14 @@ function _buildMissionTbody(data) {
     return missionSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
   });
   return sorted.map((m, i) => {
-    const kd  = m._kd  != null ? m._kd.toFixed(2)  : "—";
-    const spk = m._spk != null ? m._spk.toFixed(1) : "—";
-    const ad  = m._ad  != null ? Math.round(m._ad) : "—";
-    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
-    return `<tr style="${bg}">
-      <td>${m.mission}</td>
-      <td>${m.k}</td>
-      <td>${m.vk || "—"}</td>
-      <td>${m.d}</td>
-      <td style="color:${m._kd>=2?'var(--green)':m._kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
-      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk || "—"}</td>
-      <td${m.sui>0?' style="color:var(--red)"':''}>${m.sui || "—"}</td>
-      <td>${m.sh}</td>
-      <td>${m.ht || "—"}</td>
-      <td>${spk}</td>
-      <td>${ad}</td>
-      <td>${m.lk || "—"}</td>
-      <td>${m.dr ? m.dr.toFixed(1) : "—"}</td>
-      <td>${m.tp ? fmtTime(m.tp) : "—"}</td>
-    </tr>`;
+    const bg = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    const cells = MISSION_COLS.map(c => {
+      const raw = m[c.key];
+      const val = c.fmt ? c.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      const cls = c.css ? c.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr style="${bg}">${cells.join("")}</tr>`;
   }).join("");
 }
 
@@ -1252,15 +1308,17 @@ function openCareerPage(playerName) {
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
-  document.getElementById('statsBar').style.display         = 'none';
-  document.getElementById('awardsRow').style.display        = 'none';
-  document.getElementById('hallFameLabel').style.display    = 'none';
-  document.getElementById('shameRow').style.display         = 'none';
-  document.getElementById('hallShameLabel').style.display   = 'none';
-  document.querySelector('.chart-section').style.display    = 'none';
-  document.querySelector('.filter-panel').style.display     = 'none';
-  document.getElementById('careerHeader').style.display     = '';
-  document.getElementById('careerStats').style.display      = '';
+  document.getElementById('statsBar').style.display                   = 'none';
+  document.getElementById('awardsRow').style.display                  = 'none';
+  document.getElementById('hallFameLabel').style.display              = 'none';
+  document.getElementById('shameRow').style.display                   = 'none';
+  document.getElementById('hallShameLabel').style.display             = 'none';
+  document.querySelector('.chart-section').style.display              = 'none';
+  document.querySelector('.filter-panel').style.display               = 'none';
+  document.getElementById('unitLeaderboardSection').style.display     = 'none';
+  document.getElementById('extraLeaderboardSections').style.display   = 'none';
+  document.getElementById('careerHeader').style.display               = '';
+  document.getElementById('careerStats').style.display                = '';
 
   refreshPills();
   window.scrollTo(0, 0);
@@ -1273,11 +1331,13 @@ function closeCareerPage() {
   url.searchParams.delete('player');
   history.pushState({}, '', url);
 
-  document.getElementById('careerHeader').style.display  = 'none';
-  document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('statsBar').style.display      = '';
-  document.querySelector('.chart-section').style.display = '';
-  document.querySelector('.filter-panel').style.display  = '';
+  document.getElementById('careerHeader').style.display               = 'none';
+  document.getElementById('careerStats').style.display                = 'none';
+  document.getElementById('statsBar').style.display                   = '';
+  document.querySelector('.chart-section').style.display              = '';
+  document.querySelector('.filter-panel').style.display               = '';
+  document.getElementById('unitLeaderboardSection').style.display     = '';
+  document.getElementById('extraLeaderboardSections').style.display   = '';
 
   applyFilters(); // renderLeader handles awardsRow visibility
   refreshPills();
@@ -1285,23 +1345,19 @@ function closeCareerPage() {
 }
 
 // ── INFANTRY TABLE ───────────────────────────────────────────────────────
+// Derived from SHARED_INF_STAT_COLS — edit that array to add/remove stats.
+// The "Missions" column is injected between the non-afterMissions and
+// afterMissions groups to preserve the original column order.
 const INF_COLS = [
-  { label: "#",       key: "_rank",        numeric: false, sortKey: null },
-  { label: "Player",  key: "name",         numeric: false, sortKey: "name" },
-  { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot",  canAvg: true },
-  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot", canAvg: true },
-  { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot", canAvg: true },
-  { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
-  { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass, canAvg: true },
-  { label: "Suicides", key: "suicides",    numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
-  { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot", canAvg: true },
-  { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot",  canAvg: true },
-  { label: "Shots/Kill", key: "spkFoot",   numeric: true,  sortKey: "spkFoot",  fmt: v => v != null ? v.toFixed(1) : "—" },
-  { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
-  { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
+  { label: "#",       key: "_rank",       numeric: false, sortKey: null },
+  { label: "Player",  key: "name",        numeric: false, sortKey: "name" },
+  ...SHARED_INF_STAT_COLS.filter(c => !c.afterMissions).map(c => ({
+    label: c.label, key: c.aggKey, numeric: c.numeric, sortKey: c.aggKey, fmt: c.fmt, css: c.css, canAvg: c.canAvg,
+  })),
   { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
-  { label: "Dist Run (km)", key: "distanceRun", numeric: true, sortKey: "distanceRun", fmt: v => v ? v.toFixed(1) : "—", canAvg: true },
-  { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
+  ...SHARED_INF_STAT_COLS.filter(c => c.afterMissions).map(c => ({
+    label: c.label, key: c.aggKey, numeric: c.numeric, sortKey: c.aggKey, fmt: c.fmt, css: c.css, canAvg: c.canAvg,
+  })),
 ];
 
 function renderInfantryTable() {
@@ -1452,4 +1508,653 @@ function kdClass(v) {
 function tkClass(v) {
   return v > 0 ? "tk-cell" : "";
 }
+
+// ── UNIT LEADERBOARD ─────────────────────────────────────────────────────
+let unitSortCol = 3; // default: Kills (On Foot)
+let unitSortAsc = false;
+const unitAvgCols = new Set();
+
+const UNIT_COLS = [
+  { label: "#",             key: "_rank",         numeric: false, sortKey: null },
+  { label: "Unit",          key: "unit",          numeric: false, sortKey: "unit" },
+  { label: "Players",       key: "playerCount",   numeric: true,  sortKey: "playerCount" },
+  { label: "Kills",         key: "killsOnFoot",   numeric: true,  sortKey: "killsOnFoot",   canAvg: true },
+  { label: "Deaths",        key: "deathsOnFoot",  numeric: true,  sortKey: "deathsOnFoot",  canAvg: true },
+  { label: "K/D",           key: "kd",            numeric: true,  sortKey: "kd",           fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK",            key: "tkOnFoot",      numeric: true,  sortKey: "tkOnFoot",     css: tkClass },
+  { label: "Veh Kills",     key: "killsInVeh",    numeric: true,  sortKey: "killsInVeh",    canAvg: true },
+  { label: "Kills/Player",  key: "killsPerPlayer",numeric: true,  sortKey: "killsPerPlayer", fmt: v => v.toFixed(1), canAvg: true },
+  { label: "Avg K/D",       key: "avgKd",         numeric: true,  sortKey: "avgKd",        fmt: v => v.toFixed(2), css: kdClass },
+  { label: "Missions",      key: "missionCount",  numeric: true,  sortKey: "missionCount" },
+  { label: "Dist Run (km)", key: "distanceRun",   numeric: true,  sortKey: "distanceRun",  fmt: v => v.toFixed(1), canAvg: true },
+  { label: "Time Played",   key: "timePlayed",    numeric: true,  sortKey: "timePlayed",   fmt: fmtTime, canAvg: true },
+];
+
+function buildUnitStats() {
+  const units = {};
+  filteredPlayers.forEach(p => {
+    const unit = playerUnits[p.name] || 'Unknown';
+    if (!units[unit]) {
+      units[unit] = {
+        unit,
+        playerCount: 0,
+        killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
+        killsInVeh: 0,
+        distanceRun: 0, timePlayed: 0,
+        missions: new Set(),
+        kdSum: 0,
+      };
+    }
+    const u = units[unit];
+    u.playerCount++;
+    u.killsOnFoot  += p.killsOnFoot;
+    u.deathsOnFoot += p.deathsOnFoot;
+    u.tkOnFoot     += p.tkOnFoot;
+    u.killsInVeh   += p.killsInVeh;
+    u.distanceRun  += p.distanceRun;
+    u.timePlayed   += p.timePlayed;
+    p.missions.forEach(m => u.missions.add(m));
+    u.kdSum        += p.kdFoot;
+  });
+  return Object.values(units).map(u => {
+    u.kd             = u.deathsOnFoot > 0 ? u.killsOnFoot / u.deathsOnFoot : u.killsOnFoot;
+    u.killsPerPlayer = u.playerCount  > 0 ? u.killsOnFoot / u.playerCount  : 0;
+    u.avgKd          = u.playerCount  > 0 ? u.kdSum        / u.playerCount  : 0;
+    u.missionCount   = u.missions.size;
+    return u;
+  });
+}
+
+function renderUnitLeaderboard() {
+  const unitStats = buildUnitStats();
+
+  const col = UNIT_COLS[unitSortCol];
+  const key = col.sortKey;
+  const useAvg = unitAvgCols.has(unitSortCol) && col.canAvg;
+  const sorted = [...unitStats];
+  if (key) {
+    sorted.sort((a, b) => {
+      let va = useAvg && a.missionCount > 0 ? a[key] / a.missionCount : a[key];
+      let vb = useAvg && b.missionCount > 0 ? b[key] / b.missionCount : b[key];
+      if (va == null) va = unitSortAsc ? Infinity : -Infinity;
+      if (vb == null) vb = unitSortAsc ? Infinity : -Infinity;
+      if (typeof va === 'string') return unitSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return unitSortAsc ? va - vb : vb - va;
+    });
+  }
+
+  const byKills = [...unitStats].sort((a, b) => b.killsOnFoot - a.killsOnFoot);
+  const rankMap = {};
+  byKills.forEach((u, i) => rankMap[u.unit] = i + 1);
+
+  const thead = document.getElementById("unitHead");
+  thead.innerHTML = `<tr>${UNIT_COLS.map((c, i) => {
+    const arrow = i === unitSortCol ? (unitSortAsc ? " ▲" : " ▼") : " ⇅";
+    const clickable = c.sortKey !== null;
+    const isAvg = unitAvgCols.has(i);
+    const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
+    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+  }).join("")}</tr>`;
+
+  const tbody = document.getElementById("unitBody");
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="${UNIT_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(u => {
+    const rank = rankMap[u.unit];
+    const rankStr = rank === 1 ? `<span class="rank-gold">🥇</span>` :
+                    rank === 2 ? `<span class="rank-silver">🥈</span>` :
+                    rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
+    const color = UNIT_COLORS[u.unit] || '#888';
+    const cells = UNIT_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td style="text-align:left"><span class="unit-badge" style="background:${color}">${u.unit}</span></td>`;
+      let raw = u[col.key];
+      let val;
+      if (col.canAvg && unitAvgCols.has(ci) && u.missionCount > 0) {
+        const avgVal = raw / u.missionCount;
+        val = col.fmt ? col.fmt(avgVal) : avgVal.toFixed(2).replace(/\.?0+$/, "");
+      } else {
+        val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      }
+      const cls = col.css ? col.css(raw) : "";
+      const avgAttr = col.canAvg ? ` oncontextmenu="_toggleAvgUnit(${ci});return false;"` : "";
+      return `<td${cls ? ` class="${cls}"` : ""}${avgAttr}>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+
+window._sortUnit = function(col) {
+  if (UNIT_COLS[col].sortKey === null) return;
+  if (unitSortCol === col) unitSortAsc = !unitSortAsc;
+  else { unitSortCol = col; unitSortAsc = !UNIT_COLS[col].numeric; }
+  renderUnitLeaderboard();
+};
+window._toggleAvgUnit = function(col) {
+  if (unitAvgCols.has(col)) unitAvgCols.delete(col); else unitAvgCols.add(col);
+  renderUnitLeaderboard();
+};
+
+// ── SHARED HELPERS ────────────────────────────────────────────────────────
+function _rankStr(rank) {
+  return rank === 1 ? `<span class="rank-gold">🥇</span>`
+       : rank === 2 ? `<span class="rank-silver">🥈</span>`
+       : rank === 3 ? `<span class="rank-bronze">🥉</span>`
+       : rank;
+}
+
+function _mkHead(cols, sortCol, sortAsc, fnName) {
+  return `<tr>${cols.map((c, i) => {
+    const arrow = i === sortCol ? (sortAsc ? " ▲" : " ▼") : (c.sortKey ? " ⇅" : "");
+    const clickable = c.sortKey !== null;
+    return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""} style="${clickable ? "" : "cursor:default"}">${c.label}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join("")}</tr>`;
+}
+
+function _sortArr(data, cols, sortCol, sortAsc) {
+  const col = cols[sortCol];
+  if (!col || !col.sortKey) return data;
+  return [...data].sort((a, b) => {
+    let va = a[col.sortKey], vb = b[col.sortKey];
+    if (va == null) va = sortAsc ? '\uffff' : '';
+    if (vb == null) vb = sortAsc ? '\uffff' : '';
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+}
+
+// ── MISSION HISTORY ───────────────────────────────────────────────────────
+let mhSortCol = 0;
+let mhSortAsc = false;
+
+const MH_COLS = [
+  { label: "Date",       key: "date",           numeric: false, sortKey: "dateSort" },
+  { label: "Mission",    key: "name",            numeric: false, sortKey: "name" },
+  { label: "World",      key: "world",           numeric: false, sortKey: "world" },
+  { label: "Players",    key: "players",         numeric: true,  sortKey: "players" },
+  { label: "Kills",      key: "kills",           numeric: true,  sortKey: "kills" },
+  { label: "Deaths",     key: "deaths",          numeric: true,  sortKey: "deaths" },
+  { label: "K/D",        key: "kd",              numeric: true,  sortKey: "kd",    fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK",         key: "tk",              numeric: true,  sortKey: "tk",    css: tkClass },
+  { label: "Top Killer", key: "topKiller",       numeric: false, sortKey: "topKillerKills" },
+];
+
+function renderMissionHistory() {
+  const map = {};
+  filteredRows.forEach(r => {
+    const src   = r["Source File"] || "";
+    const name  = r["Mission"] || src || "—";
+    const key   = src || name;
+    const world = r["World"] || "—";
+    if (!map[key]) {
+      const ms = src.match(/(\d{4})_(\d{2})_(\d{2})/);
+      map[key] = {
+        name, world, dateSort: src,
+        date: ms ? `${ms[3]}/${ms[2]}/${ms[1]}` : missionDate(name),
+        players: new Set(), kills: 0, deaths: 0, tk: 0, killerKills: {},
+      };
+    }
+    const m = map[key];
+    const pname = r["Username"] || "";
+    if (pname) m.players.add(pname);
+    const kof = NUM(r["Kills (On Foot)"]);
+    m.kills  += kof + NUM(r["Kills (In Vehicle)"]);
+    m.deaths += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
+    m.tk     += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
+    if (pname && kof > 0) m.killerKills[pname] = (m.killerKills[pname] || 0) + kof;
+  });
+
+  const data = Object.values(map).map(m => {
+    const top = Object.entries(m.killerKills).sort((a, b) => b[1] - a[1])[0];
+    return { ...m, players: m.players.size, kd: m.deaths > 0 ? m.kills / m.deaths : m.kills,
+      topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0 };
+  });
+
+  const sorted = _sortArr(data, MH_COLS, mhSortCol, mhSortAsc);
+  document.getElementById("missionHistHead").innerHTML = _mkHead(MH_COLS, mhSortCol, mhSortAsc, "_sortMH");
+  const tbody = document.getElementById("missionHistBody");
+  if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${MH_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
+  tbody.innerHTML = sorted.map(m => {
+    const cells = MH_COLS.map(col => {
+      const raw = m[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      const cls = col.css ? col.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+window._sortMH = function(col) {
+  if (mhSortCol === col) mhSortAsc = !mhSortAsc;
+  else { mhSortCol = col; mhSortAsc = !MH_COLS[col].numeric; }
+  renderMissionHistory();
+};
+
+// ── WEAPON LEADERBOARD ────────────────────────────────────────────────────
+let wpSortCol = 2;
+let wpSortAsc = false;
+
+const WP_COLS = [
+  { label: "#",           key: "_rank",       numeric: false, sortKey: null },
+  { label: "Weapon",      key: "weapon",      numeric: false, sortKey: "weapon" },
+  { label: "Total Kills", key: "kills",       numeric: true,  sortKey: "kills" },
+  { label: "Users",       key: "users",       numeric: true,  sortKey: "users" },
+  { label: "Top User",    key: "topUser",     numeric: false, sortKey: "topUserKills" },
+  { label: "Share",       key: "share",       numeric: true,  sortKey: "share",   fmt: v => v.toFixed(1) + "%" },
+];
+
+function renderWeaponLeaderboard() {
+  const weapons = {};
+  let totalKills = 0;
+  filteredPlayers.forEach(p => {
+    Object.entries(p.weaponKills || {}).forEach(([w, c]) => {
+      if (!weapons[w]) weapons[w] = { weapon: w, kills: 0, users: 0, userKills: {} };
+      weapons[w].kills += c;
+      weapons[w].userKills[p.name] = (weapons[w].userKills[p.name] || 0) + c;
+      totalKills += c;
+    });
+  });
+  const data = Object.values(weapons).map(w => {
+    w.users = Object.keys(w.userKills).length;
+    const top = Object.entries(w.userKills).sort((a, b) => b[1] - a[1])[0];
+    w.topUser = top ? `${top[0]} (${top[1]})` : "—";
+    w.topUserKills = top ? top[1] : 0;
+    w.share = totalKills > 0 ? w.kills / totalKills * 100 : 0;
+    return w;
+  });
+
+  const sorted = _sortArr(data, WP_COLS, wpSortCol, wpSortAsc);
+  const byKills = [...data].sort((a, b) => b.kills - a.kills);
+  const rankMap = {};
+  byKills.forEach((w, i) => rankMap[w.weapon] = i + 1);
+
+  document.getElementById("weaponHead").innerHTML = _mkHead(WP_COLS, wpSortCol, wpSortAsc, "_sortWP");
+  const tbody = document.getElementById("weaponBody");
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="${WP_COLS.length}" style="text-align:center;padding:20px;color:#888">No weapon data — re-import missions with the updated script to populate this.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = sorted.slice(0, 50).map(w => {
+    const cells = WP_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${_rankStr(rankMap[w.weapon])}</td>`;
+      const raw = w[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      return `<td>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+window._sortWP = function(col) {
+  if (WP_COLS[col].sortKey === null) return;
+  if (wpSortCol === col) wpSortAsc = !wpSortAsc;
+  else { wpSortCol = col; wpSortAsc = !WP_COLS[col].numeric; }
+  renderWeaponLeaderboard();
+};
+
+// ── MAP STATS ─────────────────────────────────────────────────────────────
+let worldSortCol = 2;
+let worldSortAsc = false;
+
+const WORLD_COLS = [
+  { label: "#",        key: "_rank",    numeric: false, sortKey: null },
+  { label: "Map",      key: "world",   numeric: false, sortKey: "world" },
+  { label: "Missions", key: "missions",numeric: true,  sortKey: "missions" },
+  { label: "Players",  key: "players", numeric: true,  sortKey: "players" },
+  { label: "Kills",    key: "kills",   numeric: true,  sortKey: "kills" },
+  { label: "Deaths",   key: "deaths",  numeric: true,  sortKey: "deaths" },
+  { label: "K/D",      key: "kd",      numeric: true,  sortKey: "kd",  fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK",       key: "tk",      numeric: true,  sortKey: "tk",  css: tkClass },
+];
+
+function renderWorldStats() {
+  const worlds = {};
+  filteredRows.forEach(r => {
+    const world = r["World"] || "—";
+    const src   = r["Source File"] || r["Mission"] || "";
+    if (!worlds[world]) worlds[world] = { world, missions: new Set(), players: new Set(), kills: 0, deaths: 0, tk: 0 };
+    const w = worlds[world];
+    w.missions.add(src);
+    const pname = r["Username"] || "";
+    if (pname) w.players.add(pname);
+    w.kills  += NUM(r["Kills (On Foot)"]) + NUM(r["Kills (In Vehicle)"]);
+    w.deaths += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
+    w.tk     += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
+  });
+  const data = Object.values(worlds).map(w => ({
+    ...w, missions: w.missions.size, players: w.players.size,
+    kd: w.deaths > 0 ? w.kills / w.deaths : w.kills,
+  }));
+
+  const sorted = _sortArr(data, WORLD_COLS, worldSortCol, worldSortAsc);
+  const byMissions = [...data].sort((a, b) => b.missions - a.missions);
+  const rankMap = {};
+  byMissions.forEach((w, i) => rankMap[w.world] = i + 1);
+
+  document.getElementById("worldHead").innerHTML = _mkHead(WORLD_COLS, worldSortCol, worldSortAsc, "_sortWorld");
+  const tbody = document.getElementById("worldBody");
+  if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${WORLD_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
+  tbody.innerHTML = sorted.map(w => {
+    const cells = WORLD_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${_rankStr(rankMap[w.world])}</td>`;
+      const raw = w[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      const cls = col.css ? col.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+window._sortWorld = function(col) {
+  if (WORLD_COLS[col].sortKey === null) return;
+  if (worldSortCol === col) worldSortAsc = !worldSortAsc;
+  else { worldSortCol = col; worldSortAsc = !WORLD_COLS[col].numeric; }
+  renderWorldStats();
+};
+
+// ── ROLE LEADERBOARD ──────────────────────────────────────────────────────
+let roleSortCol = 2;
+let roleSortAsc = false;
+
+const ROLE_COLS = [
+  { label: "#",       key: "_rank",  numeric: false, sortKey: null },
+  { label: "Role",    key: "role",   numeric: false, sortKey: "role" },
+  { label: "Kills",   key: "kills",  numeric: true,  sortKey: "kills" },
+  { label: "Deaths",  key: "deaths", numeric: true,  sortKey: "deaths" },
+  { label: "K/D",     key: "kd",     numeric: true,  sortKey: "kd",    fmt: v => v.toFixed(2), css: kdClass },
+  { label: "Avg K/D", key: "avgKd",  numeric: true,  sortKey: "avgKd", fmt: v => v.toFixed(2), css: kdClass },
+  { label: "Players", key: "players",numeric: true,  sortKey: "players" },
+  { label: "TK",      key: "tk",     numeric: true,  sortKey: "tk",    css: tkClass },
+];
+
+function renderRoleLeaderboard() {
+  const roles = {};
+  filteredPlayers.forEach(p => {
+    const role = p.topRole;
+    if (!role) return;
+    if (!roles[role]) roles[role] = { role, kills: 0, deaths: 0, tk: 0, players: 0, kdSum: 0 };
+    const r = roles[role];
+    r.kills  += p.killsOnFoot;
+    r.deaths += p.deathsOnFoot;
+    r.tk     += p.tkOnFoot;
+    r.players++;
+    r.kdSum  += p.kdFoot;
+  });
+  const data = Object.values(roles).map(r => ({
+    ...r, kd: r.deaths > 0 ? r.kills / r.deaths : r.kills,
+    avgKd: r.players > 0 ? r.kdSum / r.players : 0,
+  }));
+
+  const sorted = _sortArr(data, ROLE_COLS, roleSortCol, roleSortAsc);
+  const byKills = [...data].sort((a, b) => b.kills - a.kills);
+  const rankMap = {};
+  byKills.forEach((r, i) => rankMap[r.role] = i + 1);
+
+  document.getElementById("roleHead").innerHTML = _mkHead(ROLE_COLS, roleSortCol, roleSortAsc, "_sortRole");
+  const tbody = document.getElementById("roleBody");
+  if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${ROLE_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
+  tbody.innerHTML = sorted.map(r => {
+    const cells = ROLE_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${_rankStr(rankMap[r.role])}</td>`;
+      const raw = r[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      const cls = col.css ? col.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+window._sortRole = function(col) {
+  if (ROLE_COLS[col].sortKey === null) return;
+  if (roleSortCol === col) roleSortAsc = !roleSortAsc;
+  else { roleSortCol = col; roleSortAsc = !ROLE_COLS[col].numeric; }
+  renderRoleLeaderboard();
+};
+
+// ── ATTENDANCE ────────────────────────────────────────────────────────────
+let attSortCol = 3;
+let attSortAsc = false;
+
+const ATT_COLS = [
+  { label: "#",               key: "_rank",       numeric: false, sortKey: null },
+  { label: "Player",          key: "name",        numeric: false, sortKey: "name" },
+  { label: "Unit",            key: "unit",        numeric: false, sortKey: "unit" },
+  { label: "Missions",        key: "missions",    numeric: true,  sortKey: "missions" },
+  { label: "Attendance %",    key: "attPct",      numeric: true,  sortKey: "attPct",      fmt: v => v.toFixed(1) + "%" },
+  { label: "First Seen",      key: "firstSeen",   numeric: false, sortKey: "firstSeenSort" },
+  { label: "Last Seen",       key: "lastSeen",    numeric: false, sortKey: "lastSeenSort" },
+  { label: "Avg Time/Mission",key: "avgTime",     numeric: true,  sortKey: "avgTime",     fmt: fmtTime },
+];
+
+function renderAttendanceTracker() {
+  const totalMissions = new Set(filteredRows.map(r => r["Source File"] || r["Mission"] || "")).size;
+  const fmtDate = s => { if (!s) return "—"; const [y, mo, d] = s.split('-'); return `${d}/${mo}/${y}`; };
+
+  const data = filteredPlayers.map(p => {
+    const srcDates = (p.missionRows || []).map(r => {
+      const src = r["Source File"] || "";
+      const ms = src.match(/^(\d{4})_(\d{2})_(\d{2})/);
+      return ms ? `${ms[1]}-${ms[2]}-${ms[3]}` : null;
+    }).filter(Boolean).sort();
+    const unit = playerUnits[p.name] || "Unknown";
+    return {
+      name: p.name, unit,
+      missions: p.missionCount,
+      attPct: totalMissions > 0 ? p.missionCount / totalMissions * 100 : 0,
+      firstSeen: fmtDate(srcDates[0]),     firstSeenSort: srcDates[0] || "",
+      lastSeen:  fmtDate(srcDates[srcDates.length - 1]), lastSeenSort: srcDates[srcDates.length - 1] || "",
+      avgTime: p.missionCount > 0 && p.timePlayed > 0 ? p.timePlayed / p.missionCount : 0,
+    };
+  });
+
+  const sorted = _sortArr(data, ATT_COLS, attSortCol, attSortAsc);
+  const byMissions = [...data].sort((a, b) => b.missions - a.missions);
+  const rankMap = {};
+  byMissions.forEach((p, i) => rankMap[p.name] = i + 1);
+
+  document.getElementById("attendanceHead").innerHTML = _mkHead(ATT_COLS, attSortCol, attSortAsc, "_sortAtt");
+  const tbody = document.getElementById("attendanceBody");
+  if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${ATT_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
+  tbody.innerHTML = sorted.map(p => {
+    const color = UNIT_COLORS[p.unit] || '#888';
+    const cells = ATT_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${_rankStr(rankMap[p.name])}</td>`;
+      if (ci === 1) return `<td style="text-align:left;font-weight:600">${p.name}<button class="career-icon-btn" onclick="event.stopPropagation();openCareerPage('${p.name.replace(/'/g, "\\'")}')">📊</button></td>`;
+      if (ci === 2) return `<td><span class="unit-badge" style="background:${color}">${p.unit}</span></td>`;
+      const raw = p[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      return `<td>${val}</td>`;
+    });
+    return `<tr onclick="openPlayerModal('${p.name.replace(/'/g, "\\'")}')">${cells.join("")}</tr>`;
+  }).join("");
+}
+window._sortAtt = function(col) {
+  if (ATT_COLS[col].sortKey === null) return;
+  if (attSortCol === col) attSortAsc = !attSortAsc;
+  else { attSortCol = col; attSortAsc = !ATT_COLS[col].numeric; }
+  renderAttendanceTracker();
+};
+
+// ── K/D TREND ─────────────────────────────────────────────────────────────
+function refreshKdTrendSubjects() {
+  const sel = document.getElementById("kdTrendSubject");
+  if (!sel) return;
+  const current = sel.value;
+  let html = '<option value="__overall__">Overall</option>';
+  UNIT_ORDER.forEach(u => {
+    if (filteredPlayers.some(p => (playerUnits[p.name] || 'Unknown') === u))
+      html += `<option value="${u}">${u}</option>`;
+  });
+  const names = [...filteredPlayers].sort((a, b) => a.name.localeCompare(b.name)).map(p => p.name);
+  if (names.length) html += `<optgroup label="Players">${names.map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`;
+  sel.innerHTML = html;
+  if ([...sel.options].some(o => o.value === current)) sel.value = current;
+}
+
+function renderKdTrend() {
+  const subject = document.getElementById("kdTrendSubject")?.value || '__overall__';
+  const mMap = {};
+  filteredRows.forEach(r => {
+    const src   = r["Source File"] || r["Mission"] || "";
+    const pname = r["Username"] || "";
+    if (!src || !pname) return;
+    if (!mMap[src]) {
+      const ms = src.match(/(\d{4})_(\d{2})_(\d{2})/);
+      mMap[src] = { src, dateSort: src, label: ms ? `${ms[3]}/${ms[2]}` : src.slice(0, 10), playerKills: {}, playerDeaths: {} };
+    }
+    const m = mMap[src];
+    m.playerKills[pname]  = (m.playerKills[pname]  || 0) + NUM(r["Kills (On Foot)"]);
+    m.playerDeaths[pname] = (m.playerDeaths[pname] || 0) + NUM(r["Deaths (On Foot)"]);
+  });
+
+  const missions = Object.values(mMap).sort((a, b) => a.dateSort.localeCompare(b.dateSort));
+  const points = missions.map(m => {
+    let kills = 0, deaths = 0;
+    if (subject === '__overall__') {
+      Object.values(m.playerKills).forEach(k  => kills  += k);
+      Object.values(m.playerDeaths).forEach(d => deaths += d);
+    } else if (UNIT_ORDER.includes(subject)) {
+      Object.entries(m.playerKills).forEach(([name, k]) => {
+        if ((playerUnits[name] || 'Unknown') === subject) { kills += k; deaths += (m.playerDeaths[name] || 0); }
+      });
+    } else {
+      kills  = m.playerKills[subject]  || 0;
+      deaths = m.playerDeaths[subject] || 0;
+    }
+    return { label: m.label, kd: deaths > 0 ? kills / deaths : kills, kills, deaths };
+  }).filter(p => p.kills > 0 || p.deaths > 0);
+
+  const el = document.getElementById("kdTrendChart");
+  if (!el) return;
+  if (points.length < 2) {
+    el.innerHTML = '<p style="color:#888;font-size:0.82rem;padding:8px 0">Not enough mission data to plot a trend.</p>';
+    return;
+  }
+
+  const W = 900, H = 220;
+  const PAD = { top: 16, right: 20, bottom: 44, left: 46 };
+  const pw = W - PAD.left - PAD.right;
+  const ph = H - PAD.top  - PAD.bottom;
+  const maxKd = Math.max(...points.map(d => d.kd), 2);
+  const xStep = pw / Math.max(points.length - 1, 1);
+  const px = i => PAD.left + i * xStep;
+  const py = v => PAD.top  + ph - (v / maxKd) * ph;
+
+  const linePoints  = points.map((d, i) => `${px(i).toFixed(1)},${py(d.kd).toFixed(1)}`).join(' ');
+  const areaPoints  = `${px(0).toFixed(1)},${(PAD.top + ph).toFixed(1)} ${linePoints} ${px(points.length - 1).toFixed(1)},${(PAD.top + ph).toFixed(1)}`;
+  const lineColor   = UNIT_COLORS[subject] || '#424242';
+
+  const gridSteps = [];
+  const _rawStep  = maxKd / 6;
+  const _mag      = Math.pow(10, Math.floor(Math.log10(_rawStep || 1)));
+  const _norm     = _rawStep / _mag;
+  const niceStep  = _norm < 1.5 ? _mag : _norm < 3 ? 2 * _mag : _norm < 7 ? 5 * _mag : 10 * _mag;
+  for (let k = 0; k <= maxKd + niceStep * 0.01; k += niceStep) gridSteps.push(parseFloat(k.toFixed(10)));
+  const grid = gridSteps.map(k => {
+    const y = py(k).toFixed(1);
+    const lbl = Number.isInteger(k) ? k.toFixed(0) : k.toFixed(1);
+    return `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#e8e8e8" stroke-width="1"/>
+            <text x="${PAD.left - 5}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#999">${lbl}</text>`;
+  }).join('');
+
+  const labelEvery = Math.ceil(points.length / 14);
+  const xLabels = points.map((d, i) => {
+    if (i % labelEvery !== 0 && i !== points.length - 1) return '';
+    const x = px(i).toFixed(1), y = (H - PAD.bottom + 13).toFixed(1);
+    return `<text x="${x}" y="${y}" text-anchor="end" font-size="9" fill="#999" transform="rotate(-40,${x},${y})">${d.label}</text>`;
+  }).join('');
+
+  const refY  = py(1).toFixed(1);
+  const refLine = maxKd >= 1
+    ? `<line x1="${PAD.left}" y1="${refY}" x2="${W - PAD.right}" y2="${refY}" stroke="#f0b429" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.8"/>
+       <text x="${W - PAD.right + 4}" y="${refY}" dominant-baseline="middle" font-size="9" fill="#f0b429">1.0</text>`
+    : '';
+
+  const dots = points.map((d, i) =>
+    `<circle cx="${px(i).toFixed(1)}" cy="${py(d.kd).toFixed(1)}" r="4" fill="${lineColor}" stroke="white" stroke-width="1.5">
+       <title>${d.label}: K/D ${d.kd.toFixed(2)} (${d.kills}K / ${d.deaths}D)</title>
+     </circle>`).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="kd-trend-svg">
+    ${grid}
+    ${refLine}
+    <polygon points="${areaPoints}" fill="${lineColor}" opacity="0.07"/>
+    <polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    ${xLabels}
+    <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + ph}" stroke="#ccc"/>
+    <line x1="${PAD.left}" y1="${PAD.top + ph}" x2="${W - PAD.right}" y2="${PAD.top + ph}" stroke="#ccc"/>
+  </svg>`;
+}
+window.renderKdTrend = renderKdTrend;
+
+// ── PLAYER COMPARISON ─────────────────────────────────────────────────────
+function refreshCompareSelects() {
+  const p1 = document.getElementById("compareP1");
+  const p2 = document.getElementById("compareP2");
+  if (!p1 || !p2) return;
+  const prev1 = p1.value, prev2 = p2.value;
+  const opts = '<option value="">Select player…</option>' +
+    [...filteredPlayers].sort((a, b) => a.name.localeCompare(b.name))
+      .map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  p1.innerHTML = opts;
+  p2.innerHTML = opts;
+  if (prev1 && [...p1.options].some(o => o.value === prev1)) p1.value = prev1;
+  if (prev2 && [...p2.options].some(o => o.value === prev2)) p2.value = prev2;
+}
+
+function renderComparison() {
+  const p1name = document.getElementById("compareP1")?.value;
+  const p2name = document.getElementById("compareP2")?.value;
+  const el = document.getElementById("compareBody");
+  if (!el) return;
+  if (!p1name || !p2name || p1name === p2name) {
+    el.innerHTML = '<p style="color:#888;font-size:0.82rem;padding:8px 0">Select two different players to compare.</p>';
+    return;
+  }
+  const p1 = filteredPlayers.find(p => p.name === p1name);
+  const p2 = filteredPlayers.find(p => p.name === p2name);
+  if (!p1 || !p2) return;
+
+  const u1 = playerUnits[p1.name] || 'Unknown', u2 = playerUnits[p2.name] || 'Unknown';
+  const c1 = UNIT_COLORS[u1] || '#424242',       c2 = UNIT_COLORS[u2] || '#424242';
+
+  const rows = [
+    { label: "Kills (On Foot)",    v1: p1.killsOnFoot,                    v2: p2.killsOnFoot,                    higher: true },
+    { label: "Deaths (On Foot)",   v1: p1.deathsOnFoot,                   v2: p2.deathsOnFoot,                   higher: false },
+    { label: "K/D (On Foot)",      v1: p1.kdFoot,                         v2: p2.kdFoot,                         higher: true,  fmt: v => v.toFixed(2) },
+    { label: "Teamkills",          v1: p1.tkOnFoot + p1.tkInVeh,          v2: p2.tkOnFoot + p2.tkInVeh,          higher: false },
+    { label: "Shots Fired",        v1: p1.shotsOnFoot,                    v2: p2.shotsOnFoot,                    higher: false },
+    { label: "Shots/Kill",         v1: p1.spkFoot,                        v2: p2.spkFoot,                        higher: false, fmt: v => v != null ? v.toFixed(1) : "—" },
+    { label: "Avg Kill Dist (m)",  v1: p1.avgDistFoot,                    v2: p2.avgDistFoot,                    higher: true,  fmt: v => v ? Math.round(v) : "—" },
+    { label: "Longest Kill (m)",   v1: p1.maxLongestFoot,                 v2: p2.maxLongestFoot,                 higher: true },
+    { label: "Suicides",           v1: p1.suicides,                       v2: p2.suicides,                       higher: false },
+    { label: "Distance Run (km)",  v1: p1.distanceRun,                    v2: p2.distanceRun,                    higher: true,  fmt: v => v ? v.toFixed(1) : "—" },
+    { label: "Time Played",        v1: p1.timePlayed,                     v2: p2.timePlayed,                     higher: true,  fmt: fmtTime },
+    { label: "Kills (In Vehicle)", v1: p1.killsInVeh,                     v2: p2.killsInVeh,                     higher: true },
+    { label: "Deaths (In Vehicle)",v1: p1.deathsInVeh,                    v2: p2.deathsInVeh,                    higher: false },
+    { label: "K/D (In Vehicle)",   v1: p1.kdVeh,                          v2: p2.kdVeh,                          higher: true,  fmt: v => v.toFixed(2) },
+    { label: "Vehicles Destroyed", v1: p1.vehKillsFoot + p1.vehKillsVeh, v2: p2.vehKillsFoot + p2.vehKillsVeh, higher: true },
+    { label: "Missions",           v1: p1.missionCount,                   v2: p2.missionCount,                   higher: true },
+  ];
+
+  const fv = (v, fmt) => fmt ? fmt(v) : (v == null ? "—" : v);
+  el.innerHTML = `<div style="overflow-x:auto"><table class="compare-table">
+    <thead><tr>
+      <th>Stat</th>
+      <th><span class="unit-badge" style="background:${c1}">${u1}</span> ${p1.name}</th>
+      <th><span class="unit-badge" style="background:${c2}">${u2}</span> ${p2.name}</th>
+    </tr></thead>
+    <tbody>${rows.map(r => {
+      const v1d = fv(r.v1, r.fmt), v2d = fv(r.v2, r.fmt);
+      const differ = r.v1 != null && r.v2 != null && r.v1 !== r.v2;
+      const w1 = differ && (r.higher ? r.v1 > r.v2 : r.v1 < r.v2) ? 'compare-win'  : differ ? 'compare-lose' : '';
+      const w2 = differ && (r.higher ? r.v2 > r.v1 : r.v2 < r.v1) ? 'compare-win'  : differ ? 'compare-lose' : '';
+      return `<tr><td class="compare-label">${r.label}</td><td class="${w1}">${v1d}</td><td class="${w2}">${v2d}</td></tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+window.renderComparison = renderComparison;
 
