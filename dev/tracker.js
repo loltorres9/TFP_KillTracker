@@ -966,22 +966,34 @@ document.addEventListener('mouseout', e => {
 });
 document.addEventListener('scroll', () => avgTooltip.style.display = 'none', true);
 
+// ── SHARED INFANTRY STAT COLUMNS ─────────────────────────────────────────
+// Single source of truth for infantry stats. Both the main leaderboard
+// (INF_COLS) and the per-mission breakdown (MISSION_COLS) are derived
+// from this array. To add/remove/rename a stat, edit only this array.
+//
+// aggKey    – key on the aggregated player object (used in INF leaderboard)
+// missionKey – key on the per-mission row object (used in mission breakdown)
+// afterMissions – if true, column appears after the "Missions" column in INF
+const SHARED_INF_STAT_COLS = [
+  { label: "Kills",         aggKey: "killsOnFoot",    missionKey: "k",    numeric: true,  canAvg: true },
+  { label: "Veh Kills",     aggKey: "vehKillsFoot",   missionKey: "vk",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Deaths",        aggKey: "deathsOnFoot",   missionKey: "d",    numeric: true,  canAvg: true },
+  { label: "K/D",           aggKey: "kdFoot",         missionKey: "_kd",  numeric: true,  fmt: v => v != null ? v.toFixed(2) : "—", css: kdClass },
+  { label: "TK",            aggKey: "tkOnFoot",       missionKey: "tk",   numeric: true,  fmt: v => v || "—", css: tkClass, canAvg: true },
+  { label: "Suicides",      aggKey: "suicides",       missionKey: "sui",  numeric: true,  fmt: v => v || "—", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
+  { label: "Shots",         aggKey: "shotsOnFoot",    missionKey: "sh",   numeric: true,  canAvg: true },
+  { label: "Hits Taken",    aggKey: "hitsOnFoot",     missionKey: "ht",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Shots/Kill",    aggKey: "spkFoot",        missionKey: "_spk", numeric: true,  fmt: v => v != null ? v.toFixed(1) : "—" },
+  { label: "Avg Dist (m)",  aggKey: "avgDistFoot",    missionKey: "_ad",  numeric: true,  fmt: v => v ? Math.round(v) : "—" },
+  { label: "Longest (m)",   aggKey: "maxLongestFoot", missionKey: "lk",   numeric: true,  fmt: v => v || "—" },
+  { label: "Dist Run (km)", aggKey: "distanceRun",    missionKey: "dr",   numeric: true,  fmt: v => v ? v.toFixed(1) : "—", canAvg: true, afterMissions: true },
+  { label: "Time Played",   aggKey: "timePlayed",     missionKey: "tp",   numeric: true,  fmt: v => v ? fmtTime(v) : "—", afterMissions: true },
+];
+
 // ── PER-MISSION TABLE SORT STATE ─────────────────────────────────────────
 const MISSION_COLS = [
-  { label: "Mission",      key: "mission", numeric: false },
-  { label: "Kills",        key: "k",       numeric: true  },
-  { label: "Veh Kills",    key: "vk",      numeric: true  },
-  { label: "Deaths",       key: "d",       numeric: true  },
-  { label: "K/D",          key: "_kd",     numeric: true  },
-  { label: "TK",           key: "tk",      numeric: true  },
-  { label: "Suicides",     key: "sui",     numeric: true  },
-  { label: "Shots",        key: "sh",      numeric: true  },
-  { label: "Hits Taken",   key: "ht",      numeric: true  },
-  { label: "Shots/Kill",   key: "_spk",    numeric: true  },
-  { label: "Avg Dist (m)", key: "_ad",     numeric: true  },
-  { label: "Longest (m)",  key: "lk",      numeric: true  },
-  { label: "Dist Run (km)", key: "dr",     numeric: true  },
-  { label: "Time Played",  key: "tp",      numeric: true  },
+  { label: "Mission", key: "mission", numeric: false },
+  ...SHARED_INF_STAT_COLS.map(c => ({ label: c.label, key: c.missionKey, numeric: c.numeric, fmt: c.fmt, css: c.css })),
 ];
 let missionSortCol = 1; // default: Kills
 let missionSortAsc = false;
@@ -1004,26 +1016,14 @@ function _buildMissionTbody(data) {
     return missionSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
   });
   return sorted.map((m, i) => {
-    const kd  = m._kd  != null ? m._kd.toFixed(2)  : "—";
-    const spk = m._spk != null ? m._spk.toFixed(1) : "—";
-    const ad  = m._ad  != null ? Math.round(m._ad) : "—";
-    const bg  = i % 2 === 1 ? 'background:#f9f9f9' : '';
-    return `<tr style="${bg}">
-      <td>${m.mission}</td>
-      <td>${m.k}</td>
-      <td>${m.vk || "—"}</td>
-      <td>${m.d}</td>
-      <td style="color:${m._kd>=2?'var(--green)':m._kd<0.8?'var(--red)':'inherit'};font-weight:600">${kd}</td>
-      <td${m.tk>0?' style="color:var(--red);font-weight:700"':''}>${m.tk || "—"}</td>
-      <td${m.sui>0?' style="color:var(--red)"':''}>${m.sui || "—"}</td>
-      <td>${m.sh}</td>
-      <td>${m.ht || "—"}</td>
-      <td>${spk}</td>
-      <td>${ad}</td>
-      <td>${m.lk || "—"}</td>
-      <td>${m.dr ? m.dr.toFixed(1) : "—"}</td>
-      <td>${m.tp ? fmtTime(m.tp) : "—"}</td>
-    </tr>`;
+    const bg = i % 2 === 1 ? 'background:#f9f9f9' : '';
+    const cells = MISSION_COLS.map(c => {
+      const raw = m[c.key];
+      const val = c.fmt ? c.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      const cls = c.css ? c.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr style="${bg}">${cells.join("")}</tr>`;
   }).join("");
 }
 
@@ -1285,23 +1285,19 @@ function closeCareerPage() {
 }
 
 // ── INFANTRY TABLE ───────────────────────────────────────────────────────
+// Derived from SHARED_INF_STAT_COLS — edit that array to add/remove stats.
+// The "Missions" column is injected between the non-afterMissions and
+// afterMissions groups to preserve the original column order.
 const INF_COLS = [
-  { label: "#",       key: "_rank",        numeric: false, sortKey: null },
-  { label: "Player",  key: "name",         numeric: false, sortKey: "name" },
-  { label: "Kills",   key: "killsOnFoot",  numeric: true,  sortKey: "killsOnFoot",  canAvg: true },
-  { label: "Veh Kills", key: "vehKillsFoot", numeric: true, sortKey: "vehKillsFoot", canAvg: true },
-  { label: "Deaths",  key: "deathsOnFoot", numeric: true,  sortKey: "deathsOnFoot", canAvg: true },
-  { label: "K/D",     key: "kdFoot",       numeric: true,  sortKey: "kdFoot",   fmt: v => v.toFixed(2), css: kdClass },
-  { label: "TK",      key: "tkOnFoot",     numeric: true,  sortKey: "tkOnFoot", css: tkClass, canAvg: true },
-  { label: "Suicides", key: "suicides",    numeric: true,  sortKey: "suicides", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
-  { label: "Shots",   key: "shotsOnFoot",  numeric: true,  sortKey: "shotsOnFoot", canAvg: true },
-  { label: "Hits Taken", key: "hitsOnFoot",numeric: true,  sortKey: "hitsOnFoot",  canAvg: true },
-  { label: "Shots/Kill", key: "spkFoot",   numeric: true,  sortKey: "spkFoot",  fmt: v => v != null ? v.toFixed(1) : "—" },
-  { label: "Avg Dist (m)", key: "avgDistFoot", numeric: true, sortKey: "avgDistFoot", fmt: v => v ? Math.round(v) : "—" },
-  { label: "Longest (m)",  key: "maxLongestFoot", numeric: true, sortKey: "maxLongestFoot", fmt: v => v || "—" },
+  { label: "#",       key: "_rank",       numeric: false, sortKey: null },
+  { label: "Player",  key: "name",        numeric: false, sortKey: "name" },
+  ...SHARED_INF_STAT_COLS.filter(c => !c.afterMissions).map(c => ({
+    label: c.label, key: c.aggKey, numeric: c.numeric, sortKey: c.aggKey, fmt: c.fmt, css: c.css, canAvg: c.canAvg,
+  })),
   { label: "Missions", key: "missionCount", numeric: true, sortKey: "missionCount" },
-  { label: "Dist Run (km)", key: "distanceRun", numeric: true, sortKey: "distanceRun", fmt: v => v ? v.toFixed(1) : "—", canAvg: true },
-  { label: "Time Played", key: "timePlayed", numeric: true, sortKey: "timePlayed", fmt: v => fmtTime(v) },
+  ...SHARED_INF_STAT_COLS.filter(c => c.afterMissions).map(c => ({
+    label: c.label, key: c.aggKey, numeric: c.numeric, sortKey: c.aggKey, fmt: c.fmt, css: c.css, canAvg: c.canAvg,
+  })),
 ];
 
 function renderInfantryTable() {
