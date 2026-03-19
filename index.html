@@ -301,6 +301,41 @@
   .best-mission-card .bm-stats { font-size: 0.8rem; opacity: 0.85; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 14px; }
   tbody tr { cursor: pointer; }
   tbody tr:hover td { background: var(--row-hover) !important; }
+
+  /* ── K/D TREND ── */
+  .kd-trend-wrap {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px; margin-bottom: 20px;
+  }
+  .kd-trend-wrap h3 { font-family: 'Oswald', sans-serif; color: var(--charcoal); margin-bottom: 12px; font-size: 1rem; }
+  .kd-trend-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .kd-trend-svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+  /* ── PLAYER COMPARISON ── */
+  .compare-wrap {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px; margin-bottom: 20px;
+  }
+  .compare-wrap h3 { font-family: 'Oswald', sans-serif; color: var(--charcoal); margin-bottom: 14px; font-size: 1rem; }
+  .compare-controls { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .compare-select {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.82rem; font-family: 'Open Sans', sans-serif;
+    background: var(--white); color: #333; cursor: pointer; min-width: 200px;
+  }
+  .compare-select:focus { outline: none; border-color: var(--charcoal); }
+  .compare-table { width: 100%; border-collapse: collapse; }
+  .compare-table th {
+    background: var(--charcoal); color: white;
+    padding: 9px 14px; font-family: 'Oswald', sans-serif; font-size: 0.82rem; text-align: left;
+  }
+  .compare-table tbody td { padding: 7px 14px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+  .compare-table tbody tr:hover td { background: var(--row-hover); }
+  .compare-win  { color: var(--green); font-weight: 700; }
+  .compare-lose { color: #bbb; }
+  .section-header { cursor: pointer; user-select: none; }
+  .section-header:hover { opacity: 0.75; }
+  .section-arrow { font-size: 0.65rem; margin-left: 6px; opacity: 0.5; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -485,23 +520,130 @@
     <div id="careerStats" style="display:none"></div>
 
     <!-- Infantry table -->
-    <div class="section-header">Infantry Combat Stats (On Foot)</div>
-    <div class="table-wrap">
-      <table id="infantryTable">
-        <thead id="infantryHead"></thead>
-        <tbody id="infantryBody"></tbody>
-      </table>
+    <div class="section-header" onclick="toggleSection('infantry')">Infantry Combat Stats (On Foot)<span class="section-arrow" id="arr-infantry">▼</span></div>
+    <div id="sc-infantry">
+      <div class="table-wrap">
+        <table id="infantryTable">
+          <thead id="infantryHead"></thead>
+          <tbody id="infantryBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Vehicle table -->
-    <div class="section-header">Vehicle Combat Stats</div>
-    <div class="table-wrap">
-      <table id="vehicleTable">
-        <thead id="vehicleHead"></thead>
-        <tbody id="vehicleBody"></tbody>
-      </table>
+    <div class="section-header" onclick="toggleSection('vehicle')">Vehicle Combat Stats<span class="section-arrow" id="arr-vehicle">▼</span></div>
+    <div id="sc-vehicle">
+      <div class="table-wrap">
+        <table id="vehicleTable">
+          <thead id="vehicleHead"></thead>
+          <tbody id="vehicleBody"></tbody>
+        </table>
+      </div>
     </div>
 
+    <!-- Unit leaderboard -->
+    <div id="unitLeaderboardSection">
+      <div class="section-header" onclick="toggleSection('unit-lb')">Unit Leaderboard<span class="section-arrow" id="arr-unit-lb">▶</span></div>
+      <div id="sc-unit-lb" style="display:none">
+        <div class="table-wrap">
+          <table id="unitTable">
+            <thead id="unitHead"></thead>
+            <tbody id="unitBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extra leaderboard sections (hidden in career view) -->
+    <div id="extraLeaderboardSections">
+
+      <!-- Mission History -->
+      <div class="section-header" onclick="toggleSection('mission-hist')">Mission History<span class="section-arrow" id="arr-mission-hist">▶</span></div>
+      <div id="sc-mission-hist" style="display:none">
+        <div class="table-wrap">
+          <table id="missionHistTable">
+            <thead id="missionHistHead"></thead>
+            <tbody id="missionHistBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Weapon Leaderboard -->
+      <div class="section-header" onclick="toggleSection('weapons')">Weapon Leaderboard<span class="section-arrow" id="arr-weapons">▶</span></div>
+      <div id="sc-weapons" style="display:none">
+        <div class="table-wrap">
+          <table id="weaponTable">
+            <thead id="weaponHead"></thead>
+            <tbody id="weaponBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Map Stats -->
+      <div class="section-header" onclick="toggleSection('maps')">Map Stats<span class="section-arrow" id="arr-maps">▶</span></div>
+      <div id="sc-maps" style="display:none">
+        <div class="table-wrap">
+          <table id="worldTable">
+            <thead id="worldHead"></thead>
+            <tbody id="worldBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Role Leaderboard -->
+      <div class="section-header" onclick="toggleSection('roles')">Role Leaderboard<span class="section-arrow" id="arr-roles">▶</span></div>
+      <div id="sc-roles" style="display:none">
+        <div class="table-wrap">
+          <table id="roleTable">
+            <thead id="roleHead"></thead>
+            <tbody id="roleBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Attendance -->
+      <div class="section-header" onclick="toggleSection('attendance')">Attendance<span class="section-arrow" id="arr-attendance">▶</span></div>
+      <div id="sc-attendance" style="display:none">
+        <div class="table-wrap">
+          <table id="attendanceTable">
+            <thead id="attendanceHead"></thead>
+            <tbody id="attendanceBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- K/D Trend -->
+      <div class="section-header" onclick="toggleSection('kd-trend')">K/D Trend Over Time<span class="section-arrow" id="arr-kd-trend">▶</span></div>
+      <div id="sc-kd-trend" style="display:none">
+        <div class="kd-trend-wrap">
+          <div class="kd-trend-controls">
+            <label style="font-size:0.78rem;color:#666;font-weight:600">View:</label>
+            <select class="event-type-select" id="kdTrendSubject" onchange="renderKdTrend()">
+              <option value="__overall__">Overall</option>
+            </select>
+          </div>
+          <div id="kdTrendChart"></div>
+        </div>
+      </div>
+
+      <!-- Player Comparison -->
+      <div class="section-header" onclick="toggleSection('comparison')">Player Comparison<span class="section-arrow" id="arr-comparison">▶</span></div>
+      <div id="sc-comparison" style="display:none">
+        <div class="compare-wrap">
+          <div class="compare-controls">
+            <select class="compare-select" id="compareP1" onchange="renderComparison()">
+              <option value="">Select player 1…</option>
+            </select>
+            <span style="font-weight:700;color:#888;font-size:1.1rem">vs</span>
+            <select class="compare-select" id="compareP2" onchange="renderComparison()">
+              <option value="">Select player 2…</option>
+            </select>
+          </div>
+          <div id="compareBody"></div>
+        </div>
+      </div>
+
+    </div><!-- end extraLeaderboardSections -->
 
     <!-- Player detail modal -->
     <div class="modal-overlay" id="playerModal" onclick="closeModal(event)">

@@ -4,6 +4,24 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
+## 2026-03-19 (latest)
+
+### Added
+- **Unit Leaderboard** — new table below the vehicle stats that aggregates all player stats by unit (2nd USC, CNTO, PXG, TFP, Unknown); columns: players, kills, deaths, K/D, TK, vehicle kills, kills/player, avg K/D, missions, distance run, time played; all columns sortable; right-click on Kills, Deaths, Veh Kills, Kills/Player, Dist Run, and Time Played toggles per-mission averages (same `~/m` system as the infantry/vehicle tables)
+- **Mission History** — chronological table of every mission with date, world, player count, total kills/deaths, K/D, TK, and top killer
+- **Weapon Leaderboard** — aggregates weapon kill JSON across all filtered players; shows total kills, user count, top user, and kill share %; top 50 weapons shown
+- **Map Stats** — kills, deaths, K/D, TK, and mission/player counts grouped by world/map
+- **Role Leaderboard** — kills, deaths, K/D, and avg K/D grouped by each player's primary role (Rifleman, Medic, Squad Leader, etc.)
+- **Attendance Tracker** — per-player mission count, attendance %, first seen, last seen, and avg time per mission
+- **K/D Trend chart** — SVG line chart of K/D ratio over time; switchable between overall, per unit, or any individual player via dropdown; yellow dashed line marks K/D = 1.0; dots show exact values on hover
+- **Player Comparison** — pick any two players from dropdowns for a side-by-side stat table across all infantry and vehicle stats; winning value highlighted in green
+- **Collapsible sections** — every section header is now a clickable toggle (▼/▶); the 8 new sections default to collapsed, Infantry and Vehicle tables default to open; open/closed state persists in `localStorage`
+
+### Fixed
+- K/D Trend chart Y-axis generating 40+ grid labels at high K/D values (e.g. max K/D ≈ 20 with 0.5 step); replaced with a "nice number" algorithm targeting ~6 grid lines regardless of data range
+
+---
+
 ## 2026-03-18 (latest)
 
 ### Added
