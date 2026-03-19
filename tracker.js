@@ -384,7 +384,7 @@ function renderUnitFilter() {
 }
 
 window._filterUnit = function(unit) {
-  selectedUnit = unit;
+  selectedUnit = (selectedUnit === unit) ? null : unit;
   renderUnitFilter();
   refreshPills();
   filterChanged();
