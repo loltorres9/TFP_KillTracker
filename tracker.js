@@ -2011,11 +2011,16 @@ function renderKdTrend() {
   const lineColor   = UNIT_COLORS[subject] || '#424242';
 
   const gridSteps = [];
-  for (let k = 0; k <= maxKd + 0.5; k += 0.5) gridSteps.push(k);
+  const _rawStep  = maxKd / 6;
+  const _mag      = Math.pow(10, Math.floor(Math.log10(_rawStep || 1)));
+  const _norm     = _rawStep / _mag;
+  const niceStep  = _norm < 1.5 ? _mag : _norm < 3 ? 2 * _mag : _norm < 7 ? 5 * _mag : 10 * _mag;
+  for (let k = 0; k <= maxKd + niceStep * 0.01; k += niceStep) gridSteps.push(parseFloat(k.toFixed(10)));
   const grid = gridSteps.map(k => {
     const y = py(k).toFixed(1);
+    const lbl = Number.isInteger(k) ? k.toFixed(0) : k.toFixed(1);
     return `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#e8e8e8" stroke-width="1"/>
-            <text x="${PAD.left - 5}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#999">${k.toFixed(1)}</text>`;
+            <text x="${PAD.left - 5}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#999">${lbl}</text>`;
   }).join('');
 
   const labelEvery = Math.ceil(points.length / 14);
