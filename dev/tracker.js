@@ -860,7 +860,7 @@ function renderLeader() {
   }
 
   // Spray & Pray Specialist — highest shots per kill on foot (min 3 kills, spkFoot >= 1)
-  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 3 && p.spkFoot != null && p.spkFoot >= 1)
+  const shameSpk = [...eligible].filter(p => p.killsOnFoot >= 20 && p.missions.size >= 2 && p.spkFoot != null && p.spkFoot >= 1)
     .sort((a,b) => b.spkFoot - a.spkFoot)[0];
   if (shameSpk) {
     document.getElementById("sh-spk-name").textContent = shameSpk.name;
