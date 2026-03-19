@@ -546,7 +546,7 @@ function renderCareerPills(containerId, items, searchId) {
   items
     .filter(item => !searchVal || item.toLowerCase().includes(searchVal))
     .forEach(item => {
-      const isActive = selectedPlayers !== null && selectedPlayers.has(item);
+      const isActive = selectedPlayers === null || selectedPlayers.has(item);
       const pill = document.createElement("span");
       pill.className = "pill" + (isActive ? " active" : "");
       pill.textContent = item;
