@@ -915,7 +915,8 @@ function renderLeader() {
     document.getElementById("sh-shots-name").textContent = shameShots.name;
     const shShotsStat = document.getElementById("sh-shots-stat");
     shShotsStat.textContent = `${shameShots.shotsOnFoot.toLocaleString()} shots fired`;
-    shShotsStat.dataset.avg = `${Math.round(shameShots.shotsOnFoot / shameShots.missions.size).toLocaleString()} shots/mission (${shameShots.missions.size} missions)`;
+    const shotsCost = (shameShots.shotsOnFoot * 0.50).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    shShotsStat.dataset.avg = `${Math.round(shameShots.shotsOnFoot / shameShots.missions.size).toLocaleString()} shots/mission (${shameShots.missions.size} missions) · $${shotsCost} in bullets`;
   } else {
     document.getElementById("sh-shots-name").textContent = "—";
     document.getElementById("sh-shots-stat").textContent = "";
