@@ -430,26 +430,28 @@ function _openCareerPageNoHistory(playerName) {
     (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
-  document.getElementById('statsBar').style.display         = 'none';
-  document.getElementById('awardsRow').style.display        = 'none';
-  document.getElementById('hallFameLabel').style.display    = 'none';
-  document.getElementById('shameRow').style.display         = 'none';
-  document.getElementById('hallShameLabel').style.display   = 'none';
-  document.querySelector('.chart-section').style.display    = 'none';
-  document.querySelector('.filter-panel').style.display     = 'none';
-  document.getElementById('careerHeader').style.display     = '';
-  document.getElementById('careerStats').style.display      = '';
+  document.getElementById('statsBar').style.display              = 'none';
+  document.getElementById('awardsRow').style.display             = 'none';
+  document.getElementById('hallFameLabel').style.display         = 'none';
+  document.getElementById('shameRow').style.display              = 'none';
+  document.getElementById('hallShameLabel').style.display        = 'none';
+  document.querySelector('.chart-section').style.display         = 'none';
+  document.querySelector('.filter-panel').style.display          = 'none';
+  document.getElementById('unitLeaderboardSection').style.display = 'none';
+  document.getElementById('careerHeader').style.display          = '';
+  document.getElementById('careerStats').style.display           = '';
   refreshPills();
   window.scrollTo(0, 0);
 }
 
 function _closeCareerPageNoHistory() {
   selectedPlayers = null;
-  document.getElementById('careerHeader').style.display  = 'none';
-  document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('statsBar').style.display      = '';
-  document.querySelector('.chart-section').style.display = '';
-  document.querySelector('.filter-panel').style.display  = '';
+  document.getElementById('careerHeader').style.display               = 'none';
+  document.getElementById('careerStats').style.display                = 'none';
+  document.getElementById('statsBar').style.display                   = '';
+  document.querySelector('.chart-section').style.display              = '';
+  document.querySelector('.filter-panel').style.display               = '';
+  document.getElementById('unitLeaderboardSection').style.display     = '';
   applyFilters();
   refreshPills();
   window.scrollTo(0, 0);
@@ -704,6 +706,7 @@ function applyFilters() {
   renderLeader();
   renderInfantryTable();
   renderVehicleTable();
+  renderUnitLeaderboard();
   renderUnitFilter();
 }
 
@@ -1253,15 +1256,16 @@ function openCareerPage(playerName) {
     (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
-  document.getElementById('statsBar').style.display         = 'none';
-  document.getElementById('awardsRow').style.display        = 'none';
-  document.getElementById('hallFameLabel').style.display    = 'none';
-  document.getElementById('shameRow').style.display         = 'none';
-  document.getElementById('hallShameLabel').style.display   = 'none';
-  document.querySelector('.chart-section').style.display    = 'none';
-  document.querySelector('.filter-panel').style.display     = 'none';
-  document.getElementById('careerHeader').style.display     = '';
-  document.getElementById('careerStats').style.display      = '';
+  document.getElementById('statsBar').style.display              = 'none';
+  document.getElementById('awardsRow').style.display             = 'none';
+  document.getElementById('hallFameLabel').style.display         = 'none';
+  document.getElementById('shameRow').style.display              = 'none';
+  document.getElementById('hallShameLabel').style.display        = 'none';
+  document.querySelector('.chart-section').style.display         = 'none';
+  document.querySelector('.filter-panel').style.display          = 'none';
+  document.getElementById('unitLeaderboardSection').style.display = 'none';
+  document.getElementById('careerHeader').style.display          = '';
+  document.getElementById('careerStats').style.display           = '';
 
   refreshPills();
   window.scrollTo(0, 0);
@@ -1274,11 +1278,12 @@ function closeCareerPage() {
   url.searchParams.delete('player');
   history.pushState({}, '', url);
 
-  document.getElementById('careerHeader').style.display  = 'none';
-  document.getElementById('careerStats').style.display   = 'none';
-  document.getElementById('statsBar').style.display      = '';
-  document.querySelector('.chart-section').style.display = '';
-  document.querySelector('.filter-panel').style.display  = '';
+  document.getElementById('careerHeader').style.display              = 'none';
+  document.getElementById('careerStats').style.display               = 'none';
+  document.getElementById('statsBar').style.display                  = '';
+  document.querySelector('.chart-section').style.display             = '';
+  document.querySelector('.filter-panel').style.display              = '';
+  document.getElementById('unitLeaderboardSection').style.display    = '';
 
   applyFilters(); // renderLeader handles awardsRow visibility
   refreshPills();
@@ -1449,4 +1454,117 @@ function kdClass(v) {
 function tkClass(v) {
   return v > 0 ? "tk-cell" : "";
 }
+
+// ── UNIT LEADERBOARD ─────────────────────────────────────────────────────
+let unitSortCol = 3; // default: Kills (On Foot)
+let unitSortAsc = false;
+
+const UNIT_COLS = [
+  { label: "#",             key: "_rank",         numeric: false, sortKey: null },
+  { label: "Unit",          key: "unit",          numeric: false, sortKey: "unit" },
+  { label: "Players",       key: "playerCount",   numeric: true,  sortKey: "playerCount" },
+  { label: "Kills",         key: "killsOnFoot",   numeric: true,  sortKey: "killsOnFoot" },
+  { label: "Deaths",        key: "deathsOnFoot",  numeric: true,  sortKey: "deathsOnFoot" },
+  { label: "K/D",           key: "kd",            numeric: true,  sortKey: "kd",           fmt: v => v.toFixed(2), css: kdClass },
+  { label: "TK",            key: "tkOnFoot",      numeric: true,  sortKey: "tkOnFoot",     css: tkClass },
+  { label: "Veh Kills",     key: "killsInVeh",    numeric: true,  sortKey: "killsInVeh" },
+  { label: "Kills/Player",  key: "killsPerPlayer",numeric: true,  sortKey: "killsPerPlayer", fmt: v => v.toFixed(1) },
+  { label: "Avg K/D",       key: "avgKd",         numeric: true,  sortKey: "avgKd",        fmt: v => v.toFixed(2), css: kdClass },
+  { label: "Missions",      key: "missionCount",  numeric: true,  sortKey: "missionCount" },
+  { label: "Dist Run (km)", key: "distanceRun",   numeric: true,  sortKey: "distanceRun",  fmt: v => v.toFixed(1) },
+  { label: "Time Played",   key: "timePlayed",    numeric: true,  sortKey: "timePlayed",   fmt: fmtTime },
+];
+
+function buildUnitStats() {
+  const units = {};
+  filteredPlayers.forEach(p => {
+    const unit = playerUnits[p.name] || 'Unknown';
+    if (!units[unit]) {
+      units[unit] = {
+        unit,
+        playerCount: 0,
+        killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
+        killsInVeh: 0,
+        distanceRun: 0, timePlayed: 0,
+        missions: new Set(),
+        kdSum: 0,
+      };
+    }
+    const u = units[unit];
+    u.playerCount++;
+    u.killsOnFoot  += p.killsOnFoot;
+    u.deathsOnFoot += p.deathsOnFoot;
+    u.tkOnFoot     += p.tkOnFoot;
+    u.killsInVeh   += p.killsInVeh;
+    u.distanceRun  += p.distanceRun;
+    u.timePlayed   += p.timePlayed;
+    p.missions.forEach(m => u.missions.add(m));
+    u.kdSum        += p.kdFoot;
+  });
+  return Object.values(units).map(u => {
+    u.kd             = u.deathsOnFoot > 0 ? u.killsOnFoot / u.deathsOnFoot : u.killsOnFoot;
+    u.killsPerPlayer = u.playerCount  > 0 ? u.killsOnFoot / u.playerCount  : 0;
+    u.avgKd          = u.playerCount  > 0 ? u.kdSum        / u.playerCount  : 0;
+    u.missionCount   = u.missions.size;
+    return u;
+  });
+}
+
+function renderUnitLeaderboard() {
+  const unitStats = buildUnitStats();
+
+  const col = UNIT_COLS[unitSortCol];
+  const key = col.sortKey;
+  const sorted = [...unitStats];
+  if (key) {
+    sorted.sort((a, b) => {
+      let va = a[key], vb = b[key];
+      if (va == null) va = unitSortAsc ? Infinity : -Infinity;
+      if (vb == null) vb = unitSortAsc ? Infinity : -Infinity;
+      if (typeof va === 'string') return unitSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return unitSortAsc ? va - vb : vb - va;
+    });
+  }
+
+  const byKills = [...unitStats].sort((a, b) => b.killsOnFoot - a.killsOnFoot);
+  const rankMap = {};
+  byKills.forEach((u, i) => rankMap[u.unit] = i + 1);
+
+  const thead = document.getElementById("unitHead");
+  thead.innerHTML = `<tr>${UNIT_COLS.map((c, i) => {
+    const arrow = i === unitSortCol ? (unitSortAsc ? " ▲" : " ▼") : " ⇅";
+    const clickable = c.sortKey !== null;
+    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""} style="${clickable ? "" : "cursor:default"}">${c.label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+  }).join("")}</tr>`;
+
+  const tbody = document.getElementById("unitBody");
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="${UNIT_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(u => {
+    const rank = rankMap[u.unit];
+    const rankStr = rank === 1 ? `<span class="rank-gold">🥇</span>` :
+                    rank === 2 ? `<span class="rank-silver">🥈</span>` :
+                    rank === 3 ? `<span class="rank-bronze">🥉</span>` : rank;
+    const color = UNIT_COLORS[u.unit] || '#888';
+    const cells = UNIT_COLS.map((col, ci) => {
+      if (ci === 0) return `<td>${rankStr}</td>`;
+      if (ci === 1) return `<td style="text-align:left"><span class="unit-badge" style="background:${color}">${u.unit}</span></td>`;
+      const raw = u[col.key];
+      const val = col.fmt ? col.fmt(raw) : (raw == null || raw === "" ? "—" : raw);
+      const cls = col.css ? col.css(raw) : "";
+      return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+}
+
+window._sortUnit = function(col) {
+  if (UNIT_COLS[col].sortKey === null) return;
+  if (unitSortCol === col) unitSortAsc = !unitSortAsc;
+  else { unitSortCol = col; unitSortAsc = !UNIT_COLS[col].numeric; }
+  renderUnitLeaderboard();
+};
 
