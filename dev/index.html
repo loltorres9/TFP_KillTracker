@@ -336,6 +336,34 @@
   .section-header { cursor: pointer; user-select: none; }
   .section-header:hover { opacity: 0.75; }
   .section-arrow { font-size: 0.65rem; margin-left: 6px; opacity: 0.5; flex-shrink: 0; }
+
+  /* ── SECTION NAV ── */
+  #sectionNav {
+    position: sticky; top: 0; z-index: 200;
+    background: var(--charcoal); border-bottom: 2px solid #2a2a2a;
+    display: flex; flex-wrap: wrap; gap: 0;
+    margin: 0 -20px 18px; padding: 0 20px;
+  }
+  .snav-btn {
+    padding: 8px 14px; font-size: 0.72rem; font-weight: 600;
+    font-family: 'Oswald', sans-serif; letter-spacing: 0.4px;
+    color: rgba(255,255,255,0.6); background: none; border: none;
+    cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s; margin-bottom: -2px;
+  }
+  .snav-btn:hover { color: white; border-bottom-color: rgba(255,255,255,0.4); }
+
+  /* ── BACK TO TOP ── */
+  #backToTop {
+    position: fixed; bottom: 24px; right: 24px; z-index: 300;
+    background: var(--charcoal); color: white; border: none;
+    border-radius: 50%; width: 40px; height: 40px;
+    font-size: 1.1rem; cursor: pointer; display: none;
+    align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: background 0.15s;
+  }
+  #backToTop:hover { background: var(--charcoal-light); }
+  #backToTop.visible { display: flex; }
 </style>
 </head>
 <body>
@@ -507,6 +535,9 @@
       </div>
     </div>
 
+    <!-- Active filter badge -->
+    <div id="filterBadge" style="display:none;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:0.8rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"></div>
+
     <!-- Career view header (hidden in leaderboard mode) -->
     <div id="careerHeader" class="career-header" style="display:none">
       <button class="btn-back" onclick="closeCareerPage()">← Back to Leaderboard</button>
@@ -518,6 +549,20 @@
 
     <!-- Career inline stats (hidden in leaderboard mode) -->
     <div id="careerStats" style="display:none"></div>
+
+    <!-- Section nav bar -->
+    <div id="sectionNav">
+      <button class="snav-btn" onclick="navTo('infantry')">Infantry</button>
+      <button class="snav-btn" onclick="navTo('vehicle')">Vehicle</button>
+      <button class="snav-btn" onclick="navTo('unit-lb')">Units</button>
+      <button class="snav-btn" onclick="navTo('mission-hist')">Missions</button>
+      <button class="snav-btn" onclick="navTo('weapons')">Weapons</button>
+      <button class="snav-btn" onclick="navTo('maps')">Maps</button>
+      <button class="snav-btn" onclick="navTo('roles')">Roles</button>
+      <button class="snav-btn" onclick="navTo('attendance')">Attendance</button>
+      <button class="snav-btn" onclick="navTo('kd-trend')">K/D Trend</button>
+      <button class="snav-btn" onclick="navTo('comparison')">Compare</button>
+    </div>
 
     <!-- Infantry table -->
     <div class="section-header" onclick="toggleSection('infantry')">Infantry Combat Stats (On Foot)<span class="section-arrow" id="arr-infantry">▼</span></div>
@@ -571,6 +616,9 @@
       <!-- Weapon Leaderboard -->
       <div class="section-header" onclick="toggleSection('weapons')">Weapon Leaderboard<span class="section-arrow" id="arr-weapons">▶</span></div>
       <div id="sc-weapons" style="display:none">
+        <div style="margin-bottom:8px">
+          <input type="text" id="weaponSearch" class="filter-search" placeholder="Search weapons…" oninput="window._wpSearchChange(this.value)" style="max-width:280px;margin:0">
+        </div>
         <div class="table-wrap">
           <table id="weaponTable">
             <thead id="weaponHead"></thead>
@@ -664,6 +712,7 @@
   </div>
 </div>
 
+<button id="backToTop" title="Back to top">▲</button>
 <script src="tracker.js"></script>
 </body>
 </html>

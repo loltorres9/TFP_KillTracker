@@ -744,6 +744,17 @@ function applyFilters() {
   document.getElementById("filterCount").textContent =
     parts.length ? `Filtered: ${parts.join(" · ")}` : `${filteredPlayers.length} players`;
 
+  const badge = document.getElementById("filterBadge");
+  if (badge) {
+    if (parts.length) {
+      const totalCount = Object.keys(aggPlayers).length;
+      badge.style.display = 'flex';
+      badge.innerHTML = `<span>⚡ Showing <strong>${filteredPlayers.length}</strong> of <strong>${totalCount}</strong> players &nbsp;·&nbsp; ${parts.map(p => `<span style="background:#ffe082;padding:1px 8px;border-radius:12px;font-weight:600">${p}</span>`).join(' ')}</span><button onclick="document.getElementById('resetFilters').click()" style="background:none;border:1px solid #cca800;border-radius:4px;padding:2px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;font-family:'Open Sans',sans-serif">× Clear</button>`;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
   renderStats();
   renderChart();
   renderLeader();
@@ -1315,6 +1326,7 @@ function openCareerPage(playerName) {
   document.getElementById('hallShameLabel').style.display             = 'none';
   document.querySelector('.chart-section').style.display              = 'none';
   document.querySelector('.filter-panel').style.display               = 'none';
+  document.getElementById('sectionNav').style.display                 = 'none';
   document.getElementById('unitLeaderboardSection').style.display     = 'none';
   document.getElementById('extraLeaderboardSections').style.display   = 'none';
   document.getElementById('careerHeader').style.display               = '';
@@ -1336,6 +1348,7 @@ function closeCareerPage() {
   document.getElementById('statsBar').style.display                   = '';
   document.querySelector('.chart-section').style.display              = '';
   document.querySelector('.filter-panel').style.display               = '';
+  document.getElementById('sectionNav').style.display                 = '';
   document.getElementById('unitLeaderboardSection').style.display     = '';
   document.getElementById('extraLeaderboardSections').style.display   = '';
 
@@ -1461,7 +1474,7 @@ function renderTableHead(headId, cols, sortCol, sortAsc, tableId) {
       const clickable = c.sortKey !== null;
       const isAvg = avgCols.has(i);
       const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
-      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;" title="Right-click to toggle per-mission avg"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
     }).join("")}</tr>`;
 }
 window._sortInf = function(col) {
@@ -1593,7 +1606,7 @@ function renderUnitLeaderboard() {
     const clickable = c.sortKey !== null;
     const isAvg = unitAvgCols.has(i);
     const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
-    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;" title="Right-click to toggle per-mission avg"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
   }).join("")}</tr>`;
 
   const tbody = document.getElementById("unitBody");
@@ -1737,6 +1750,8 @@ window._sortMH = function(col) {
 let wpSortCol = 2;
 let wpSortAsc = false;
 let wpKillsPerUser = false; // right-click toggle: Total Kills → Kills/User
+let wpSearch = "";          // text filter on weapon name
+window._wpSearchChange = function(val) { wpSearch = val.trim().toLowerCase(); renderWeaponLeaderboard(); };
 
 const WP_COLS = [
   { label: "#",           key: "_rank",       numeric: false, sortKey: null },
@@ -1768,10 +1783,11 @@ function renderWeaponLeaderboard() {
     return w;
   });
 
+  const filtered = wpSearch ? data.filter(w => w.weapon.toLowerCase().includes(wpSearch)) : data;
   const effectiveCols = WP_COLS.map((c, i) =>
     (c.canAvg && wpKillsPerUser) ? { ...c, sortKey: "killsPerUser" } : c
   );
-  const sorted = _sortArr(data, effectiveCols, wpSortCol, wpSortAsc);
+  const sorted = _sortArr(filtered, effectiveCols, wpSortCol, wpSortAsc);
   const byKills = [...data].sort((a, b) => b.kills - a.kills);
   const rankMap = {};
   byKills.forEach((w, i) => rankMap[w.weapon] = i + 1);
@@ -1781,7 +1797,7 @@ function renderWeaponLeaderboard() {
     const label = (c.canAvg && wpKillsPerUser) ? `<span style="color:#f59e0b">~/u</span> Kills/User` : c.label;
     const arrow = i === wpSortCol ? (wpSortAsc ? " ▲" : " ▼") : (c.sortKey ? " ⇅" : "");
     const clickable = c.sortKey !== null;
-    const rcm = c.canAvg ? ` oncontextmenu="_toggleAvgWP(${i});return false;"` : "";
+    const rcm = c.canAvg ? ` oncontextmenu="_toggleAvgWP(${i});return false;" title="Right-click to toggle kills/user avg"` : "";
     return `<th${clickable ? ` onclick="_sortWP(${i})"` : ""}${rcm} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${arrow}</span></th>`;
   }).join("")}</tr>`;
 
@@ -2181,3 +2197,23 @@ function renderComparison() {
 }
 window.renderComparison = renderComparison;
 
+// ── SECTION NAV ───────────────────────────────────────────────────────────
+window.navTo = function(key) {
+  // Expand section if collapsed
+  const content = document.getElementById('sc-' + key);
+  if (content && content.style.display === 'none') toggleSection(key);
+  // Scroll to the section header (the element before sc-*)
+  const header = content ? content.previousElementSibling : null;
+  const target = header || content;
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// ── BACK TO TOP ───────────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('backToTop');
+  if (!btn) return;
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 400);
+  }, { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
