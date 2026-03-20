@@ -180,9 +180,10 @@ add_table(doc,
 doc.add_paragraph()
 add_heading(doc, '1.2 Key Design Principles', 2)
 bullet(doc, 'Zero dependencies — no npm, no bundler, no framework.')
-bullet(doc, 'Single file — the entire application lives in index.html (CSS + JS inlined).')
-bullet(doc, 'Stateless server — all state is in-memory JavaScript variables; nothing is persisted.')
+bullet(doc, 'Two-file front-end — index.html (structure + CSS) and tracker.js (all JavaScript); split for CSP compliance on GitHub Pages.')
+bullet(doc, 'Stateless server — all state is in-memory JavaScript variables; nothing is persisted server-side.')
 bullet(doc, 'Re-aggregate on every filter change — guarantees all derived metrics stay consistent.')
+bullet(doc, 'Collapsible sections — each of the 10 content sections can be independently collapsed; state persists in localStorage.')
 
 doc.add_page_break()
 
@@ -196,8 +197,12 @@ add_heading(doc, '2.1 File Structure', 2)
 add_table(doc,
     ['File', 'Purpose'],
     [
-        ['index.html', 'Entire application — HTML structure, inline CSS, inline JavaScript'],
+        ['index.html', 'HTML structure and inline CSS; references tracker.js'],
+        ['tracker.js', 'All dashboard JavaScript — parsing, aggregation, filtering, rendering'],
         ['favicon.svg', 'Browser tab icon (SVG crosshair graphic)'],
+        ['unit_overrides.json', 'Manual unit classification corrections applied on top of auto-classification'],
+        ['ImportScript', 'Google Apps Script that imports OCAP .json.gz mission logs into Google Sheets'],
+        ['generate_docs.py', 'python-docx script that regenerates this documentation file'],
         ['README.md', 'User-facing feature overview and deployment guide'],
         ['.github/workflows/', 'GitHub Actions CI/CD pipeline for GitHub Pages deployment'],
     ]
@@ -206,15 +211,16 @@ add_table(doc,
 doc.add_paragraph()
 add_heading(doc, '2.2 Data Flow', 2)
 add_para(doc, 'The application follows a strict linear pipeline on every filter change:', space_after=4)
-numbered(doc, 'FETCH — GET request to Google Sheets CSV export URL (CSV_URL constant).')
-numbered(doc, 'PARSE — Raw text split into lines; each line processed by parseCSVLine() to handle quoted fields.')
+numbered(doc, 'FETCH — GET request to Google Sheets CSV export URL (CSV_URL constant in tracker.js). Also fetches unit_overrides.json in parallel.')
+numbered(doc, 'PARSE — Raw text split into lines; each line processed by parseCSVLine() to handle quoted fields with embedded commas.')
 numbered(doc, 'AGGREGATE (full) — buildAggregates() loops all rows once and builds aggPlayers, a keyed object of career totals per player.')
-numbered(doc, 'FILTER — applyFilters() re-loops rawRows applying four independent filters (event type, player selection, mission selection, Zeus status), building a temporary filteredPlayers array.')
-numbered(doc, 'RENDER — Five render functions consume filteredPlayers and write HTML to specific DOM targets.')
+numbered(doc, 'UNIT CLASSIFY — classifyPlayerUnits() analyses squad co-occurrence to assign units (2nd USC, CNTO, PXG, TFP); manual overrides from unit_overrides.json applied on top.')
+numbered(doc, 'FILTER — applyFilters() re-loops rawRows applying four independent filters (event type, unit, player selection, mission selection, Zeus status), building filteredPlayers and filteredRows.')
+numbered(doc, 'RENDER — Thirteen render functions consume filteredPlayers / filteredRows and write HTML to specific DOM targets.')
 doc.add_paragraph()
 add_para(doc,
-    'Steps 4–5 re-execute on every user interaction (filter toggle, pill click, column sort header click). '
-    'Steps 1–3 run once at page load.',
+    'Steps 5–6 re-execute on every user interaction (filter toggle, pill click, column sort, section expand). '
+    'Steps 1–4 run once at page load.',
     italic=True, space_after=6)
 
 add_heading(doc, '2.3 Global State Variables', 2)
@@ -223,9 +229,12 @@ add_table(doc,
     [
         ['rawRows', 'Array<Object>', '[]', 'Every CSV row parsed into {header: value} objects'],
         ['aggPlayers', 'Object', '{}', 'Full career aggregates keyed by player name'],
+        ['playerUnits', 'Object', '{}', 'Unit assignment keyed by player name (from auto-classification + overrides)'],
         ['filteredPlayers', 'Array<Object>', '[]', 'Aggregated stats for the current filter set'],
+        ['filteredRows', 'Array<Object>', '[]', 'Raw rows matching current filter (used by section renders)'],
         ['selectedPlayers', 'Set | null', 'null', 'null = all players; Set = explicit selection'],
         ['selectedMissions', 'Set | null', 'null', 'null = all missions; Set = explicit selection'],
+        ['selectedUnit', 'string | null', 'null', 'Active unit filter pill ("2nd USC", "CNTO", "PXG", "TFP", or null)'],
         ['showJointOps', 'boolean', 'true', 'Include Joint Op events'],
         ['showRegularEvents', 'boolean', 'true', 'Include regular op events'],
         ['zeusFilter', 'string', '"all"', '"all" | "no-zeus" | "zeus-only"'],
@@ -233,7 +242,12 @@ add_table(doc,
         ['infSortAsc', 'boolean', 'false', 'Sort direction for infantry table'],
         ['vehSortCol', 'number', '2', 'Active sort column index for vehicle table'],
         ['vehSortAsc', 'boolean', 'false', 'Sort direction for vehicle table'],
+        ['unitSortCol', 'number', '2', 'Active sort column index for unit leaderboard'],
+        ['unitSortAsc', 'boolean', 'false', 'Sort direction for unit leaderboard'],
+        ['wpSortCol', 'number', '0', 'Active sort column index for weapon leaderboard'],
+        ['wpSortAsc', 'boolean', 'false', 'Sort direction for weapon leaderboard'],
         ['currentModalPlayer', 'string', '""', 'Player name currently shown in detail modal'],
+        ['RELEASE_DATE', 'string', 'YYYY-MM-DD', 'Hardcoded release date shown in the page footer'],
     ]
 )
 
@@ -247,44 +261,48 @@ add_heading(doc, '3. Data Source', 1)
 
 add_heading(doc, '3.1 CSV Configuration', 2)
 add_para(doc,
-    'The application fetches from the URL defined by the constant CSV_URL near the top of index.html. '
+    'The application fetches from the URL defined by the constant CSV_URL near the top of tracker.js. '
     'To point the tracker at a different sheet, update this constant. The sheet must be published '
     'publicly ("File → Share → Publish to web → CSV").',
     space_after=6)
 
 add_heading(doc, '3.2 Expected Column Schema', 2)
-add_para(doc, 'One row per player per mission. Columns must appear in this order:', space_after=4)
+add_para(doc, 'One row per player per mission. Columns produced by the ImportScript:', space_after=4)
 add_table(doc,
     ['Index', 'Column Name', 'Description'],
     [
-        ['0', 'Source File', 'Filename encoding date (YYYY_MM_DD__...) and mission name'],
-        ['1', 'Mission', 'Human-readable mission name, expected to contain "(YYYY-MM-DD)"'],
-        ['2', 'World', 'Map/terrain name'],
-        ['3', 'Username', 'Player name (used as aggregate key)'],
-        ['4', 'Side', 'Faction (e.g. BLUFOR, OPFOR)'],
-        ['5', 'Group', 'Role/squad; "zeus" group triggers Zeus classification'],
-        ['6', 'Kills (On Foot)', 'Infantry kills'],
-        ['7', 'Deaths (On Foot)', 'Infantry deaths'],
-        ['8', 'K/D (On Foot)', 'Ignored — recomputed from kills/deaths'],
-        ['9', 'Teamkills (On Foot)', 'Friendly fire kills (infantry)'],
-        ['10', 'Shots (On Foot)', 'Rounds fired on foot'],
-        ['11', 'Hits Taken (On Foot)', 'Times hit while on foot'],
-        ['12', 'Shots/Kill (On Foot)', 'Ignored — recomputed'],
-        ['13', 'Avg Kill Dist On Foot (m)', 'Average kill distance (on foot)'],
-        ['14', 'Longest Kill On Foot (m)', 'Longest single kill distance (on foot)'],
-        ['15', 'Kills (In Vehicle)', 'Vehicle kills'],
-        ['16', 'Deaths (In Vehicle)', 'Deaths while in vehicle'],
-        ['17', 'K/D (In Vehicle)', 'Ignored — recomputed'],
-        ['18', 'Teamkills (In Vehicle)', 'Friendly fire from vehicle'],
-        ['19', 'Vehicle Kills (On Foot)', 'Vehicles destroyed while on foot'],
-        ['20', 'Vehicle Kills (In Vehicle)', 'Vehicles destroyed while in vehicle'],
-        ['21', 'Shots (In Vehicle)', 'Rounds fired from vehicle'],
-        ['22', 'Hits Taken (In Vehicle)', 'Times vehicle was hit'],
-        ['23', 'Shots/Kill (In Vehicle)', 'Ignored — recomputed'],
-        ['24', 'Avg Kill Dist In Vehicle (m)', 'Average kill distance (vehicle)'],
-        ['25', 'Longest Kill In Vehicle (m)', 'Longest single kill distance (vehicle)'],
-        ['26', 'Weapon Kills (JSON)', 'JSON object: {"WeaponName": killCount, ...}'],
-        ['27', 'Top Weapon', 'Weapon used for longest kill (used in award card)'],
+        ['0',  'Source File',                  'Filename encoding date (YYYY_MM_DD__...) and mission name'],
+        ['1',  'Mission',                       'Human-readable mission name'],
+        ['2',  'World',                         'Map/terrain name'],
+        ['3',  'Username',                      'Player name (used as aggregate key)'],
+        ['4',  'Side',                          'Faction (e.g. BLUFOR, OPFOR)'],
+        ['5',  'Group',                         'Squad/group name; "zeus" group triggers Zeus classification'],
+        ['6',  'Role',                          'In-game role string; used for role normalisation and top-role detection'],
+        ['7',  'Kills (On Foot)',               'Infantry kills'],
+        ['8',  'Deaths (On Foot)',              'Infantry deaths'],
+        ['9',  'K/D (On Foot)',                 'Ignored — recomputed from kills/deaths'],
+        ['10', 'Teamkills (On Foot)',           'Friendly fire kills (infantry)'],
+        ['11', 'Shots (On Foot)',               'Rounds fired on foot'],
+        ['12', 'Hits Taken (On Foot)',          'Times hit while on foot'],
+        ['13', 'Shots/Kill (On Foot)',          'Ignored — recomputed'],
+        ['14', 'Avg Kill Dist On Foot (m)',     'Average kill distance (on foot)'],
+        ['15', 'Longest Kill On Foot (m)',      'Longest single kill distance (on foot)'],
+        ['16', 'Kills (In Vehicle)',            'Vehicle kills'],
+        ['17', 'Deaths (In Vehicle)',           'Deaths while in vehicle'],
+        ['18', 'K/D (In Vehicle)',              'Ignored — recomputed'],
+        ['19', 'Teamkills (In Vehicle)',        'Friendly fire from vehicle'],
+        ['20', 'Vehicle Kills (On Foot)',       'Vehicles destroyed while on foot'],
+        ['21', 'Vehicle Kills (In Vehicle)',    'Vehicles destroyed while mounted'],
+        ['22', 'Shots (In Vehicle)',            'Rounds fired from vehicle'],
+        ['23', 'Hits Taken (In Vehicle)',       'Times vehicle was hit'],
+        ['24', 'Shots/Kill (In Vehicle)',       'Ignored — recomputed'],
+        ['25', 'Avg Kill Dist In Vehicle (m)', 'Average kill distance (vehicle)'],
+        ['26', 'Longest Kill In Vehicle (m)',  'Longest single kill distance (vehicle)'],
+        ['27', 'Top Weapon',                    'Weapon used for the longest kill; shown on award cards'],
+        ['28', 'Weapon Kills (JSON)',           'JSON object: {"WeaponName [MagType]": killCount, ...}; quotes preserved during parse'],
+        ['29', 'Suicides',                      'Self-inflicted deaths'],
+        ['30', 'Time Played (s)',               'Seconds present in the mission'],
+        ['31', 'Distance Run (km)',             'Total distance run from OCAP movement data; teleport steps (>100 m) excluded'],
     ]
 )
 
@@ -350,6 +368,8 @@ add_code(doc, '  tkOnFoot:      number,')
 add_code(doc, '  shotsOnFoot:   number,')
 add_code(doc, '  hitsOnFoot:    number,')
 add_code(doc, '  suicides:      number,')
+add_code(doc, '  distanceRun:   number,       // km')
+add_code(doc, '  timePlayed:    number,       // seconds')
 add_code(doc, '  maxLongestFoot: number,      // metres')
 add_code(doc, '  avgDistFoot:   number,       // weighted mean (metres)')
 add_code(doc, '')
@@ -377,6 +397,7 @@ add_code(doc, '  longestKillWeapon:  string,')
 add_code(doc, '  roleCounts:         { [role: string]: number },')
 add_code(doc, '  topRole:            string | null,')
 add_code(doc, '  topRoleCount:       number,')
+add_code(doc, '  unit:               string | null,  // "2nd USC" | "CNTO" | "PXG" | "TFP" | null')
 add_code(doc, '  missionRows:        Array<CSVRowObject>,')
 add_code(doc, '}')
 
@@ -544,6 +565,79 @@ add_para(doc,
     'direction if the same column is clicked twice.',
     space_after=6)
 
+add_heading(doc, '6.7 renderUnitLeaderboard()', 2)
+add_para(doc,
+    'Aggregates filteredPlayers by unit (2nd USC, CNTO, PXG, TFP, Unknown). '
+    'Computes per-unit totals for players, kills, deaths, K/D, TK, vehicle kills, '
+    'kills/player, avg K/D, missions, distance run, and time played. '
+    'All columns are sortable. Right-clicking raw-count headers toggles per-mission averages (~/m mode).',
+    space_after=6)
+
+add_heading(doc, '6.8 renderMissionHistory()', 2)
+add_para(doc,
+    'Builds a chronological table of every unique mission in filteredRows. '
+    'Per-mission totals: date, world, player count, kills, deaths, K/D, TK, '
+    'and top killer (player with highest kills in that mission). '
+    'Sorted by date descending.',
+    space_after=6)
+
+add_heading(doc, '6.9 renderWeaponLeaderboard()', 2)
+add_para(doc,
+    'Merges Weapon Kills (JSON) objects across all filteredRows. '
+    'Displays top-50 weapons with total kills, user count, top user, and kill share %. '
+    'Right-clicking the Total Kills header toggles kills/user mode (amber ~/u prefix). '
+    'A live search input above the table filters rows by weapon name substring.',
+    space_after=6)
+
+add_heading(doc, '6.10 renderMapStats()', 2)
+add_para(doc,
+    'Groups filteredRows by World column. '
+    'Per-map totals: kills, deaths, K/D, TK, mission count, player count. '
+    'Sorted by kills descending.',
+    space_after=6)
+
+add_heading(doc, '6.11 renderRoleLeaderboard()', 2)
+add_para(doc,
+    'Groups filteredPlayers by their topRole (normalised). '
+    'Per-role aggregates: player count, total kills, deaths, K/D, avg K/D. '
+    'Sorted by kills descending.',
+    space_after=6)
+
+add_heading(doc, '6.12 renderAttendance()', 2)
+add_para(doc,
+    'Builds a per-player attendance table. '
+    'Columns: player, missions attended, attendance % (relative to total missions in filtered set), '
+    'first seen date, last seen date, avg time per mission. '
+    'Sorted by mission count descending.',
+    space_after=6)
+
+add_heading(doc, '6.13 renderKdTrend()', 2)
+add_para(doc,
+    'Renders an SVG line chart (viewBox 900x220) of K/D ratio over time. '
+    'Data points are per-mission K/D values grouped by source file date. '
+    'A dropdown allows switching between Overall, per unit, or individual player views. '
+    'A dashed yellow reference line marks K/D = 1.0. '
+    'SVG dots show exact values on hover. '
+    'A "nice number" algorithm targets ~6 Y-axis grid lines regardless of data range.',
+    space_after=6)
+
+add_heading(doc, '6.14 renderComparison()', 2)
+add_para(doc,
+    'Side-by-side stat comparison between two players selected from dropdowns. '
+    'Renders a table of all infantry and vehicle metrics; the higher value in each '
+    'row is highlighted in green. Draws from filteredPlayers for current filter context.',
+    space_after=6)
+
+add_heading(doc, '6.15 Section Nav Bar & toggleSection()', 2)
+add_para(doc,
+    'A sticky dark tab strip (#sectionNav) sits at the top of the page with one button per section. '
+    'Clicking a button calls navTo(key), which expands the section if collapsed, '
+    're-renders its chart (K/D Trend, Comparison) if it was first rendered while hidden, '
+    'then smooth-scrolls to the section header. '
+    'toggleSection(key) toggles the section content div between display:block and display:none '
+    'and persists the state to localStorage under key "sec_" + key.',
+    space_after=6)
+
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -613,38 +707,62 @@ doc.add_page_break()
 add_heading(doc, '8. Complete Function Reference', 1)
 
 functions = [
+    # Utilities
     ('NUM(v)', 'Utility', 'v: any', 'number', 'Safe parseFloat with 0 fallback.'),
+    ('fmtTime(secs)', 'Utility', 'secs: number', 'string', 'Formats seconds as "Xh Ym" or "Ym" for display.'),
     ('normalizeRole(role)', 'Utility', 'role: string', 'string', 'Strips @username, squad letters, colour/phonetic suffixes from role names.'),
     ('missionDate(name)', 'Utility', 'name: string', 'string', 'Extracts (YYYY-MM-DD) from mission name and reformats to DD/MM/YYYY.'),
     ('isJointOp(filename)', 'Utility', 'filename: string', 'boolean', 'Returns true if filename date is the last Saturday or its following Sunday of the month.'),
+    # Parsing & aggregation
     ('parseCSVLine(line)', 'Parsing', 'line: string', 'string[]', 'RFC-4180 CSV parser that handles quoted fields with embedded commas.'),
-    ('buildAggregates()', 'Aggregation', '—', 'void', 'Loops rawRows and builds the aggPlayers dictionary of career totals. Called once at load.'),
-    ('buildUI()', 'Lifecycle', '—', 'void', 'Shows content div, hides loader, calls buildFilters() and applyFilters().'),
-    ('buildFilters()', 'Filters', '—', 'void', 'Wires all filter UI event listeners (event type, reset, search inputs, Zeus dropdown).'),
+    ('buildAggregates()', 'Aggregation', '—', 'void', 'Loops rawRows and builds aggPlayers. Called once at load.'),
+    ('classifyPlayerUnits(rows)', 'Aggregation', 'rows: Object[]', 'Object', 'Analyses squad co-occurrence to assign each player to a unit; requires >=99% dominant weight.'),
+    # Lifecycle & filters
+    ('buildUI()', 'Lifecycle', '—', 'void', 'Shows content div, hides loader, shows section nav, calls buildFilters() and applyFilters().'),
+    ('buildFilters()', 'Filters', '—', 'void', 'Wires all filter UI event listeners (event type, unit pills, reset, search inputs, Zeus dropdown).'),
     ('getEventFilteredRows()', 'Filters', '—', 'Object[]', 'Returns rawRows filtered by showJointOps / showRegularEvents.'),
     ('refreshPills()', 'Filters', '—', 'void', 'Recomputes available missions and players, then re-renders both pill containers.'),
     ('renderCareerPills(cId, items, sId)', 'Filters', 'containerId, items[], searchId', 'void', 'Renders player pills. Left-click = filter; right-click = career page.'),
     ('renderSelectablePills(cId, items, sel, sId, cb)', 'Filters', 'containerId, items[], selectedSet, searchId, onSelect()', 'void', 'Generic multi-select pill renderer. null selectedSet means "all active".'),
     ('filterToPlayer(name)', 'Filters', 'name: string', 'void', 'Toggles player in/out of selectedPlayers; null if set becomes empty.'),
     ('filterChanged()', 'Filters', '—', 'void', 'Calls applyFilters(). Entry point for all filter state changes.'),
-    ('applyFilters()', 'Filters', '—', 'void', 'Core pipeline: filter rawRows → re-aggregate → Zeus filter → render all.'),
+    ('applyFilters()', 'Filters', '—', 'void', 'Core pipeline: filter rawRows → re-aggregate → unit/Zeus filter → render all; updates active filter badge.'),
+    # Rendering — core
     ('renderStats()', 'Rendering', '—', 'void', 'Renders aggregate stat cards to #statsBar.'),
     ('renderChart()', 'Rendering', '—', 'void', 'Renders top-10 infantry killers horizontal bar chart to #chartBars.'),
-    ('renderLeader()', 'Rendering', '—', 'void', 'Renders the 4 award cards (Executioner, Pro Sniper, Perfect Aim, K/D Player).'),
+    ('renderLeader()', 'Rendering', '—', 'void', 'Renders all Hall of Fame and Hall of Shame award cards.'),
     ('renderInfantryTable()', 'Rendering', '—', 'void', 'Sorts filteredPlayers and writes infantry table rows/header to DOM.'),
     ('renderVehicleTable()', 'Rendering', '—', 'void', 'Sorts vehicle-active players and writes vehicle table rows/header to DOM.'),
-    ('renderTableHead(hId, cols, sCol, sAsc, tId)', 'Rendering', 'headId, cols[], sortCol, sortAsc, tableId', 'void', 'Renders <th> elements with ▲▼⇅ sort indicators.'),
+    ('renderTableHead(hId, cols, sCol, sAsc, tId)', 'Rendering', 'headId, cols[], sortCol, sortAsc, tableId', 'void', 'Renders <th> elements with ▲▼⇅ sort indicators and right-click tooltips.'),
     ('sortPlayers(arr, col, asc, cols)', 'Rendering', 'arr, colIdx, ascending, cols[]', 'Object[]', 'Generic sort; uses cols[col].sortKey; nulls sorted to end.'),
+    # Rendering — new sections
+    ('renderUnitLeaderboard()', 'Rendering', '—', 'void', 'Aggregates filteredPlayers by unit and renders the unit leaderboard table.'),
+    ('renderMissionHistory()', 'Rendering', '—', 'void', 'Renders chronological mission history table from filteredRows.'),
+    ('renderWeaponLeaderboard()', 'Rendering', '—', 'void', 'Merges weapon kill JSON across filteredRows and renders weapon leaderboard.'),
+    ('renderMapStats()', 'Rendering', '—', 'void', 'Groups filteredRows by World and renders map stats table.'),
+    ('renderRoleLeaderboard()', 'Rendering', '—', 'void', 'Groups filteredPlayers by topRole and renders role leaderboard.'),
+    ('renderAttendance()', 'Rendering', '—', 'void', 'Computes per-player attendance metrics from filteredRows and renders table.'),
+    ('renderKdTrend()', 'Rendering', '—', 'void', 'Renders SVG K/D trend line chart; reads subject from #kdTrendSubject dropdown.'),
+    ('renderComparison()', 'Rendering', '—', 'void', 'Renders side-by-side player comparison table; reads names from comparison dropdowns.'),
+    # Navigation
+    ('toggleSection(key)', 'Navigation', 'key: string', 'void', 'Toggles section content div; saves state to localStorage.'),
+    ('navTo(key)', 'Navigation', 'key: string', 'void', 'Expands section, re-renders chart if needed, smooth-scrolls to header.'),
+    # Modal & career
     ('openPlayerModal(name)', 'Modal', 'name: string', 'void', 'Opens the detail modal overlay for the given player.'),
     ('closeModal(e)', 'Modal', 'event', 'void', 'Closes modal on overlay click or ESC keypress.'),
     ('openCareerPage(name)', 'Career', 'name: string', 'void', 'Switches to full-screen career view; sets selectedPlayers and re-filters.'),
     ('closeCareerPage()', 'Career', '—', 'void', 'Restores leaderboard view; clears selectedPlayers and re-filters.'),
-    ('buildCareerStatsHTML(p)', 'Career', 'p: PlayerObject', 'string', 'Generates HTML string for 4-section career stats page/modal body.'),
+    ('buildCareerStatsHTML(p)', 'Career', 'p: PlayerObject', 'string', 'Generates HTML for 4-section career stats (infantry overview, weapons, best mission, mission table).'),
+    # Helpers
     ('mStat(val, lbl, sub)', 'Helpers', 'val, label, subtitle?', 'string', 'Returns HTML for a single stat card element.'),
-    ('kdClass(v)', 'Helpers', 'v: number', 'string', '"kd-good" if ≥2, "kd-bad" if <0.8, else "".'),
+    ('kdClass(v)', 'Helpers', 'v: number', 'string', '"kd-good" if >=2, "kd-bad" if <0.8, else "".'),
     ('tkClass(v)', 'Helpers', 'v: number', 'string', '"tk-cell" if >0, else "".'),
+    ('fmtTime(s)', 'Helpers', 's: number', 'string', 'Formats seconds as Xh Ym string.'),
+    # Sort handlers
     ('window._sortInf(col)', 'Sort', 'col: number', 'void', 'Infantry table header click handler; toggles direction if same column.'),
     ('window._sortVeh(col)', 'Sort', 'col: number', 'void', 'Vehicle table header click handler; toggles direction if same column.'),
+    ('window._sortUnit(col)', 'Sort', 'col: number', 'void', 'Unit leaderboard header click handler.'),
+    ('window._sortWp(col)', 'Sort', 'col: number', 'void', 'Weapon leaderboard header click handler.'),
 ]
 
 add_table(doc,
@@ -815,7 +933,7 @@ numbered(doc, 'Write the winner\'s stats to the new DOM elements.')
 add_heading(doc, '12.3 Pointing to a Different Google Sheet', 2)
 numbered(doc, 'Publish the new sheet: File → Share → Publish to web → Select sheet → CSV → Publish.')
 numbered(doc, 'Copy the published URL.')
-numbered(doc, 'In index.html, update the CSV_URL constant at the top of the <script> block.')
+numbered(doc, 'In tracker.js, update the CSV_URL constant at the top of the file.')
 
 add_heading(doc, '12.4 Adding Persistence (localStorage)', 2)
 add_para(doc,
@@ -835,20 +953,28 @@ add_heading(doc, 'Appendix A — Initialization Sequence', 1)
 add_para(doc, 'The following sequence occurs on every page load:', space_after=4)
 
 steps = [
-    ('Page Load', 'Browser requests index.html; CSS and JS parse inline.'),
-    ('DOMContentLoaded', 'JavaScript execution begins; loading spinner displayed.'),
-    ('fetch(CSV_URL)', 'HTTP GET to Google Sheets export URL.'),
+    ('Page Load', 'Browser requests index.html; CSS parsed; tracker.js loaded.'),
+    ('Promise.all()', 'Parallel fetch of CSV_URL and unit_overrides.json.'),
     ('parseCSVLine() × N', 'Each row parsed; rawRows[] populated.'),
     ('buildAggregates()', 'aggPlayers{} populated with career totals.'),
-    ('buildUI()', 'Calls buildFilters() and applyFilters().'),
+    ('classifyPlayerUnits()', 'playerUnits{} populated via co-occurrence analysis; overrides applied.'),
+    ('buildUI()', 'Calls buildFilters() and applyFilters(); shows section nav bar.'),
     ('buildFilters()', 'Event listeners attached; refreshPills() called.'),
-    ('applyFilters()', 'filteredPlayers[] built; five render functions called.'),
+    ('applyFilters()', 'filteredPlayers[] and filteredRows[] built; all render functions called.'),
     ('renderStats()', '#statsBar populated.'),
     ('renderChart()', '#chartBars populated.'),
     ('renderLeader()', '#awardsRow populated.'),
     ('renderInfantryTable()', '#infantryBody + #infantryHead populated.'),
     ('renderVehicleTable()', '#vehicleBody + #vehicleHead populated.'),
-    ('UI Ready', 'Loading spinner hidden; content shown.'),
+    ('renderUnitLeaderboard()', '#unitLbBody populated (section collapsed by default).'),
+    ('renderMissionHistory()', '#missionHistBody populated (section collapsed by default).'),
+    ('renderWeaponLeaderboard()', '#wpBody populated (section collapsed by default).'),
+    ('renderMapStats()', '#mapBody populated (section collapsed by default).'),
+    ('renderRoleLeaderboard()', '#roleBody populated (section collapsed by default).'),
+    ('renderAttendance()', '#attendBody populated (section collapsed by default).'),
+    ('renderKdTrend()', '#kdTrendChart populated (section collapsed by default).'),
+    ('renderComparison()', 'Comparison dropdowns populated (section collapsed by default).'),
+    ('UI Ready', 'Loading spinner hidden; content and section nav shown.'),
 ]
 
 add_table(doc,
