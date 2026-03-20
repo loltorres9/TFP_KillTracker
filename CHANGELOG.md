@@ -4,7 +4,17 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## 2026-03-19 (latest)
+## 2026-03-20 (latest)
+
+### Fixed
+- **Nav bar in embedded iframes** — switched from `position: fixed` to `position: sticky` so the nav bar stays visible when the tracker is embedded in a CMS iframe (e.g. Squarespace); `position: fixed` inside an iframe binds to the iframe document top, not the browser viewport, causing the bar to scroll off-screen when the parent page scrolled
+- **K/D Trend & Compare charts blank on first open** — charts now re-render when their section is opened via the nav bar; previously they could render into a hidden container at load time and appear blank when the section was expanded
+- **Nav bar scroll offset** — replaced `scrollIntoView` with a manual `window.scrollTo` + `getBoundingClientRect` calculation so the section header lands below the nav bar rather than behind it
+- **Spacing below nav bar** — added 16 px gap between the nav bar and the first content cards
+
+---
+
+## 2026-03-19
 
 ### Added
 - **Unit Leaderboard** — new table below the vehicle stats that aggregates all player stats by unit (2nd USC, CNTO, PXG, TFP, Unknown); columns: players, kills, deaths, K/D, TK, vehicle kills, kills/player, avg K/D, missions, distance run, time played; all columns sortable; right-click on Kills, Deaths, Veh Kills, Kills/Player, Dist Run, and Time Played toggles per-mission averages (same `~/m` system as the infantry/vehicle tables)
