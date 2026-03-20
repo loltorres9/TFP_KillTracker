@@ -431,6 +431,7 @@ function initSectionStates() {
 function buildUI() {
   document.getElementById("loading").style.display = "none";
   document.getElementById("content").style.display = "";
+  document.getElementById("sectionNav").style.display = "";
 
   initSectionStates();
   buildFilters();

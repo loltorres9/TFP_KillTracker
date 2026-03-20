@@ -33,7 +33,7 @@
   body { font-family: 'Open Sans', sans-serif; background: var(--bg); color: #333; }
 
   /* ── MAIN ── */
-  .container { max-width: 1650px; margin: 0 auto; padding: 20px 20px 40px; }
+  .container { max-width: 1650px; margin: 0 auto; padding: 58px 20px 40px; }
 
   /* ── STATS BAR ── */
   .stats-bar {
@@ -339,10 +339,10 @@
 
   /* ── SECTION NAV ── */
   #sectionNav {
-    position: sticky; top: 0; z-index: 200;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
     background: var(--charcoal); border-bottom: 2px solid #2a2a2a;
     display: flex; flex-wrap: wrap; gap: 0;
-    margin: 0 -20px 18px; padding: 0 20px;
+    padding: 0 20px;
   }
   .snav-btn {
     padding: 8px 14px; font-size: 0.72rem; font-weight: 600;
@@ -369,6 +369,20 @@
 <body>
 
 <div id="avgTooltip" style="display:none;position:fixed;background:#1a1a2e;color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:0.78rem;pointer-events:none;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>
+
+<!-- Section nav bar (fixed to top of viewport) -->
+<div id="sectionNav" style="display:none">
+  <button class="snav-btn" onclick="navTo('infantry')">Infantry</button>
+  <button class="snav-btn" onclick="navTo('vehicle')">Vehicle</button>
+  <button class="snav-btn" onclick="navTo('unit-lb')">Units</button>
+  <button class="snav-btn" onclick="navTo('mission-hist')">Missions</button>
+  <button class="snav-btn" onclick="navTo('weapons')">Weapons</button>
+  <button class="snav-btn" onclick="navTo('maps')">Maps</button>
+  <button class="snav-btn" onclick="navTo('roles')">Roles</button>
+  <button class="snav-btn" onclick="navTo('attendance')">Attendance</button>
+  <button class="snav-btn" onclick="navTo('kd-trend')">K/D Trend</button>
+  <button class="snav-btn" onclick="navTo('comparison')">Compare</button>
+</div>
 
 <div class="container">
   <div id="loading" class="loading">Loading mission data…</div>
@@ -549,20 +563,6 @@
 
     <!-- Career inline stats (hidden in leaderboard mode) -->
     <div id="careerStats" style="display:none"></div>
-
-    <!-- Section nav bar -->
-    <div id="sectionNav">
-      <button class="snav-btn" onclick="navTo('infantry')">Infantry</button>
-      <button class="snav-btn" onclick="navTo('vehicle')">Vehicle</button>
-      <button class="snav-btn" onclick="navTo('unit-lb')">Units</button>
-      <button class="snav-btn" onclick="navTo('mission-hist')">Missions</button>
-      <button class="snav-btn" onclick="navTo('weapons')">Weapons</button>
-      <button class="snav-btn" onclick="navTo('maps')">Maps</button>
-      <button class="snav-btn" onclick="navTo('roles')">Roles</button>
-      <button class="snav-btn" onclick="navTo('attendance')">Attendance</button>
-      <button class="snav-btn" onclick="navTo('kd-trend')">K/D Trend</button>
-      <button class="snav-btn" onclick="navTo('comparison')">Compare</button>
-    </div>
 
     <!-- Infantry table -->
     <div class="section-header" onclick="toggleSection('infantry')">Infantry Combat Stats (On Foot)<span class="section-arrow" id="arr-infantry">▼</span></div>
