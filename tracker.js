@@ -1,4 +1,5 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
+const RELEASE_DATE = "2026-03-20";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -430,6 +431,7 @@ function initSectionStates() {
 function buildUI() {
   document.getElementById("loading").style.display = "none";
   document.getElementById("content").style.display = "";
+  document.getElementById("sectionNav").style.display = "";
 
   initSectionStates();
   buildFilters();
@@ -743,6 +745,17 @@ function applyFilters() {
   if (evVal !== "both") parts.push(evVal === "joint" ? "Joint Op only" : "Regular Op only");
   document.getElementById("filterCount").textContent =
     parts.length ? `Filtered: ${parts.join(" · ")}` : `${filteredPlayers.length} players`;
+
+  const badge = document.getElementById("filterBadge");
+  if (badge) {
+    if (parts.length) {
+      const totalCount = Object.keys(aggPlayers).length;
+      badge.style.display = 'flex';
+      badge.innerHTML = `<span>⚡ Showing <strong>${filteredPlayers.length}</strong> of <strong>${totalCount}</strong> players &nbsp;·&nbsp; ${parts.map(p => `<span style="background:#ffe082;padding:1px 8px;border-radius:12px;font-weight:600">${p}</span>`).join(' ')}</span><button onclick="document.getElementById('resetFilters').click()" style="background:none;border:1px solid #cca800;border-radius:4px;padding:2px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;font-family:'Open Sans',sans-serif">× Clear</button>`;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 
   renderStats();
   renderChart();
@@ -1315,6 +1328,7 @@ function openCareerPage(playerName) {
   document.getElementById('hallShameLabel').style.display             = 'none';
   document.querySelector('.chart-section').style.display              = 'none';
   document.querySelector('.filter-panel').style.display               = 'none';
+  document.getElementById('sectionNav').style.display                 = 'none';
   document.getElementById('unitLeaderboardSection').style.display     = 'none';
   document.getElementById('extraLeaderboardSections').style.display   = 'none';
   document.getElementById('careerHeader').style.display               = '';
@@ -1336,6 +1350,7 @@ function closeCareerPage() {
   document.getElementById('statsBar').style.display                   = '';
   document.querySelector('.chart-section').style.display              = '';
   document.querySelector('.filter-panel').style.display               = '';
+  document.getElementById('sectionNav').style.display                 = '';
   document.getElementById('unitLeaderboardSection').style.display     = '';
   document.getElementById('extraLeaderboardSections').style.display   = '';
 
@@ -1461,7 +1476,7 @@ function renderTableHead(headId, cols, sortCol, sortAsc, tableId) {
       const clickable = c.sortKey !== null;
       const isAvg = avgCols.has(i);
       const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
-      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+      return `<th${clickable ? ` onclick="${fnName}(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvg('${tableId}',${i});return false;" title="Right-click to toggle per-mission avg"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
     }).join("")}</tr>`;
 }
 window._sortInf = function(col) {
@@ -1593,7 +1608,7 @@ function renderUnitLeaderboard() {
     const clickable = c.sortKey !== null;
     const isAvg = unitAvgCols.has(i);
     const label = isAvg ? `<span style="color:#f0b429;font-size:0.7em;font-weight:400">~/m</span> ${c.label}` : c.label;
-    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
+    return `<th${clickable ? ` onclick="_sortUnit(${i})"` : ""}${c.canAvg ? ` oncontextmenu="_toggleAvgUnit(${i});return false;" title="Right-click to toggle per-mission avg"` : ""} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${clickable ? arrow : ""}</span></th>`;
   }).join("")}</tr>`;
 
   const tbody = document.getElementById("unitBody");
@@ -1736,11 +1751,14 @@ window._sortMH = function(col) {
 // ── WEAPON LEADERBOARD ────────────────────────────────────────────────────
 let wpSortCol = 2;
 let wpSortAsc = false;
+let wpKillsPerUser = false; // right-click toggle: Total Kills → Kills/User
+let wpSearch = "";          // text filter on weapon name
+window._wpSearchChange = function(val) { wpSearch = val.trim().toLowerCase(); renderWeaponLeaderboard(); };
 
 const WP_COLS = [
   { label: "#",           key: "_rank",       numeric: false, sortKey: null },
   { label: "Weapon",      key: "weapon",      numeric: false, sortKey: "weapon" },
-  { label: "Total Kills", key: "kills",       numeric: true,  sortKey: "kills" },
+  { label: "Total Kills", key: "kills",       numeric: true,  sortKey: "kills",  canAvg: true },
   { label: "Users",       key: "users",       numeric: true,  sortKey: "users" },
   { label: "Top User",    key: "topUser",     numeric: false, sortKey: "topUserKills" },
   { label: "Share",       key: "share",       numeric: true,  sortKey: "share",   fmt: v => v.toFixed(1) + "%" },
@@ -1763,15 +1781,28 @@ function renderWeaponLeaderboard() {
     w.topUser = top ? `${top[0]} (${top[1]})` : "—";
     w.topUserKills = top ? top[1] : 0;
     w.share = totalKills > 0 ? w.kills / totalKills * 100 : 0;
+    w.killsPerUser = w.users > 0 ? w.kills / w.users : 0;
     return w;
   });
 
-  const sorted = _sortArr(data, WP_COLS, wpSortCol, wpSortAsc);
+  const filtered = wpSearch ? data.filter(w => w.weapon.toLowerCase().includes(wpSearch)) : data;
+  const effectiveCols = WP_COLS.map((c, i) =>
+    (c.canAvg && wpKillsPerUser) ? { ...c, sortKey: "killsPerUser" } : c
+  );
+  const sorted = _sortArr(filtered, effectiveCols, wpSortCol, wpSortAsc);
   const byKills = [...data].sort((a, b) => b.kills - a.kills);
   const rankMap = {};
   byKills.forEach((w, i) => rankMap[w.weapon] = i + 1);
 
-  document.getElementById("weaponHead").innerHTML = _mkHead(WP_COLS, wpSortCol, wpSortAsc, "_sortWP");
+  // Build header — amber ~/u prefix on the Kills column when toggled
+  document.getElementById("weaponHead").innerHTML = `<tr>${WP_COLS.map((c, i) => {
+    const label = (c.canAvg && wpKillsPerUser) ? `<span style="color:#f59e0b">~/u</span> Kills/User` : c.label;
+    const arrow = i === wpSortCol ? (wpSortAsc ? " ▲" : " ▼") : (c.sortKey ? " ⇅" : "");
+    const clickable = c.sortKey !== null;
+    const rcm = c.canAvg ? ` oncontextmenu="_toggleAvgWP(${i});return false;" title="Right-click to toggle kills/user avg"` : "";
+    return `<th${clickable ? ` onclick="_sortWP(${i})"` : ""}${rcm} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join("")}</tr>`;
+
   const tbody = document.getElementById("weaponBody");
   if (!sorted.length) {
     tbody.innerHTML = `<tr><td colspan="${WP_COLS.length}" style="text-align:center;padding:20px;color:#888">No weapon data — re-import missions with the updated script to populate this.</td></tr>`;
@@ -1780,13 +1811,23 @@ function renderWeaponLeaderboard() {
   tbody.innerHTML = sorted.slice(0, 50).map(w => {
     const cells = WP_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${_rankStr(rankMap[w.weapon])}</td>`;
+      const avgAttr = col.canAvg ? ` oncontextmenu="_toggleAvgWP(${ci});return false;"` : "";
+      if (col.canAvg && wpKillsPerUser) {
+        const val = w.killsPerUser.toFixed(1);
+        return `<td${avgAttr} style="color:#f59e0b">${val}</td>`;
+      }
       const raw = w[col.key];
       const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
-      return `<td>${val}</td>`;
+      return `<td${avgAttr}>${val}</td>`;
     });
     return `<tr>${cells.join("")}</tr>`;
   }).join("");
 }
+window._toggleAvgWP = function(col) {
+  if (!WP_COLS[col].canAvg) return;
+  wpKillsPerUser = !wpKillsPerUser;
+  renderWeaponLeaderboard();
+};
 window._sortWP = function(col) {
   if (WP_COLS[col].sortKey === null) return;
   if (wpSortCol === col) wpSortAsc = !wpSortAsc;
@@ -2158,3 +2199,41 @@ function renderComparison() {
 }
 window.renderComparison = renderComparison;
 
+// ── SECTION NAV ───────────────────────────────────────────────────────────
+const _sectionRenders = {
+  'kd-trend':  () => renderKdTrend(),
+  'comparison': () => renderComparison(),
+};
+window.navTo = function(key) {
+  const content = document.getElementById('sc-' + key);
+  const wasHidden = content && content.style.display === 'none';
+  if (wasHidden) toggleSection(key);
+  // Re-render sections that use charts (may have rendered while hidden)
+  if (wasHidden && _sectionRenders[key]) _sectionRenders[key]();
+  // Scroll to the section header
+  const header = content ? content.previousElementSibling : null;
+  const target = header || content;
+  if (target) {
+    const top = target.getBoundingClientRect().top + window.pageYOffset - 50;
+    window.scrollTo({ top, behavior: 'smooth' });
+  }
+};
+
+// ── BACK TO TOP ───────────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('backToTop');
+  if (!btn) return;
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 400);
+  }, { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
+
+// ── RELEASE DATE FOOTER ───────────────────────────────────────────────────
+(function() {
+  const el = document.getElementById('releaseDate');
+  if (!el) return;
+  const [y, m, d] = RELEASE_DATE.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  el.textContent = `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
+})();
