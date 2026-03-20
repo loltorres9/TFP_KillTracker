@@ -1,4 +1,5 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
+const RELEASE_DATE = "2026-03-19";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -2216,4 +2217,13 @@ window.navTo = function(key) {
     btn.classList.toggle('visible', window.scrollY > 400);
   }, { passive: true });
   btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
+
+// ── RELEASE DATE FOOTER ───────────────────────────────────────────────────
+(function() {
+  const el = document.getElementById('releaseDate');
+  if (!el) return;
+  const [y, m, d] = RELEASE_DATE.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  el.textContent = `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 })();
