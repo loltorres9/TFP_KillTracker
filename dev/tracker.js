@@ -1736,11 +1736,12 @@ window._sortMH = function(col) {
 // ── WEAPON LEADERBOARD ────────────────────────────────────────────────────
 let wpSortCol = 2;
 let wpSortAsc = false;
+let wpKillsPerUser = false; // right-click toggle: Total Kills → Kills/User
 
 const WP_COLS = [
   { label: "#",           key: "_rank",       numeric: false, sortKey: null },
   { label: "Weapon",      key: "weapon",      numeric: false, sortKey: "weapon" },
-  { label: "Total Kills", key: "kills",       numeric: true,  sortKey: "kills" },
+  { label: "Total Kills", key: "kills",       numeric: true,  sortKey: "kills",  canAvg: true },
   { label: "Users",       key: "users",       numeric: true,  sortKey: "users" },
   { label: "Top User",    key: "topUser",     numeric: false, sortKey: "topUserKills" },
   { label: "Share",       key: "share",       numeric: true,  sortKey: "share",   fmt: v => v.toFixed(1) + "%" },
@@ -1763,15 +1764,27 @@ function renderWeaponLeaderboard() {
     w.topUser = top ? `${top[0]} (${top[1]})` : "—";
     w.topUserKills = top ? top[1] : 0;
     w.share = totalKills > 0 ? w.kills / totalKills * 100 : 0;
+    w.killsPerUser = w.users > 0 ? w.kills / w.users : 0;
     return w;
   });
 
-  const sorted = _sortArr(data, WP_COLS, wpSortCol, wpSortAsc);
+  const effectiveCols = WP_COLS.map((c, i) =>
+    (c.canAvg && wpKillsPerUser) ? { ...c, sortKey: "killsPerUser" } : c
+  );
+  const sorted = _sortArr(data, effectiveCols, wpSortCol, wpSortAsc);
   const byKills = [...data].sort((a, b) => b.kills - a.kills);
   const rankMap = {};
   byKills.forEach((w, i) => rankMap[w.weapon] = i + 1);
 
-  document.getElementById("weaponHead").innerHTML = _mkHead(WP_COLS, wpSortCol, wpSortAsc, "_sortWP");
+  // Build header — amber ~/u prefix on the Kills column when toggled
+  document.getElementById("weaponHead").innerHTML = `<tr>${WP_COLS.map((c, i) => {
+    const label = (c.canAvg && wpKillsPerUser) ? `<span style="color:#f59e0b">~/u</span> Kills/User` : c.label;
+    const arrow = i === wpSortCol ? (wpSortAsc ? " ▲" : " ▼") : (c.sortKey ? " ⇅" : "");
+    const clickable = c.sortKey !== null;
+    const rcm = c.canAvg ? ` oncontextmenu="_toggleAvgWP(${i});return false;"` : "";
+    return `<th${clickable ? ` onclick="_sortWP(${i})"` : ""}${rcm} style="${clickable ? "" : "cursor:default"}">${label}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join("")}</tr>`;
+
   const tbody = document.getElementById("weaponBody");
   if (!sorted.length) {
     tbody.innerHTML = `<tr><td colspan="${WP_COLS.length}" style="text-align:center;padding:20px;color:#888">No weapon data — re-import missions with the updated script to populate this.</td></tr>`;
@@ -1780,13 +1793,23 @@ function renderWeaponLeaderboard() {
   tbody.innerHTML = sorted.slice(0, 50).map(w => {
     const cells = WP_COLS.map((col, ci) => {
       if (ci === 0) return `<td>${_rankStr(rankMap[w.weapon])}</td>`;
+      const avgAttr = col.canAvg ? ` oncontextmenu="_toggleAvgWP(${ci});return false;"` : "";
+      if (col.canAvg && wpKillsPerUser) {
+        const val = w.killsPerUser.toFixed(1);
+        return `<td${avgAttr} style="color:#f59e0b">${val}</td>`;
+      }
       const raw = w[col.key];
       const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
-      return `<td>${val}</td>`;
+      return `<td${avgAttr}>${val}</td>`;
     });
     return `<tr>${cells.join("")}</tr>`;
   }).join("");
 }
+window._toggleAvgWP = function(col) {
+  if (!WP_COLS[col].canAvg) return;
+  wpKillsPerUser = !wpKillsPerUser;
+  renderWeaponLeaderboard();
+};
 window._sortWP = function(col) {
   if (WP_COLS[col].sortKey === null) return;
   if (wpSortCol === col) wpSortAsc = !wpSortAsc;
