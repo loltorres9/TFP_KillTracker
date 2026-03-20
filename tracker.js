@@ -2200,14 +2200,23 @@ function renderComparison() {
 window.renderComparison = renderComparison;
 
 // ── SECTION NAV ───────────────────────────────────────────────────────────
+const _sectionRenders = {
+  'kd-trend':  () => renderKdTrend(),
+  'comparison': () => renderComparison(),
+};
 window.navTo = function(key) {
-  // Expand section if collapsed
   const content = document.getElementById('sc-' + key);
-  if (content && content.style.display === 'none') toggleSection(key);
-  // Scroll to the section header (the element before sc-*)
+  const wasHidden = content && content.style.display === 'none';
+  if (wasHidden) toggleSection(key);
+  // Re-render sections that use charts (may have rendered while hidden)
+  if (wasHidden && _sectionRenders[key]) _sectionRenders[key]();
+  // Scroll to the section header
   const header = content ? content.previousElementSibling : null;
   const target = header || content;
-  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (target) {
+    const top = target.getBoundingClientRect().top + window.pageYOffset - 50;
+    window.scrollTo({ top, behavior: 'smooth' });
+  }
 };
 
 // ── BACK TO TOP ───────────────────────────────────────────────────────────
