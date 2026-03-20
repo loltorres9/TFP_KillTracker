@@ -17,6 +17,9 @@ All notable changes to TFP Kill Tracker are documented here.
 - **Player Comparison** — pick any two players from dropdowns for a side-by-side stat table across all infantry and vehicle stats; winning value highlighted in green
 - **Collapsible sections** — every section header is now a clickable toggle (▼/▶); the 8 new sections default to collapsed, Infantry and Vehicle tables default to open; open/closed state persists in `localStorage`
 
+### Changed
+- **Weapon Leaderboard** — right-click the Total Kills column header or any cell to toggle between total kills and kills/user (per-user average); active mode shows an amber `~/u` prefix in the header and highlights values in amber; sorting ranks by kills/user when the toggle is active
+
 ### Fixed
 - K/D Trend chart Y-axis generating 40+ grid labels at high K/D values (e.g. max K/D ≈ 20 with 0.5 step); replaced with a "nice number" algorithm targeting ~6 grid lines regardless of data range
 
