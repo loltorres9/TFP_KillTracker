@@ -150,6 +150,28 @@ function reimportOCAP() {
         };
       }
     });
+    // Rename unknown entities that share group+role with exactly one named player.
+    // This recovers stats for players whose name was missing in OCAP data but whose
+    // squad slot (group + role) matches a known player in the same mission.
+    const namedByGroupRole = {};
+    Object.values(players).forEach(p => {
+      if (!p.isUnknown && p.group && p.role) {
+        const key = `${p.group}|${p.role}`;
+        if (!namedByGroupRole[key]) namedByGroupRole[key] = [];
+        namedByGroupRole[key].push(p.name);
+      }
+    });
+    Object.values(players).forEach(p => {
+      if (p.isUnknown && p.group && p.role) {
+        const key = `${p.group}|${p.role}`;
+        const candidates = namedByGroupRole[key];
+        if (candidates && candidates.length === 1) {
+          Logger.log(`Renaming unknown → ${candidates[0]} [group=${p.group}, role=${p.role}]`);
+          p.name = candidates[0];
+          p.isUnknown = false;
+        }
+      }
+    });
     // Pre-compute distance run on foot (sum of 2D distance between consecutive frames
     // where the player is alive and not in a vehicle).
     // Steps larger than maxStepMeters are treated as teleports and ignored.
