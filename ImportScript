@@ -38,6 +38,8 @@ function importOCAP(forceReimport = false) {
     "Shots/Kill (In Vehicle)", "Avg Kill Dist In Vehicle (m)", "Longest Kill In Vehicle (m)",
     // Weapon stats
     "Top Weapon", "Weapon Kills (JSON)",
+    // Vehicle kill detail list
+    "Vehicle Kills (JSON)",
     // Misc
     "Suicides",
     "Time Played (s)",
@@ -149,6 +151,8 @@ function importOCAP(forceReimport = false) {
           framesFired: Array.isArray(e.framesFired) ? e.framesFired : [],
           // Weapon stats
           weaponKills: {},
+          // Vehicle kill detail list (for per-mission vehicle overview)
+          vehicleKillList: [],
           // Misc
           suicides: 0,
           isZeus: isZeus(e),
@@ -256,6 +260,9 @@ function importOCAP(forceReimport = false) {
             } else {
               players[killerId].vehicleKillsOnFoot++;
             }
+            const vehicleName = victim ? (victim.name || "Unknown Vehicle") : "Unknown Vehicle";
+            const vehicleWeapon = (killerInfo && killerInfo[1]) ? killerInfo[1] : "Unknown";
+            players[killerId].vehicleKillList.push({ v: vehicleName, w: vehicleWeapon });
           }
         } else if (victimType === "unit") {
           if (isSameSide) {
@@ -316,6 +323,7 @@ function importOCAP(forceReimport = false) {
         p.killDistOnFoot = [];
         p.killDistInVehicle = [];
         p.weaponKills = {};
+        p.vehicleKillList = [];
       }
       const kdFoot = p.deathsOnFoot > 0 ? (p.killsOnFoot / p.deathsOnFoot).toFixed(2) : p.killsOnFoot.toFixed(2);
       const kdVeh = p.deathsInVehicle > 0 ? (p.killsInVehicle / p.deathsInVehicle).toFixed(2) : p.killsInVehicle.toFixed(2);
@@ -362,6 +370,7 @@ function importOCAP(forceReimport = false) {
         lkVeh !== "" ? lkVeh : "",
         topWeapon,
         weaponJson,
+        p.vehicleKillList.length > 0 ? JSON.stringify(p.vehicleKillList) : "",
         p.suicides,
         Math.round(p.timePlayed),
         parseFloat((p.distanceRun / 1000).toFixed(1)),

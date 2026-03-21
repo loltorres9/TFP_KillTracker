@@ -1695,10 +1695,12 @@ const MH_COLS = [
   { label: "K/D",        key: "kd",              numeric: true,  sortKey: "kd",    fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",         key: "tk",              numeric: true,  sortKey: "tk",    css: tkClass },
   { label: "Top Killer", key: "topKiller",       numeric: false, sortKey: "topKillerKills" },
+  { label: "Vehicles",   key: "vehCount",        numeric: true,  sortKey: "vehCount" },
 ];
 
 function renderMissionHistory() {
   const map = {};
+  const missionVehicleKills = {}; // key -> [{vehicle, killer, weapon}, ...]
   filteredRows.forEach(r => {
     const src   = r["Source File"] || "";
     const name  = r["Mission"] || src || "—";
@@ -1707,7 +1709,7 @@ function renderMissionHistory() {
     if (!map[key]) {
       const ms = src.match(/(\d{4})_(\d{2})_(\d{2})/);
       map[key] = {
-        name, world, dateSort: src,
+        _key: key, name, world, dateSort: src,
         date: ms ? `${ms[3]}/${ms[2]}/${ms[1]}` : missionDate(name),
         players: new Set(), kills: 0, deaths: 0, tk: 0, killerKills: {},
       };
@@ -1720,12 +1722,25 @@ function renderMissionHistory() {
     m.deaths += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
     m.tk     += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
     if (pname && kof > 0) m.killerKills[pname] = (m.killerKills[pname] || 0) + kof;
+    // Vehicle kill details
+    const vkJson = r["Vehicle Kills (JSON)"] || r["Vehicle Kills (JSON)\r"] || "";
+    if (vkJson) {
+      try {
+        const vkList = JSON.parse(vkJson);
+        if (Array.isArray(vkList)) {
+          if (!missionVehicleKills[key]) missionVehicleKills[key] = [];
+          vkList.forEach(vk => missionVehicleKills[key].push({ vehicle: vk.v, killer: pname, weapon: vk.w }));
+        }
+      } catch(e) {}
+    }
   });
 
   const data = Object.values(map).map(m => {
     const top = Object.entries(m.killerKills).sort((a, b) => b[1] - a[1])[0];
+    const vkList = missionVehicleKills[m._key] || [];
     return { ...m, players: m.players.size, kd: m.deaths > 0 ? m.kills / m.deaths : m.kills,
-      topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0 };
+      topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0,
+      vehCount: vkList.length, _vkList: vkList };
   });
 
   const sorted = _sortArr(data, MH_COLS, mhSortCol, mhSortAsc);
@@ -1733,15 +1748,44 @@ function renderMissionHistory() {
   const tbody = document.getElementById("missionHistBody");
   if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${MH_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
   tbody.innerHTML = sorted.map(m => {
-    const cells = MH_COLS.map(col => {
+    const cells = MH_COLS.map((col, ci) => {
       const raw = m[col.key];
-      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      let val;
+      if (col.key === "vehCount") {
+        val = raw > 0
+          ? `<span style="font-weight:600;color:var(--charcoal)">${raw}</span> <span style="font-size:0.72rem;color:#aaa">▼</span>`
+          : "—";
+      } else {
+        val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
+      }
       const cls = col.css ? col.css(raw) : "";
       return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
     });
-    return `<tr>${cells.join("")}</tr>`;
+    const safeKey = (m._key || m.name).replace(/[^a-zA-Z0-9]/g, '_');
+    const hasVeh = m._vkList && m._vkList.length > 0;
+    const vehRow = hasVeh ? `<tr id="veh-detail-${safeKey}" style="display:none"><td colspan="${MH_COLS.length}" style="background:#f8f8f8;padding:0">
+      <table style="width:100%;font-size:0.78rem;border-collapse:collapse">
+        <thead><tr style="background:#eee">
+          <th style="text-align:left;padding:5px 12px;font-weight:600">Vehicle</th>
+          <th style="text-align:left;padding:5px 12px;font-weight:600">Killer</th>
+          <th style="text-align:left;padding:5px 12px;font-weight:600">Weapon</th>
+        </tr></thead>
+        <tbody>${m._vkList.map((vk, i) =>
+          `<tr style="background:${i%2===0?'#f8f8f8':'#fff'}">
+            <td style="padding:4px 12px">${vk.vehicle}</td>
+            <td style="padding:4px 12px">${vk.killer}</td>
+            <td style="padding:4px 12px">${vk.weapon}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </td></tr>` : '';
+    return `<tr${hasVeh ? ` onclick="_toggleMHVeh('${safeKey}')" style="cursor:pointer"` : ""}>${cells.join("")}</tr>${vehRow}`;
   }).join("");
 }
+window._toggleMHVeh = function(safeKey) {
+  const row = document.getElementById('veh-detail-' + safeKey);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+};
 window._sortMH = function(col) {
   if (mhSortCol === col) mhSortAsc = !mhSortAsc;
   else { mhSortCol = col; mhSortAsc = !MH_COLS[col].numeric; }
