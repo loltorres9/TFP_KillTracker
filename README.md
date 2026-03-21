@@ -122,6 +122,16 @@ The script automatically creates the `player_stats` sheet and header row on firs
 
 A kill is counted as a **teamkill** when `victim.side === killer.side` on a unit-kill event. It is never counted as a regular kill or weapon kill. Vehicle destructions are never counted as teamkills regardless of side.
 
+### End-of-mission TK suppression
+
+Teamkills that occur during end-of-mission celebrations are automatically excluded using three overlapping heuristics:
+
+| Heuristic | Condition | Rationale |
+|-----------|-----------|-----------|
+| Time window | TK in the last **2 min** before `endMission` | Hard cutoff — mission is over |
+| Close-range extended | Distance ≤ **15 m** within last **3 min** | Grenade drops slightly before official end |
+| Burst | **3+ TKs** in any **60 s** rolling window | Group grenade / celebration volley |
+
 ## Deployment
 
 The site deploys automatically via GitHub Actions:
