@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.0  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.1  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -183,7 +183,7 @@ bullet(doc, 'Zero dependencies — no npm, no bundler, no framework.')
 bullet(doc, 'Two-file front-end — index.html (structure + CSS) and tracker.js (all JavaScript); split for CSP compliance on GitHub Pages.')
 bullet(doc, 'Stateless server — all state is in-memory JavaScript variables; nothing is persisted server-side.')
 bullet(doc, 'Re-aggregate on every filter change — guarantees all derived metrics stay consistent.')
-bullet(doc, 'Collapsible sections — each of the 10 content sections can be independently collapsed; state persists in localStorage.')
+bullet(doc, 'Collapsible sections — each of the 11 content sections can be independently collapsed; state persists in localStorage.')
 
 doc.add_page_break()
 
@@ -244,6 +244,8 @@ add_table(doc,
         ['vehSortAsc', 'boolean', 'false', 'Sort direction for vehicle table'],
         ['unitSortCol', 'number', '2', 'Active sort column index for unit leaderboard'],
         ['unitSortAsc', 'boolean', 'false', 'Sort direction for unit leaderboard'],
+        ['vkSortCol', 'number', '0', 'Active sort column index for vehicle kills section'],
+        ['vkSortAsc', 'boolean', 'false', 'Sort direction for vehicle kills section'],
         ['wpSortCol', 'number', '0', 'Active sort column index for weapon leaderboard'],
         ['wpSortAsc', 'boolean', 'false', 'Sort direction for weapon leaderboard'],
         ['currentModalPlayer', 'string', '""', 'Player name currently shown in detail modal'],
@@ -576,12 +578,23 @@ add_para(doc,
 add_heading(doc, '6.8 renderMissionHistory()', 2)
 add_para(doc,
     'Builds a chronological table of every unique mission in filteredRows. '
-    'Per-mission totals: date, world, player count, kills, deaths, K/D, TK, '
+    'Per-mission totals: date, world, player count, kills, deaths, K/D, TK, vehicle kills, '
     'and top killer (player with highest kills in that mission). '
     'Sorted by date descending.',
     space_after=6)
 
-add_heading(doc, '6.9 renderWeaponLeaderboard()', 2)
+add_heading(doc, '6.9 renderVehicleKillsSection()', 2)
+add_para(doc,
+    'Renders a flat list of every vehicle destruction across all filteredRows. '
+    'Parses the Vehicle Kills (JSON) column (an array of {v: vehicle, w: weapon} objects) '
+    'for each player row and expands them into individual records. '
+    'Columns: date, mission, vehicle, killer, weapon. '
+    'All columns are sortable via window._sortVK(). '
+    'If no vehicle kill data exists (missions imported before the JSON column was added), '
+    'a prompt is shown to reimport with the updated script.',
+    space_after=6)
+
+add_heading(doc, '6.10 renderWeaponLeaderboard()', 2)
 add_para(doc,
     'Merges Weapon Kills (JSON) objects across all filteredRows. '
     'Displays top-50 weapons with total kills, user count, top user, and kill share %. '
@@ -589,21 +602,21 @@ add_para(doc,
     'A live search input above the table filters rows by weapon name substring.',
     space_after=6)
 
-add_heading(doc, '6.10 renderMapStats()', 2)
+add_heading(doc, '6.11 renderMapStats()', 2)
 add_para(doc,
     'Groups filteredRows by World column. '
     'Per-map totals: kills, deaths, K/D, TK, mission count, player count. '
     'Sorted by kills descending.',
     space_after=6)
 
-add_heading(doc, '6.11 renderRoleLeaderboard()', 2)
+add_heading(doc, '6.12 renderRoleLeaderboard()', 2)
 add_para(doc,
     'Groups filteredPlayers by their topRole (normalised). '
     'Per-role aggregates: player count, total kills, deaths, K/D, avg K/D. '
     'Sorted by kills descending.',
     space_after=6)
 
-add_heading(doc, '6.12 renderAttendance()', 2)
+add_heading(doc, '6.13 renderAttendance()', 2)
 add_para(doc,
     'Builds a per-player attendance table. '
     'Columns: player, missions attended, attendance % (relative to total missions in filtered set), '
@@ -611,7 +624,7 @@ add_para(doc,
     'Sorted by mission count descending.',
     space_after=6)
 
-add_heading(doc, '6.13 renderKdTrend()', 2)
+add_heading(doc, '6.14 renderKdTrend()', 2)
 add_para(doc,
     'Renders an SVG line chart (viewBox 900x220) of K/D ratio over time. '
     'Data points are per-mission K/D values grouped by source file date. '
@@ -621,14 +634,14 @@ add_para(doc,
     'A "nice number" algorithm targets ~6 Y-axis grid lines regardless of data range.',
     space_after=6)
 
-add_heading(doc, '6.14 renderComparison()', 2)
+add_heading(doc, '6.15 renderComparison()', 2)
 add_para(doc,
     'Side-by-side stat comparison between two players selected from dropdowns. '
     'Renders a table of all infantry and vehicle metrics; the higher value in each '
     'row is highlighted in green. Draws from filteredPlayers for current filter context.',
     space_after=6)
 
-add_heading(doc, '6.15 Section Nav Bar & toggleSection()', 2)
+add_heading(doc, '6.16 Section Nav Bar & toggleSection()', 2)
 add_para(doc,
     'A sticky dark tab strip (#sectionNav) sits at the top of the page with one button per section. '
     'Clicking a button calls navTo(key), which expands the section if collapsed, '
@@ -737,7 +750,8 @@ functions = [
     ('sortPlayers(arr, col, asc, cols)', 'Rendering', 'arr, colIdx, ascending, cols[]', 'Object[]', 'Generic sort; uses cols[col].sortKey; nulls sorted to end.'),
     # Rendering — new sections
     ('renderUnitLeaderboard()', 'Rendering', '—', 'void', 'Aggregates filteredPlayers by unit and renders the unit leaderboard table.'),
-    ('renderMissionHistory()', 'Rendering', '—', 'void', 'Renders chronological mission history table from filteredRows.'),
+    ('renderMissionHistory()', 'Rendering', '—', 'void', 'Renders chronological mission history table from filteredRows; includes vehicle kill count per mission.'),
+    ('renderVehicleKillsSection()', 'Rendering', '—', 'void', 'Expands Vehicle Kills (JSON) rows into a flat sortable table of vehicle destructions (vehicle, killer, weapon).'),
     ('renderWeaponLeaderboard()', 'Rendering', '—', 'void', 'Merges weapon kill JSON across filteredRows and renders weapon leaderboard.'),
     ('renderMapStats()', 'Rendering', '—', 'void', 'Groups filteredRows by World and renders map stats table.'),
     ('renderRoleLeaderboard()', 'Rendering', '—', 'void', 'Groups filteredPlayers by topRole and renders role leaderboard.'),
@@ -763,6 +777,7 @@ functions = [
     ('window._sortVeh(col)', 'Sort', 'col: number', 'void', 'Vehicle table header click handler; toggles direction if same column.'),
     ('window._sortUnit(col)', 'Sort', 'col: number', 'void', 'Unit leaderboard header click handler.'),
     ('window._sortWp(col)', 'Sort', 'col: number', 'void', 'Weapon leaderboard header click handler.'),
+    ('window._sortVK(col)', 'Sort', 'col: number', 'void', 'Vehicle kills section header click handler; toggles direction if same column.'),
 ]
 
 add_table(doc,
@@ -968,6 +983,7 @@ steps = [
     ('renderVehicleTable()', '#vehicleBody + #vehicleHead populated.'),
     ('renderUnitLeaderboard()', '#unitLbBody populated (section collapsed by default).'),
     ('renderMissionHistory()', '#missionHistBody populated (section collapsed by default).'),
+    ('renderVehicleKillsSection()', '#vehKillsBody populated (section collapsed by default).'),
     ('renderWeaponLeaderboard()', '#wpBody populated (section collapsed by default).'),
     ('renderMapStats()', '#mapBody populated (section collapsed by default).'),
     ('renderRoleLeaderboard()', '#roleBody populated (section collapsed by default).'),
@@ -1000,6 +1016,74 @@ add_para(doc,
     'browsers (Chrome 80+, Firefox 75+, Safari 13+, Edge 80+). '
     'Internet Explorer is not supported.',
     space_after=6)
+
+doc.add_paragraph()
+add_heading(doc, 'Appendix D — ImportScript Reference', 1)
+add_para(doc,
+    'ImportScript is a Google Apps Script that reads OCAP .json.gz mission logs from '
+    'Google Drive and writes one row per player per mission into the player_stats Google Sheet.',
+    space_after=6)
+
+add_heading(doc, 'D.1 Required Google Drive Folder Structure', 2)
+add_code(doc, 'Kill Tracker/')
+add_code(doc, '├── OCAP_Logs/          ← drop .json.gz files here before running')
+add_code(doc, '└── OCAP_Logs_Archive/  ← processed files are moved here automatically')
+doc.add_paragraph()
+
+add_heading(doc, 'D.2 Installation', 2)
+numbered(doc, 'Open your Google Sheet.')
+numbered(doc, 'Go to Extensions → Apps Script.')
+numbered(doc, 'Paste the contents of ImportScript into the editor and save.')
+numbered(doc, 'Run reimportOCAP to process one file from OCAP_Logs.')
+doc.add_paragraph()
+
+add_heading(doc, 'D.3 Entry Point', 2)
+add_table(doc,
+    ['Function', 'Description'],
+    [
+        ['reimportOCAP()', 'Process (or re-process) the next file from OCAP_Logs; deletes any existing rows for that file before writing, making every run idempotent; archives the file to OCAP_Logs_Archive on completion'],
+    ]
+)
+doc.add_paragraph()
+
+add_heading(doc, 'D.4 Unknown Entity Resolution', 2)
+add_para(doc,
+    'OCAP sometimes records entities without a name (e.g. players who disconnect before '
+    'their name is synced). The script attempts to resolve these automatically:',
+    space_after=4)
+bullet(doc, 'Unnamed entities with < 1 hour playtime are skipped entirely (reconnect ghosts, JIP artefacts).')
+bullet(doc, 'Remaining unknown entities are matched against named players who share the same group and role in the same mission.')
+bullet(doc, 'If exactly one named player maps to that group+role (after deduplicating candidates from reconnects), the unknown entity is renamed to that player.')
+bullet(doc, 'If a role string contains "@username" (e.g. "Rifleman@Zeus"), the script correctly detects it as a Zeus role.')
+doc.add_paragraph()
+
+add_heading(doc, 'D.5 Friendly Fire Counting', 2)
+add_para(doc,
+    'A kill is counted as a teamkill when victim.side === killer.side on a unit-kill event. '
+    'It is never counted as a regular kill or weapon kill. '
+    'Vehicle destructions are never counted as teamkills regardless of side.',
+    space_after=6)
+
+add_heading(doc, 'D.6 Sheet Schema', 2)
+add_para(doc,
+    'The script writes one row per player per mission. '
+    'See §3.2 Expected Column Schema for the full column list. '
+    'The sheet and header row are created automatically on first run; '
+    'missing columns are migrated when the script is run against an existing sheet.',
+    space_after=6)
+
+doc.add_page_break()
+
+# ── Changelog reference ───────────────────────────────────────────────────────
+
+add_heading(doc, 'Changelog', 1)
+add_para(doc,
+    'A full history of changes — new features, fixes, and breaking changes — '
+    'is maintained in CHANGELOG.md at the root of the repository.',
+    space_after=4)
+add_para(doc,
+    'GitHub: https://github.com/loltorres9/TFP_KillTracker/blob/main/CHANGELOG.md',
+    italic=True, space_after=6)
 
 # ── Save ──────────────────────────────────────────────────────────────────────
 

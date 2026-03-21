@@ -13,7 +13,8 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 
 ### Leaderboards & Charts
 - **Unit Leaderboard** — aggregates stats by unit (2nd USC, CNTO, PXG, TFP); columns include kills, K/D, vehicle kills, kills/player, avg K/D, missions, distance run, time played; all columns sortable; right-click raw-count columns to toggle per-mission averages
-- **Mission History** — chronological table of every mission with date, world, player count, kills/deaths, K/D, TK, and top killer
+- **Mission History** — chronological table of every mission with date, world, player count, kills/deaths, K/D, TK, vehicle kills, and top killer
+- **Vehicle Kills** — dedicated table listing every vehicle destruction across all (filtered) missions; columns: vehicle, killer, weapon
 - **Weapon Leaderboard** — aggregates weapon kill JSON across all filtered players; shows total kills, user count, top user, kill share %; right-click the Total Kills header to toggle kills/user mode; live search box to filter by weapon name
 - **Map Stats** — kills, deaths, K/D, TK, and mission/player counts grouped by world/map
 - **Role Leaderboard** — kills, deaths, K/D, and avg K/D grouped by each player's primary role
@@ -107,14 +108,13 @@ Kill Tracker/
 1. Open your Google Sheet.
 2. Go to **Extensions → Apps Script**.
 3. Paste the contents of `ImportScript` into the editor and save.
-4. Run `importOCAP` to process one file from `OCAP_Logs`.
+4. Run `reimportOCAP` to process one file from `OCAP_Logs`.
 
 ### Functions
 
 | Function | Description |
 |----------|-------------|
-| `importOCAP()` | Process the next unimported file; skips already-imported filenames |
-| `reimportOCAP()` | Re-process the next file even if it was previously imported (deletes existing rows first) |
+| `reimportOCAP()` | Process (or re-process) the next file; deletes any existing rows for that file before writing, making every run idempotent |
 
 The script automatically creates the `player_stats` sheet and header row on first run, and migrates any missing columns when run against an existing sheet.
 
