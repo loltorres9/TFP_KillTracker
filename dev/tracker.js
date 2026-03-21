@@ -101,7 +101,7 @@ Promise.all([
       header.forEach((h,i) => {
         const raw = cols[i] || "";
         // Don't strip quotes from JSON columns
-        obj[h] = h === "Weapon Kills (JSON)" ? raw.trim() : raw.replace(/"/g,"").replace(/\r/g,"").trim();
+        obj[h] = (h === "Weapon Kills (JSON)" || h === "Vehicle Kills (JSON)") ? raw.trim() : raw.replace(/"/g,"").replace(/\r/g,"").trim();
       });
       return obj;
     }).filter(r => r["Username"]);
