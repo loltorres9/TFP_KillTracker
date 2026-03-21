@@ -45,18 +45,10 @@ function reimportOCAP() {
     // Vehicle kill detail list
     "Vehicle Kills (JSON)"
   ];
-  if (statsSheet.getLastRow() === 0) {
-    statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
-  } else {
-    // Migrate: append any columns that exist in header but not yet in the sheet
-    const existingHeader = statsSheet.getRange(1, 1, 1, statsSheet.getLastColumn()).getValues()[0];
-    header.forEach((col, i) => {
-      if (!existingHeader.includes(col)) {
-        statsSheet.getRange(1, i + 1).setValue(col);
-        Logger.log(`Added missing header column: ${col}`);
-      }
-    });
-  }
+  // Always write the canonical header so the column order is guaranteed correct.
+  // Data rows are always deleted and rewritten on each import, so there's no
+  // risk of misalignment with existing rows.
+  statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
   // Build set of already-imported filenames from column A
   const importedFiles = new Set();
   if (statsSheet.getLastRow() > 1) {
@@ -387,6 +379,23 @@ function reimportOCAP() {
         rows.length,
         rows[0].length
       ).setValues(rows);
+    }
+    // Format as table
+    const lastRow = statsSheet.getLastRow();
+    const numCols = header.length;
+    // Freeze header row
+    statsSheet.setFrozenRows(1);
+    // Header style: bold, dark background, white text
+    const headerRange = statsSheet.getRange(1, 1, 1, numCols);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#424242");
+    headerRange.setFontColor("#ffffff");
+    headerRange.setHorizontalAlignment("center");
+    // Banded rows on the full data range
+    if (lastRow > 1) {
+      statsSheet.getBandings().forEach(b => b.remove());
+      statsSheet.getRange(1, 1, lastRow, numCols)
+        .applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false);
     }
     // Archive processed file
     archiveFolder.addFile(file);
