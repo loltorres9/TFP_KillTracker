@@ -38,12 +38,12 @@ function importOCAP(forceReimport = false) {
     "Shots/Kill (In Vehicle)", "Avg Kill Dist In Vehicle (m)", "Longest Kill In Vehicle (m)",
     // Weapon stats
     "Top Weapon", "Weapon Kills (JSON)",
-    // Vehicle kill detail list
-    "Vehicle Kills (JSON)",
     // Misc
     "Suicides",
     "Time Played (s)",
-    "Distance Run (km)"
+    "Distance Run (km)",
+    // Vehicle kill detail list
+    "Vehicle Kills (JSON)"
   ];
   if (statsSheet.getLastRow() === 0) {
     statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
@@ -370,10 +370,10 @@ function importOCAP(forceReimport = false) {
         lkVeh !== "" ? lkVeh : "",
         topWeapon,
         weaponJson,
-        p.vehicleKillList.length > 0 ? JSON.stringify(p.vehicleKillList) : "",
         p.suicides,
         Math.round(p.timePlayed),
         parseFloat((p.distanceRun / 1000).toFixed(1)),
+        p.vehicleKillList.length > 0 ? JSON.stringify(p.vehicleKillList) : "",
       ]);
     });
     // Sort by on-foot kills descending
