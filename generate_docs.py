@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.1  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.2  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -1064,7 +1064,29 @@ add_para(doc,
     'Vehicle destructions are never counted as teamkills regardless of side.',
     space_after=6)
 
-add_heading(doc, 'D.6 Sheet Schema', 2)
+add_heading(doc, 'D.6 End-of-Mission TK Suppression', 2)
+add_para(doc,
+    'Teamkills that occur during end-of-mission celebrations (players shooting each other '
+    'or dropping grenades after the mission is won) are automatically excluded. '
+    'Three overlapping heuristics are evaluated for each same-side kill event:',
+    space_after=4)
+add_table(doc,
+    ['Heuristic', 'Condition', 'Rationale'],
+    [
+        ['Time window',          'TK occurs in the last 2 min (120 s) before endMission',                   'Hard cutoff — mission is officially over'],
+        ['Close-range extended', 'Distance ≤ 15 m AND within last 3 min (180 s) of endMission',            'Grenade drops / pistol shots just before the end event fires'],
+        ['Burst detection',      '3 or more TKs fall within any 60-second rolling window',                 'Group grenade throw or celebration volley earlier in the timeline'],
+    ]
+)
+doc.add_paragraph()
+add_para(doc,
+    'The endMission frame is read from the endMission event in the OCAP event stream; '
+    'if absent, data.endFrame is used as a fallback. '
+    'All thresholds are named constants at the top of the suppression block and can be '
+    'tuned independently.',
+    space_after=6)
+
+add_heading(doc, 'D.7 Sheet Schema', 2)
 add_para(doc,
     'The script writes one row per player per mission. '
     'See §3.2 Expected Column Schema for the full column list. '

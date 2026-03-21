@@ -222,6 +222,65 @@ function reimportOCAP() {
     (data.events || []).forEach(event => {
       if (event[1] === "disconnected") disconnectFrames.add(`${event[2]}:${event[0]}`);
     });
+
+    // ── End-of-mission TK suppression ─────────────────────────────────────
+    // At the end of many missions players celebrate by shooting each other or
+    // dropping grenades — these should not count as teamkills in the stats.
+    // Three overlapping heuristics are used:
+    //   1. WINDOW  — any TK in the last EOM_WINDOW_S seconds before mission end.
+    //   2. RANGE   — any close-range TK (≤ EOM_CLOSE_M) in the last
+    //                EOM_RANGE_WINDOW_S seconds (catches grenade drops a bit earlier).
+    //   3. BURST   — any TK that is part of a cluster of ≥ EOM_BURST_COUNT TKs
+    //                within a EOM_BURST_WINDOW-second rolling window.
+    const EOM_WINDOW_S      = 120; // hard cutoff: last 2 min
+    const EOM_RANGE_WINDOW_S = 180; // extended cutoff for close-range kills
+    const EOM_CLOSE_M       = 15;  // grenade / pistol range threshold (metres)
+    const EOM_BURST_WINDOW  = 60;  // rolling window for burst detection (seconds)
+    const EOM_BURST_COUNT   = 3;   // min TKs in window to flag as a burst
+
+    // Find the frame at which the mission officially ended.
+    const endMissionFrame = (() => {
+      for (const ev of (data.events || [])) {
+        if (ev[1] === "endMission") return ev[0];
+      }
+      return data.endFrame != null ? data.endFrame : Infinity;
+    })();
+
+    // Pre-collect all same-side unit kills (by frame) for burst detection.
+    const tkFrameList = [];
+    (data.events || []).forEach(ev => {
+      if (ev[1] !== "killed") return;
+      const vId  = ev[2];
+      const kId  = ev[3] ? ev[3][0] : null;
+      if (!kId || kId === vId) return;
+      const v = entities[vId], k = entities[kId];
+      if (v && k && v.type === "unit" && v.side === k.side) tkFrameList.push(ev[0]);
+    });
+    tkFrameList.sort((a, b) => a - b);
+
+    // Binary-search helper: count TKs within [frame-half, frame+half].
+    function tkBurstCount(frame) {
+      const half = EOM_BURST_WINDOW / 2;
+      const lo   = frame - half;
+      const hi   = frame + half;
+      let left = 0, right = tkFrameList.length;
+      while (left < right) { const m = (left + right) >> 1; if (tkFrameList[m] < lo) left = m + 1; else right = m; }
+      const start = left;
+      left = 0; right = tkFrameList.length;
+      while (left < right) { const m = (left + right) >> 1; if (tkFrameList[m] <= hi) left = m + 1; else right = m; }
+      return left - start;
+    }
+
+    function isEomTk(frame, distance) {
+      const fromEnd = endMissionFrame - frame;
+      if (fromEnd < 0)                                        return true;
+      if (fromEnd <= EOM_WINDOW_S)                            return true;
+      if (fromEnd <= EOM_RANGE_WINDOW_S && distance <= EOM_CLOSE_M) return true;
+      if (tkBurstCount(frame) >= EOM_BURST_COUNT)            return true;
+      return false;
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     // Process events
     (data.events || []).forEach(event => {
       const frame = event[0];
@@ -278,10 +337,12 @@ function reimportOCAP() {
           }
         } else if (victimType === "unit") {
           if (isSameSide) {
-            if (killerInVehicle) {
-              players[killerId].teamkillsInVehicle++;
-            } else {
-              players[killerId].teamkillsOnFoot++;
+            if (!isEomTk(frame, distance)) {
+              if (killerInVehicle) {
+                players[killerId].teamkillsInVehicle++;
+              } else {
+                players[killerId].teamkillsOnFoot++;
+              }
             }
           } else {
             if (killerInVehicle) {
