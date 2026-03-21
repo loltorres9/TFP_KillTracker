@@ -156,14 +156,14 @@ function reimportOCAP() {
     const namedByGroupRole = {};
     Object.values(players).forEach(p => {
       if (!p.isUnknown && p.group && p.role) {
-        const key = `${p.group}|${p.role}`;
+        const key = `${p.group.trim()}|${p.role.trim()}`;
         if (!namedByGroupRole[key]) namedByGroupRole[key] = [];
         namedByGroupRole[key].push(p.name);
       }
     });
     Object.values(players).forEach(p => {
       if (p.isUnknown && p.group && p.role) {
-        const key = `${p.group}|${p.role}`;
+        const key = `${p.group.trim()}|${p.role.trim()}`;
         const candidates = namedByGroupRole[key];
         if (candidates && candidates.length === 1) {
           Logger.log(`Renaming unknown → ${candidates[0]} [group=${p.group}, role=${p.role}]`);
