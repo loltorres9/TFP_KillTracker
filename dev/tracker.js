@@ -1758,7 +1758,6 @@ const VK_COLS = [
   { label: "Mission", key: "mission", numeric: false, sortKey: "mission" },
   { label: "Vehicle", key: "vehicle", numeric: false, sortKey: "vehicle" },
   { label: "Killer",  key: "killer",  numeric: false, sortKey: "killer" },
-  { label: "Weapon",  key: "weapon",  numeric: false, sortKey: "weapon" },
 ];
 
 function renderVehicleKillsSection() {
