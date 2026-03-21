@@ -107,7 +107,8 @@ function reimportOCAP() {
       if (!entity) return false;
       const group = (entity.group || "").toLowerCase();
       const role = (entity.role || "").toLowerCase();
-      return group === "zeus" || role.startsWith("zeus");
+      // Split on "@" so roles like "Rifleman@Zeus" are also detected
+      return group === "zeus" || role.split("@").some(part => part.startsWith("zeus"));
     }
     // Build player stats
     const players = {};
