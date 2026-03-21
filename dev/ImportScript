@@ -123,9 +123,9 @@ function importOCAP(forceReimport = false) {
     // Build player stats
     const players = {};
     (data.entities || []).forEach(e => {
-      if (e.isPlayer === 1) {
+      if (e.isPlayer === 1 || (e.isPlayer === 0 && !e.name)) {
         players[e.id] = {
-          name: e.name,
+          name: e.name || "Unknown",
           side: e.side,
           role: e.role || "",
           group: e.group || "",
