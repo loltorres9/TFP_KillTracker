@@ -125,7 +125,7 @@ function importOCAP(forceReimport = false) {
     (data.entities || []).forEach(e => {
       if (e.isPlayer === 1 || (e.isPlayer === 0 && !e.name)) {
         players[e.id] = {
-          name: e.name || "Unknown",
+          name: e.name || `Unknown ${e.id}`,
           side: e.side,
           role: e.role || "",
           group: e.group || "",
