@@ -4,9 +4,14 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## 2026-03-21 (latest)
+## v1.018 — 2026-03-21 (latest)
 
 ### Added
+- **Version number** — `VERSION` constant in `tracker.js`; displayed in the site footer next to the release date (`v1.018 · 21 Mar 2026`); version tags added to all changelog entries going forward
+- **End-of-mission TK suppression** — ImportScript now detects and ignores teamkills that occur during end-of-mission celebrations (players shooting each other / dropping grenades after the mission is won). Three overlapping heuristics:
+  - **Time window** — any TK in the last **2 minutes** before `endMission` is suppressed unconditionally
+  - **Close-range extended window** — TKs within **15 m** (grenade / pistol range) in the last **3 minutes** are suppressed
+  - **Burst detection** — if **3 or more** TKs occur within any **60-second rolling window**, all TKs in that cluster are suppressed (catches group grenade throws earlier in the timeline)
 - **Vehicle Kills section** — dedicated table below Mission History listing every vehicle destruction per mission; columns: vehicle, killer, weapon; linked from the sticky section nav bar
 - **Vehicle kills in Mission History** — per-mission vehicle kill count shown alongside kills/deaths in the mission table
 - **Unknown entity IDs** — unnamed OCAP entities now shown as "Unknown 257" (entity ID appended) to help cross-reference replays
