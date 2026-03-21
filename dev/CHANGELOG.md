@@ -4,6 +4,28 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
+## 2026-03-21 (latest)
+
+### Added
+- **Vehicle Kills section** — dedicated table below Mission History listing every vehicle destruction per mission; columns: vehicle, killer, weapon; linked from the sticky section nav bar
+- **Vehicle kills in Mission History** — per-mission vehicle kill count shown alongside kills/deaths in the mission table
+- **Unknown entity IDs** — unnamed OCAP entities now shown as "Unknown 257" (entity ID appended) to help cross-reference replays
+
+### Changed
+- **ImportScript: single entry point** — `importOCAP()` removed; `reimportOCAP()` is now the only function to run; it deletes existing rows for the file before writing, making every run idempotent
+- **ImportScript: sheet formatting** — `player_stats` sheet has column alignment and table formatting applied automatically after each import
+- **Analytics** — replaced Google Analytics with Microsoft Clarity
+
+### Fixed
+- **Distance Run broken after column insertion** — adding the Vehicle Kills (JSON) column shifted column indices, zeroing out Distance Run; column order in ImportScript now inserts Vehicle Kills (JSON) without disturbing Distance Run
+- **Vehicle Kills (JSON) quotes stripped** — CSV parser was removing quotes around the JSON blob; fixed quoting so the field round-trips correctly
+- **Unknown → player rename: trailing spaces** — group/role strings from OCAP sometimes include trailing spaces; both sides are now trimmed before the key is built
+- **Unknown → player rename: duplicate candidates** — a player who disconnects and reconnects gets two entities with identical group+role, causing `candidates.length > 1` and blocking the rename; candidates are now deduplicated by name before the uniqueness check
+- **Zeus detection in ImportScript** — roles formatted as `Rifleman@Zeus` are now correctly identified as Zeus; previously only `Zeus` as the full role string was caught
+- **Unknown players with < 1 h playtime excluded** — short-lived unknown entities (reconnect ghosts, JIP entities) are no longer written to the sheet
+
+---
+
 ## 2026-03-20 (latest)
 
 ### Fixed
