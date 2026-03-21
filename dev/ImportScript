@@ -143,6 +143,7 @@ function reimportOCAP() {
           vehicleKillList: [],
           // Misc
           suicides: 0,
+          isUnknown: !e.name,
           isZeus: isZeus(e),
           timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
           distanceRun: 0,
@@ -292,6 +293,8 @@ function reimportOCAP() {
     const worldName = data.worldName || "";
     const rows = [];
     Object.values(players).forEach(p => {
+      // Skip unknowns (no name in OCAP data) with less than 1 hour of playtime
+      if (p.isUnknown && Math.round(p.timePlayed) < 3600) return;
       // Zeus: zero all combat stats
       if (p.isZeus) {
         p.killsOnFoot = 0;
