@@ -383,6 +383,7 @@
       <button class="snav-btn" onclick="navTo('vehicle')">Vehicle</button>
       <button class="snav-btn" onclick="navTo('unit-lb')">Units</button>
       <button class="snav-btn" onclick="navTo('mission-hist')">Missions</button>
+      <button class="snav-btn" onclick="navTo('veh-kills')">Veh Kills</button>
       <button class="snav-btn" onclick="navTo('weapons')">Weapons</button>
       <button class="snav-btn" onclick="navTo('maps')">Maps</button>
       <button class="snav-btn" onclick="navTo('roles')">Roles</button>
@@ -610,6 +611,17 @@
           <table id="missionHistTable">
             <thead id="missionHistHead"></thead>
             <tbody id="missionHistBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Vehicle Kills -->
+      <div class="section-header" onclick="toggleSection('veh-kills')">Vehicle Kills<span class="section-arrow" id="arr-veh-kills">▶</span></div>
+      <div id="sc-veh-kills" style="display:none">
+        <div class="table-wrap">
+          <table id="vehKillsTable">
+            <thead id="vehKillsHead"></thead>
+            <tbody id="vehKillsBody"></tbody>
           </table>
         </div>
       </div>

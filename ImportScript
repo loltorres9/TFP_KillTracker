@@ -1,4 +1,4 @@
-function importOCAP(forceReimport = false) {
+function reimportOCAP() {
   const parentFolder = DriveApp.getFoldersByName("Kill Tracker").next();
   const folders = parentFolder.getFolders();
   let inputFolder;
@@ -41,20 +41,14 @@ function importOCAP(forceReimport = false) {
     // Misc
     "Suicides",
     "Time Played (s)",
-    "Distance Run (km)"
+    "Distance Run (km)",
+    // Vehicle kill detail list
+    "Vehicle Kills (JSON)"
   ];
-  if (statsSheet.getLastRow() === 0) {
-    statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
-  } else {
-    // Migrate: append any columns that exist in header but not yet in the sheet
-    const existingHeader = statsSheet.getRange(1, 1, 1, statsSheet.getLastColumn()).getValues()[0];
-    header.forEach((col, i) => {
-      if (!existingHeader.includes(col)) {
-        statsSheet.getRange(1, i + 1).setValue(col);
-        Logger.log(`Added missing header column: ${col}`);
-      }
-    });
-  }
+  // Always write the canonical header so the column order is guaranteed correct.
+  // Data rows are always deleted and rewritten on each import, so there's no
+  // risk of misalignment with existing rows.
+  statsSheet.getRange(1, 1, 1, header.length).setValues([header]);
   // Build set of already-imported filenames from column A
   const importedFiles = new Set();
   if (statsSheet.getLastRow() > 1) {
@@ -86,12 +80,7 @@ function importOCAP(forceReimport = false) {
     Logger.log(`Skipped (not .json.gz): ${name}`);
     return;
   }
-  if (importedFiles.has(name) && !forceReimport) {
-    Logger.log(`Skipped (already imported): ${name}`);
-    archiveFolder.addFile(file);
-    inputFolder.removeFile(file);
-    return;
-  }
+
   try {
     Logger.log(`Processing: ${name}`);
     const blob = file.getBlob();
@@ -118,14 +107,15 @@ function importOCAP(forceReimport = false) {
       if (!entity) return false;
       const group = (entity.group || "").toLowerCase();
       const role = (entity.role || "").toLowerCase();
-      return group === "zeus" || role.startsWith("zeus");
+      // Split on "@" so roles like "Rifleman@Zeus" are also detected
+      return group === "zeus" || role.split("@").some(part => part.startsWith("zeus"));
     }
     // Build player stats
     const players = {};
     (data.entities || []).forEach(e => {
-      if (e.isPlayer === 1) {
+      if (e.isPlayer === 1 || (e.isPlayer === 0 && !e.name)) {
         players[e.id] = {
-          name: e.name,
+          name: e.name || `Unknown ${e.id}`,
           side: e.side,
           role: e.role || "",
           group: e.group || "",
@@ -149,12 +139,38 @@ function importOCAP(forceReimport = false) {
           framesFired: Array.isArray(e.framesFired) ? e.framesFired : [],
           // Weapon stats
           weaponKills: {},
+          // Vehicle kill detail list (for per-mission vehicle overview)
+          vehicleKillList: [],
           // Misc
           suicides: 0,
+          isUnknown: !e.name,
           isZeus: isZeus(e),
           timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
           distanceRun: 0,
         };
+      }
+    });
+    // Rename unknown entities that share group+role with exactly one named player.
+    // This recovers stats for players whose name was missing in OCAP data but whose
+    // squad slot (group + role) matches a known player in the same mission.
+    const namedByGroupRole = {};
+    Object.values(players).forEach(p => {
+      if (!p.isUnknown && p.group && p.role) {
+        const key = `${p.group.trim()}|${p.role.trim()}`;
+        if (!namedByGroupRole[key]) namedByGroupRole[key] = [];
+        namedByGroupRole[key].push(p.name);
+      }
+    });
+    Object.values(players).forEach(p => {
+      if (p.isUnknown && p.group && p.role) {
+        const key = `${p.group.trim()}|${p.role.trim()}`;
+        const candidates = namedByGroupRole[key];
+        const unique = candidates ? [...new Set(candidates)] : [];
+        if (unique.length === 1) {
+          Logger.log(`Renaming unknown → ${unique[0]} [group=${p.group}, role=${p.role}]`);
+          p.name = unique[0];
+          p.isUnknown = false;
+        }
       }
     });
     // Pre-compute distance run on foot (sum of 2D distance between consecutive frames
@@ -256,6 +272,9 @@ function importOCAP(forceReimport = false) {
             } else {
               players[killerId].vehicleKillsOnFoot++;
             }
+            const vehicleName = victim ? (victim.name || "Unknown Vehicle") : "Unknown Vehicle";
+            const vehicleWeapon = (killerInfo && killerInfo[1]) ? killerInfo[1] : "Unknown";
+            players[killerId].vehicleKillList.push({ v: vehicleName, w: vehicleWeapon });
           }
         } else if (victimType === "unit") {
           if (isSameSide) {
@@ -297,6 +316,8 @@ function importOCAP(forceReimport = false) {
     const worldName = data.worldName || "";
     const rows = [];
     Object.values(players).forEach(p => {
+      // Skip unknowns (no name in OCAP data) with less than 1 hour of playtime
+      if (p.isUnknown && Math.round(p.timePlayed) < 3600) return;
       // Zeus: zero all combat stats
       if (p.isZeus) {
         p.killsOnFoot = 0;
@@ -316,6 +337,7 @@ function importOCAP(forceReimport = false) {
         p.killDistOnFoot = [];
         p.killDistInVehicle = [];
         p.weaponKills = {};
+        p.vehicleKillList = [];
       }
       const kdFoot = p.deathsOnFoot > 0 ? (p.killsOnFoot / p.deathsOnFoot).toFixed(2) : p.killsOnFoot.toFixed(2);
       const kdVeh = p.deathsInVehicle > 0 ? (p.killsInVehicle / p.deathsInVehicle).toFixed(2) : p.killsInVehicle.toFixed(2);
@@ -365,12 +387,13 @@ function importOCAP(forceReimport = false) {
         p.suicides,
         Math.round(p.timePlayed),
         parseFloat((p.distanceRun / 1000).toFixed(1)),
+        p.vehicleKillList.length > 0 ? JSON.stringify(p.vehicleKillList) : "",
       ]);
     });
     // Sort by on-foot kills descending
     rows.sort((a, b) => b[7] - a[7]);
-    // If reimporting, remove existing rows for this source file first
-    if (forceReimport || importedFiles.has(name)) {
+    // Remove existing rows for this source file before writing
+    {
       const deletedCount = deleteExistingRowsForFile(statsSheet, name);
       if (deletedCount > 0) {
         Logger.log(`Removed ${deletedCount} existing row(s) for ${name}`);
@@ -384,6 +407,23 @@ function importOCAP(forceReimport = false) {
         rows[0].length
       ).setValues(rows);
     }
+    // Format as table
+    const lastRow = statsSheet.getLastRow();
+    const numCols = header.length;
+    // Freeze header row
+    statsSheet.setFrozenRows(1);
+    // Header style: bold, dark background, white text
+    const headerRange = statsSheet.getRange(1, 1, 1, numCols);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#424242");
+    headerRange.setFontColor("#ffffff");
+    headerRange.setHorizontalAlignment("center");
+    // Banded rows on the full data range
+    if (lastRow > 1) {
+      statsSheet.getBandings().forEach(b => b.remove());
+      statsSheet.getRange(1, 1, lastRow, numCols)
+        .applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false);
+    }
     // Archive processed file
     archiveFolder.addFile(file);
     inputFolder.removeFile(file);
@@ -392,7 +432,4 @@ function importOCAP(forceReimport = false) {
     Logger.log(`Error processing ${name}: ${err}`);
     throw err;
   }
-}
-function reimportOCAP() {
-  importOCAP(true);
 }
