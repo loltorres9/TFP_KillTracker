@@ -396,7 +396,7 @@ window._filterUnit = function(unit) {
 // ── COLLAPSIBLE SECTIONS ─────────────────────────────────────────────────
 const SECTION_DEFAULTS = {
   infantry: true, vehicle: true,
-  'unit-lb': false, 'mission-hist': false, weapons: false,
+  'unit-lb': false, 'mission-hist': false, 'veh-kills': false, weapons: false,
   maps: false, roles: false, attendance: false,
   'kd-trend': false, comparison: false,
 };
@@ -764,6 +764,7 @@ function applyFilters() {
   renderVehicleTable();
   renderUnitLeaderboard();
   renderMissionHistory();
+  renderVehicleKillsSection();
   renderWeaponLeaderboard();
   renderWorldStats();
   renderRoleLeaderboard();
@@ -1695,12 +1696,10 @@ const MH_COLS = [
   { label: "K/D",        key: "kd",              numeric: true,  sortKey: "kd",    fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",         key: "tk",              numeric: true,  sortKey: "tk",    css: tkClass },
   { label: "Top Killer", key: "topKiller",       numeric: false, sortKey: "topKillerKills" },
-  { label: "Vehicles",   key: "vehCount",        numeric: true,  sortKey: "vehCount" },
 ];
 
 function renderMissionHistory() {
   const map = {};
-  const missionVehicleKills = {}; // key -> [{vehicle, killer, weapon}, ...]
   filteredRows.forEach(r => {
     const src   = r["Source File"] || "";
     const name  = r["Mission"] || src || "—";
@@ -1709,7 +1708,7 @@ function renderMissionHistory() {
     if (!map[key]) {
       const ms = src.match(/(\d{4})_(\d{2})_(\d{2})/);
       map[key] = {
-        _key: key, name, world, dateSort: src,
+        name, world, dateSort: src,
         date: ms ? `${ms[3]}/${ms[2]}/${ms[1]}` : missionDate(name),
         players: new Set(), kills: 0, deaths: 0, tk: 0, killerKills: {},
       };
@@ -1722,25 +1721,12 @@ function renderMissionHistory() {
     m.deaths += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
     m.tk     += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
     if (pname && kof > 0) m.killerKills[pname] = (m.killerKills[pname] || 0) + kof;
-    // Vehicle kill details
-    const vkJson = r["Vehicle Kills (JSON)"] || r["Vehicle Kills (JSON)\r"] || "";
-    if (vkJson) {
-      try {
-        const vkList = JSON.parse(vkJson);
-        if (Array.isArray(vkList)) {
-          if (!missionVehicleKills[key]) missionVehicleKills[key] = [];
-          vkList.forEach(vk => missionVehicleKills[key].push({ vehicle: vk.v, killer: pname, weapon: vk.w }));
-        }
-      } catch(e) {}
-    }
   });
 
   const data = Object.values(map).map(m => {
     const top = Object.entries(m.killerKills).sort((a, b) => b[1] - a[1])[0];
-    const vkList = missionVehicleKills[m._key] || [];
     return { ...m, players: m.players.size, kd: m.deaths > 0 ? m.kills / m.deaths : m.kills,
-      topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0,
-      vehCount: vkList.length, _vkList: vkList };
+      topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0 };
   });
 
   const sorted = _sortArr(data, MH_COLS, mhSortCol, mhSortAsc);
@@ -1748,48 +1734,83 @@ function renderMissionHistory() {
   const tbody = document.getElementById("missionHistBody");
   if (!sorted.length) { tbody.innerHTML = `<tr><td colspan="${MH_COLS.length}" style="text-align:center;padding:20px;color:#888">No data</td></tr>`; return; }
   tbody.innerHTML = sorted.map(m => {
-    const cells = MH_COLS.map((col, ci) => {
+    const cells = MH_COLS.map(col => {
       const raw = m[col.key];
-      let val;
-      if (col.key === "vehCount") {
-        val = raw > 0
-          ? `<span style="font-weight:600;color:var(--charcoal)">${raw}</span> <span style="font-size:0.72rem;color:#aaa">▼</span>`
-          : "—";
-      } else {
-        val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
-      }
+      const val = col.fmt ? col.fmt(raw) : (raw == null ? "—" : raw);
       const cls = col.css ? col.css(raw) : "";
       return `<td${cls ? ` class="${cls}"` : ""}>${val}</td>`;
     });
-    const safeKey = (m._key || m.name).replace(/[^a-zA-Z0-9]/g, '_');
-    const hasVeh = m._vkList && m._vkList.length > 0;
-    const vehRow = hasVeh ? `<tr id="veh-detail-${safeKey}" style="display:none"><td colspan="${MH_COLS.length}" style="background:#f8f8f8;padding:0">
-      <table style="width:100%;font-size:0.78rem;border-collapse:collapse">
-        <thead><tr style="background:#eee">
-          <th style="text-align:left;padding:5px 12px;font-weight:600">Vehicle</th>
-          <th style="text-align:left;padding:5px 12px;font-weight:600">Killer</th>
-          <th style="text-align:left;padding:5px 12px;font-weight:600">Weapon</th>
-        </tr></thead>
-        <tbody>${m._vkList.map((vk, i) =>
-          `<tr style="background:${i%2===0?'#f8f8f8':'#fff'}">
-            <td style="padding:4px 12px">${vk.vehicle}</td>
-            <td style="padding:4px 12px">${vk.killer}</td>
-            <td style="padding:4px 12px">${vk.weapon}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </td></tr>` : '';
-    return `<tr${hasVeh ? ` onclick="_toggleMHVeh('${safeKey}')" style="cursor:pointer"` : ""}>${cells.join("")}</tr>${vehRow}`;
+    return `<tr>${cells.join("")}</tr>`;
   }).join("");
 }
-window._toggleMHVeh = function(safeKey) {
-  const row = document.getElementById('veh-detail-' + safeKey);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
-};
 window._sortMH = function(col) {
   if (mhSortCol === col) mhSortAsc = !mhSortAsc;
   else { mhSortCol = col; mhSortAsc = !MH_COLS[col].numeric; }
   renderMissionHistory();
+};
+
+// ── VEHICLE KILLS SECTION ─────────────────────────────────────────────────
+let vkSortCol = 0;
+let vkSortAsc = false;
+
+const VK_COLS = [
+  { label: "Date",    key: "date",    numeric: false, sortKey: "dateSort" },
+  { label: "Mission", key: "mission", numeric: false, sortKey: "mission" },
+  { label: "Vehicle", key: "vehicle", numeric: false, sortKey: "vehicle" },
+  { label: "Killer",  key: "killer",  numeric: false, sortKey: "killer" },
+  { label: "Weapon",  key: "weapon",  numeric: false, sortKey: "weapon" },
+];
+
+function renderVehicleKillsSection() {
+  const rows = [];
+  filteredRows.forEach(r => {
+    const src     = r["Source File"] || "";
+    const mission = r["Mission"] || src || "—";
+    const pname   = r["Username"] || "";
+    const ms      = src.match(/(\d{4})_(\d{2})_(\d{2})/);
+    const date    = ms ? `${ms[3]}/${ms[2]}/${ms[1]}` : missionDate(mission);
+    const dateSort = src;
+    const vkJson  = r["Vehicle Kills (JSON)"] || r["Vehicle Kills (JSON)\r"] || "";
+    if (!vkJson) return;
+    try {
+      const vkList = JSON.parse(vkJson);
+      if (!Array.isArray(vkList)) return;
+      vkList.forEach(vk => rows.push({
+        date, dateSort, mission,
+        vehicle: vk.v || "—",
+        killer:  pname || "—",
+        weapon:  vk.w || "—",
+      }));
+    } catch(e) {}
+  });
+
+  const head = document.getElementById("vehKillsHead");
+  const tbody = document.getElementById("vehKillsBody");
+  if (!head || !tbody) return;
+
+  const mkArrow = (i) => {
+    if (vkSortCol !== i) return '<span class="sort-arrow"></span>';
+    return `<span class="sort-arrow">${vkSortAsc ? "▲" : "▼"}</span>`;
+  };
+  head.innerHTML = `<tr>${VK_COLS.map((c, i) =>
+    `<th onclick="window._sortVK(${i})" style="cursor:pointer">${c.label}${mkArrow(i)}</th>`
+  ).join("")}</tr>`;
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${VK_COLS.length}" style="text-align:center;padding:20px;color:#888">No vehicle kill data — reimport missions with the updated script to populate this.</td></tr>`;
+    return;
+  }
+
+  const sorted = _sortArr(rows, VK_COLS, vkSortCol, vkSortAsc);
+  tbody.innerHTML = sorted.map(row =>
+    `<tr>${VK_COLS.map(col => `<td>${row[col.key] ?? "—"}</td>`).join("")}</tr>`
+  ).join("");
+}
+
+window._sortVK = function(col) {
+  if (vkSortCol === col) vkSortAsc = !vkSortAsc;
+  else { vkSortCol = col; vkSortAsc = false; }
+  renderVehicleKillsSection();
 };
 
 // ── WEAPON LEADERBOARD ────────────────────────────────────────────────────
