@@ -170,6 +170,7 @@ function reimportOCAP() {
       if (p.isUnknown && p.group && p.role) {
         const key = `${p.group.trim()}|${p.role.trim()}`;
         const candidates = namedByGroupRole[key];
+        Logger.log(`Unknown lookup: key="${key}" candidates=${JSON.stringify(candidates)}`);
         if (candidates && candidates.length === 1) {
           Logger.log(`Renaming unknown → ${candidates[0]} [group=${p.group}, role=${p.role}]`);
           p.name = candidates[0];
