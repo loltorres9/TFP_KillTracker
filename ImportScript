@@ -231,12 +231,15 @@ function reimportOCAP() {
     //   2. RANGE   — any close-range TK (≤ EOM_CLOSE_M) in the last
     //                EOM_RANGE_WINDOW_S seconds (catches grenade drops a bit earlier).
     //   3. BURST   — any TK that is part of a cluster of ≥ EOM_BURST_COUNT TKs
-    //                within a EOM_BURST_WINDOW-second rolling window.
-    const EOM_WINDOW_S      = 120; // hard cutoff: last 2 min
-    const EOM_RANGE_WINDOW_S = 180; // extended cutoff for close-range kills
-    const EOM_CLOSE_M       = 15;  // grenade / pistol range threshold (metres)
-    const EOM_BURST_WINDOW  = 60;  // rolling window for burst detection (seconds)
-    const EOM_BURST_COUNT   = 3;   // min TKs in window to flag as a burst
+    //                within a EOM_BURST_WINDOW-second rolling window, but ONLY
+    //                when the TK itself is within EOM_BURST_MAX_FROMEND_S of mission
+    //                end (prevents mid-mission bad-luck TK clusters from being ignored).
+    const EOM_WINDOW_S           = 300; // hard cutoff: last 5 min
+    const EOM_RANGE_WINDOW_S     = 420; // extended cutoff for close-range kills (7 min)
+    const EOM_CLOSE_M            = 15;  // grenade / pistol range threshold (metres)
+    const EOM_BURST_WINDOW       = 60;  // rolling window for burst detection (seconds)
+    const EOM_BURST_COUNT        = 3;   // min TKs in window to flag as a burst
+    const EOM_BURST_MAX_FROMEND_S = 600; // burst heuristic only active in last 10 min
 
     // Find the frame at which the mission officially ended.
     const endMissionFrame = (() => {
@@ -276,7 +279,7 @@ function reimportOCAP() {
       if (fromEnd < 0)                                        return true;
       if (fromEnd <= EOM_WINDOW_S)                            return true;
       if (fromEnd <= EOM_RANGE_WINDOW_S && distance <= EOM_CLOSE_M) return true;
-      if (tkBurstCount(frame) >= EOM_BURST_COUNT)            return true;
+      if (fromEnd <= EOM_BURST_MAX_FROMEND_S && tkBurstCount(frame) >= EOM_BURST_COUNT) return true;
       return false;
     }
     // ──────────────────────────────────────────────────────────────────────
