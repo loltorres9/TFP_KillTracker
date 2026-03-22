@@ -4,14 +4,23 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.018 — 2026-03-21 (latest)
+## v1.019 — 2026-03-22 (latest)
+
+### Fixed
+- **EOM TK suppression: hard cutoff corrected to 5 min** — `EOM_WINDOW_S` was accidentally set to 120 s (2 min); corrected to 300 s (5 min) as intended
+- **EOM TK suppression: burst check now bounded to end of mission** — the burst heuristic (3+ TKs in 60 s) previously had no time constraint, meaning a bad round mid-mission could falsely suppress legitimate TKs; the check now only activates within the last 10 min (`EOM_BURST_MAX_FROMEND_S = 600`)
+- **EOM range window updated to 7 min** — extended close-range window raised from 180 s to 420 s to stay proportional now that the hard cutoff is 5 min
+
+---
+
+## v1.018 — 2026-03-21
 
 ### Added
 - **Version number** — `VERSION` constant in `tracker.js`; displayed in the site footer next to the release date (`v1.018 · 21 Mar 2026`); version tags added to all changelog entries going forward
 - **End-of-mission TK suppression** — ImportScript now detects and ignores teamkills that occur during end-of-mission celebrations (players shooting each other / dropping grenades after the mission is won). Three overlapping heuristics:
-  - **Time window** — any TK in the last **2 minutes** before `endMission` is suppressed unconditionally
-  - **Close-range extended window** — TKs within **15 m** (grenade / pistol range) in the last **3 minutes** are suppressed
-  - **Burst detection** — if **3 or more** TKs occur within any **60-second rolling window**, all TKs in that cluster are suppressed (catches group grenade throws earlier in the timeline)
+  - **Time window** — any TK in the last **5 minutes** before `endMission` is suppressed unconditionally
+  - **Close-range extended window** — TKs within **15 m** (grenade / pistol range) in the last **7 minutes** are suppressed
+  - **Burst detection** — if **3 or more** TKs occur within any **60-second rolling window** and within the last **10 minutes**, all TKs in that cluster are suppressed (catches group grenade throws earlier in the timeline)
 - **Vehicle Kills section** — dedicated table below Mission History listing every vehicle destruction per mission; columns: vehicle, killer, weapon; linked from the sticky section nav bar
 - **Vehicle kills in Mission History** — per-mission vehicle kill count shown alongside kills/deaths in the mission table
 - **Unknown entity IDs** — unnamed OCAP entities now shown as "Unknown 257" (entity ID appended) to help cross-reference replays
