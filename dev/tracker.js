@@ -1712,6 +1712,7 @@ const MH_COLS = [
   { label: "Deaths",     key: "deaths",          numeric: true,  sortKey: "deaths" },
   { label: "K/D",        key: "kd",              numeric: true,  sortKey: "kd",    fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK",         key: "tk",              numeric: true,  sortKey: "tk",    css: tkClass },
+  { label: "Hits/Kill",  key: "hpk",             numeric: true,  sortKey: "hpk",   fmt: v => v != null ? v.toFixed(1) : "—" },
   { label: "Top Killer", key: "topKiller",       numeric: false, sortKey: "topKillerKills" },
 ];
 
@@ -1727,22 +1728,24 @@ function renderMissionHistory() {
       map[key] = {
         name, world, dateSort: src,
         date: ms ? `${ms[3]}/${ms[2]}/${ms[1]}` : missionDate(name),
-        players: new Set(), kills: 0, deaths: 0, tk: 0, killerKills: {},
+        players: new Set(), kills: 0, deaths: 0, tk: 0, hitsDealt: 0, killerKills: {},
       };
     }
     const m = map[key];
     const pname = r["Username"] || "";
     if (pname) m.players.add(pname);
     const kof = NUM(r["Kills (On Foot)"]);
-    m.kills  += kof + NUM(r["Kills (In Vehicle)"]);
-    m.deaths += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
-    m.tk     += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
+    m.kills     += kof + NUM(r["Kills (In Vehicle)"]);
+    m.deaths    += NUM(r["Deaths (On Foot)"]) + NUM(r["Deaths (In Vehicle)"]);
+    m.tk        += NUM(r["Teamkills (On Foot)"]) + NUM(r["Teamkills (In Vehicle)"]);
+    m.hitsDealt += NUM(r["Hits Dealt (On Foot)"]) + NUM(r["Hits Dealt (In Vehicle)"]);
     if (pname && kof > 0) m.killerKills[pname] = (m.killerKills[pname] || 0) + kof;
   });
 
   const data = Object.values(map).map(m => {
     const top = Object.entries(m.killerKills).sort((a, b) => b[1] - a[1])[0];
     return { ...m, players: m.players.size, kd: m.deaths > 0 ? m.kills / m.deaths : m.kills,
+      hpk: m.kills > 0 ? m.hitsDealt / m.kills : null,
       topKiller: top ? `${top[0]} (${top[1]})` : "—", topKillerKills: top ? top[1] : 0 };
   });
 
