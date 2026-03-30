@@ -29,12 +29,12 @@ function reimportOCAP() {
     "Username", "Side", "Group", "Role",
     // Infantry (on-foot) stats
     "Kills (On Foot)", "Deaths (On Foot)", "K/D (On Foot)",
-    "Teamkills (On Foot)", "Shots (On Foot)", "Hits Taken (On Foot)",
+    "Teamkills (On Foot)", "Shots (On Foot)", "Hits Taken (On Foot)", "Hits Dealt (On Foot)",
     "Shots/Kill (On Foot)", "Avg Kill Dist On Foot (m)", "Longest Kill On Foot (m)",
     // Vehicle stats
     "Kills (In Vehicle)", "Deaths (In Vehicle)", "K/D (In Vehicle)",
     "Teamkills (In Vehicle)", "Vehicle Kills (On Foot)", "Vehicle Kills (In Vehicle)",
-    "Shots (In Vehicle)", "Hits Taken (In Vehicle)",
+    "Shots (In Vehicle)", "Hits Taken (In Vehicle)", "Hits Dealt (In Vehicle)",
     "Shots/Kill (In Vehicle)", "Avg Kill Dist In Vehicle (m)", "Longest Kill In Vehicle (m)",
     // Weapon stats
     "Top Weapon", "Weapon Kills (JSON)",
@@ -125,6 +125,7 @@ function reimportOCAP() {
           teamkillsOnFoot: 0,
           shotsOnFoot: 0,
           hitsTakenOnFoot: 0,
+          hitsDealtOnFoot: 0,
           killDistOnFoot: [],
           // Vehicle stats
           killsInVehicle: 0,
@@ -134,6 +135,7 @@ function reimportOCAP() {
           vehicleKillsInVehicle: 0,
           shotsInVehicle: 0,
           hitsTakenInVehicle: 0,
+          hitsDealtInVehicle: 0,
           killDistInVehicle: [],
           // Shot frames
           framesFired: Array.isArray(e.framesFired) ? e.framesFired : [],
@@ -369,6 +371,15 @@ function reimportOCAP() {
             players[victimId].hitsTakenOnFoot++;
           }
         }
+        const shooterId = killerInfo ? killerInfo[0] : null;
+        if (shooterId != null && players[shooterId] !== undefined) {
+          const shooterInVehicle = isInVehicleAtFrame(entities[shooterId], frame);
+          if (shooterInVehicle) {
+            players[shooterId].hitsDealtInVehicle++;
+          } else {
+            players[shooterId].hitsDealtOnFoot++;
+          }
+        }
       }
     });
     const missionName = (() => {
@@ -389,6 +400,7 @@ function reimportOCAP() {
         p.teamkillsOnFoot = 0;
         p.shotsOnFoot = 0;
         p.hitsTakenOnFoot = 0;
+        p.hitsDealtOnFoot = 0;
         p.killsInVehicle = 0;
         p.deathsInVehicle = 0;
         p.teamkillsInVehicle = 0;
@@ -396,6 +408,7 @@ function reimportOCAP() {
         p.vehicleKillsInVehicle = 0;
         p.shotsInVehicle = 0;
         p.hitsTakenInVehicle = 0;
+        p.hitsDealtInVehicle = 0;
         p.suicides = 0;
         p.distanceRun = 0;
         p.killDistOnFoot = [];
@@ -432,6 +445,7 @@ function reimportOCAP() {
         p.teamkillsOnFoot,
         p.shotsOnFoot,
         p.hitsTakenOnFoot,
+        p.hitsDealtOnFoot,
         spkFoot !== "" ? parseFloat(spkFoot) : "",
         avgFoot !== "" ? parseFloat(avgFoot) : "",
         lkFoot !== "" ? lkFoot : "",
@@ -443,6 +457,7 @@ function reimportOCAP() {
         p.vehicleKillsInVehicle,
         p.shotsInVehicle,
         p.hitsTakenInVehicle,
+        p.hitsDealtInVehicle,
         spkVeh !== "" ? parseFloat(spkVeh) : "",
         avgVeh !== "" ? parseFloat(avgVeh) : "",
         lkVeh !== "" ? lkVeh : "",
