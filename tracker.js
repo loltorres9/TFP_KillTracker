@@ -1,6 +1,6 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
 const RELEASE_DATE = "2026-03-30";
-const VERSION      = "1.021";
+const VERSION      = "1.022";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -263,6 +263,14 @@ function buildAggregates() {
   });
 }
 
+// ── ZEUS DETECTION ────────────────────────────────────────────────────────
+// True if a CSV row represents a Zeus player — checks both Group and Role
+// so players with "Co Zeus", "Zeus@Zeus", "Command@Zeus" etc. are all caught.
+function rowIsZeus(r) {
+  return (r['Group'] || '').toLowerCase().includes('zeus') ||
+         (r['Role']  || '').toLowerCase().includes('zeus');
+}
+
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 function classifyPlayerUnits(rows) {
   // Build squad co-occurrence: players in the same (sourceFile, group) pair
@@ -271,7 +279,7 @@ function classifyPlayerUnits(rows) {
     const src   = r['Source File'] || '';
     const group = r['Group'] || '';
     const name  = r['Username'] || '';
-    if (!src || !group || !name || group.toLowerCase() === 'zeus') return;
+    if (!src || !group || !name || rowIsZeus(r)) return;
     const key = `${src}|||${group}`;
     if (!squads[key]) squads[key] = new Set();
     squads[key].add(name);
@@ -734,9 +742,7 @@ function applyFilters() {
 
   filteredPlayers = Object.values(tempAgg).filter(p => {
     const playerOk = selectedPlayers === null || selectedPlayers.has(p.name);
-    const isZeus = p.missionRows && p.missionRows.some(r =>
-      (r["Group"] || "").toLowerCase() === "zeus"
-    );
+    const isZeus = p.missionRows && p.missionRows.some(r => rowIsZeus(r));
     const zeusOk = zeusFilter === "all"
       || (zeusFilter === "no-zeus"   && !isZeus)
       || (zeusFilter === "zeus-only" &&  isZeus);
@@ -1004,7 +1010,7 @@ function renderLeader() {
 
   // Passenger Princess — least distance run (min 1h30m played to filter out short sessions)
   const shameDist = [...filteredPlayers].filter(p => p.timePlayed >= 5400 && p.distanceRun > 0
-    && !p.missionRows.some(r => (r["Group"] || "").toLowerCase() === "zeus"))
+    && !p.missionRows.some(r => rowIsZeus(r)))
     .sort((a,b) => a.distanceRun - b.distanceRun)[0];
   if (shameDist) {
     document.getElementById("sh-dist-name").textContent = shameDist.name;

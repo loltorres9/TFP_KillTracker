@@ -106,9 +106,19 @@ function reimportOCAP() {
     function isZeus(entity) {
       if (!entity) return false;
       const group = (entity.group || "").toLowerCase();
-      const role = (entity.role || "").toLowerCase();
-      // Split on "@" so roles like "Rifleman@Zeus" are also detected
-      return group === "zeus" || role.split("@").some(part => part.startsWith("zeus"));
+      // entity.role is populated by newer OCAP versions; older versions only
+      // store the role inside each positions frame at index 6. Fall back to
+      // reading the first non-empty frame role so both formats are covered.
+      let roleRaw = entity.role || "";
+      if (!roleRaw && Array.isArray(entity.positions)) {
+        for (const pos of entity.positions) {
+          if (Array.isArray(pos) && pos[6]) { roleRaw = pos[6]; break; }
+        }
+      }
+      const role = roleRaw.toLowerCase();
+      // Use includes() so "Co Zeus", "Zeus@Zeus", "Command@Zeus", "Rifleman@Zeus"
+      // and any other compound role containing the word are all caught.
+      return group === "zeus" || role.includes("zeus");
     }
     // Build player stats
     const players = {};

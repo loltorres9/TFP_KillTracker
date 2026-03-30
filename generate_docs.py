@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.3  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.4  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -278,8 +278,8 @@ add_table(doc,
         ['2',  'World',                         'Map/terrain name'],
         ['3',  'Username',                      'Player name (used as aggregate key)'],
         ['4',  'Side',                          'Faction (e.g. BLUFOR, OPFOR)'],
-        ['5',  'Group',                         'Squad/group name; "zeus" group triggers Zeus classification'],
-        ['6',  'Role',                          'In-game role string; used for role normalisation and top-role detection'],
+        ['5',  'Group',                         'Squad/group name; contains "zeus" triggers Zeus classification'],
+        ['6',  'Role',                          'In-game role string; also checked for "zeus" (covers Co Zeus, Zeus@Zeus, Command@Zeus, etc.)'],
         ['7',  'Kills (On Foot)',               'Infantry kills'],
         ['8',  'Deaths (On Foot)',              'Infantry deaths'],
         ['9',  'K/D (On Foot)',                 'Ignored — recomputed from kills/deaths'],
@@ -437,7 +437,7 @@ add_table(doc,
         ['1', 'Event Type', 'showJointOps / showRegularEvents', 'isJointOp(srcFile) must match the selected event type'],
         ['2', 'Player', 'selectedPlayers', 'null = all; else row.Username must be in the Set'],
         ['3', 'Mission', 'selectedMissions', 'null = all; else row.Mission must be in the Set'],
-        ['4', 'Zeus', 'zeusFilter', 'Applied post-aggregation: checks if player has any Group="zeus" row'],
+        ['4', 'Zeus', 'zeusFilter', 'Applied post-aggregation: rowIsZeus() checks Group and Role both contain "zeus"'],
     ]
 )
 
@@ -469,8 +469,10 @@ add_table(doc,
 doc.add_paragraph()
 add_heading(doc, '5.4 Zeus Filter', 2)
 add_para(doc,
-    'The Zeus filter is applied after re-aggregation. For each player in the filtered '
-    'aggregation, the system checks whether any of their rawRows has Group (lowercased) === "zeus".',
+    'The Zeus filter is applied after re-aggregation via the top-level rowIsZeus(r) helper, '
+    'which returns true when either the Group or Role field of a CSV row contains the word "zeus" '
+    '(case-insensitive, substring match). This covers all known OCAP role formats: '
+    '"Zeus", "Co Zeus", "Zeus@Zeus", "Command@Zeus", "Rifleman@Zeus".',
     space_after=4)
 add_table(doc,
     ['Value', 'Behaviour'],
@@ -480,6 +482,10 @@ add_table(doc,
         ['"zeus-only"', 'Include only players who have at least one Zeus row'],
     ]
 )
+add_para(doc,
+    'rowIsZeus is also used to exclude Zeus rows from squad co-occurrence analysis '
+    'and from the Passenger Princess shame card.',
+    space_after=6)
 
 doc.add_page_break()
 
@@ -1058,7 +1064,7 @@ add_para(doc,
 bullet(doc, 'Unnamed entities with < 1 hour playtime are skipped entirely (reconnect ghosts, JIP artefacts).')
 bullet(doc, 'Remaining unknown entities are matched against named players who share the same group and role in the same mission.')
 bullet(doc, 'If exactly one named player maps to that group+role (after deduplicating candidates from reconnects), the unknown entity is renamed to that player.')
-bullet(doc, 'If a role string contains "@username" (e.g. "Rifleman@Zeus"), the script correctly detects it as a Zeus role.')
+bullet(doc, 'Zeus detection uses role.includes("zeus") (case-insensitive) covering all compound formats: "Co Zeus", "Zeus@Zeus", "Command@Zeus", "Rifleman@Zeus". A fallback reads the role from positions[i][6] when entity.role is empty, supporting older OCAP captures.')
 doc.add_paragraph()
 
 add_heading(doc, 'D.5 Friendly Fire Counting', 2)

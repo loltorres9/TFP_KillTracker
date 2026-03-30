@@ -4,7 +4,16 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.021 — 2026-03-30 (latest)
+## v1.022 — 2026-03-30 (latest)
+
+### Fixed
+- **Zeus detection in ImportScript: `Co Zeus` and `Zeus@Zeus` not flagged** — the old check split on `@` and used `startsWith("zeus")`, missing roles where "zeus" is not the first word. Changed to `role.includes("zeus")`. Also added fallback to read the role from the OCAP `positions` frame array (index 6) when `entity.role` is empty, covering older OCAP captures that only store role inside frame data.
+- **Zeus filter dropdown not working for role-based Zeuses** — `tracker.js` was only checking `Group === "zeus"` in three places (Players dropdown filter, squad co-occurrence, Passenger Princess shame card). Players with Zeus in the `Role` column (`Co Zeus`, `Zeus@Zeus`) were not excluded. Added top-level `rowIsZeus(r)` helper that checks both Group and Role with `includes("zeus")` and used it consistently across all three sites.
+- **`rowIsZeus is not defined` runtime error** — `rowIsZeus` was incorrectly scoped inside `classifyPlayerUnits`; moved to module top level so `filterChanged` and the shame card section can access it.
+
+---
+
+## v1.021 — 2026-03-30
 
 ### Added
 - **Hits/Kill in Mission History** — new sortable column in the Mission History table showing total hits dealt divided by total kills for each mission
