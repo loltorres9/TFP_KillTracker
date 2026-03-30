@@ -4,7 +4,15 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.019 — 2026-03-22 (latest)
+## v1.020 — 2026-03-22 (latest)
+
+### Added
+- **Hits Dealt tracking** — ImportScript now records outgoing hits per player (on foot and in vehicle), mirroring the existing Hits Taken columns. New sheet columns: `Hits Dealt (On Foot)`, `Hits Dealt (In Vehicle)`.
+- **Accuracy stat** — derived from Hits Dealt / Shots fired; shown as a percentage in both the infantry and vehicle stats tables (e.g. `14.3%`). Also computed per-mission in the player career modal.
+
+---
+
+## v1.019 — 2026-03-22
 
 ### Fixed
 - **EOM TK suppression: hard cutoff corrected to 5 min** — `EOM_WINDOW_S` was accidentally set to 120 s (2 min); corrected to 300 s (5 min) as intended

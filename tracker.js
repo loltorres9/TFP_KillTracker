@@ -1,6 +1,6 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
 const RELEASE_DATE = "2026-03-22";
-const VERSION      = "1.019";
+const VERSION      = "1.020";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -158,14 +158,14 @@ function buildAggregates() {
         worlds: new Set(),
         // On-foot
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
-        shotsOnFoot: 0, hitsOnFoot: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, hitsDealtOnFoot: 0,
         killDistOnFoot: [], // collect distances for avg/max
         suicides: 0,
         distanceRun: 0,
         // In-vehicle
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
-        shotsInVeh: 0, hitsInVeh: 0,
+        shotsInVeh: 0, hitsInVeh: 0, hitsDealtInVeh: 0,
         killDistInVeh: [],
         maxLongestFoot: 0, maxLongestVeh: 0,
         avgDistFootSum: 0, avgDistFootN: 0,
@@ -194,6 +194,7 @@ function buildAggregates() {
     const tkof = NUM(r["Teamkills (On Foot)"]);
     const sof  = NUM(r["Shots (On Foot)"]);
     const hof  = NUM(r["Hits Taken (On Foot)"]);
+    const hdof = NUM(r["Hits Dealt (On Foot)"]);
     const lof  = NUM(r["Longest Kill On Foot (m)"]);
     const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
 
@@ -204,14 +205,16 @@ function buildAggregates() {
     const vkiv = NUM(r["Vehicle Kills (In Vehicle)"]);
     const siv  = NUM(r["Shots (In Vehicle)"]);
     const hiv  = NUM(r["Hits Taken (In Vehicle)"]);
+    const hdiv = NUM(r["Hits Dealt (In Vehicle)"]);
     const liv  = NUM(r["Longest Kill In Vehicle (m)"]);
     const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
 
     p.killsOnFoot  += kof;
     p.deathsOnFoot += dof;
     p.tkOnFoot     += tkof;
-    p.shotsOnFoot  += sof;
-    p.hitsOnFoot   += hof;
+    p.shotsOnFoot      += sof;
+    p.hitsOnFoot       += hof;
+    p.hitsDealtOnFoot  += hdof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
     p.distanceRun  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
     p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
@@ -224,8 +227,9 @@ function buildAggregates() {
     p.tkInVeh     += tkiv;
     p.vehKillsFoot+= vkof;
     p.vehKillsVeh += vkiv;
-    p.shotsInVeh  += siv;
-    p.hitsInVeh   += hiv;
+    p.shotsInVeh      += siv;
+    p.hitsInVeh       += hiv;
+    p.hitsDealtInVeh  += hdiv;
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
 
@@ -246,8 +250,10 @@ function buildAggregates() {
     const totalKills  = p.killsOnFoot  + p.killsInVeh;
     p.kdFoot = p.deathsOnFoot > 0 ? p.killsOnFoot / p.deathsOnFoot : p.killsOnFoot;
     p.kdVeh  = p.deathsInVeh  > 0 ? p.killsInVeh  / p.deathsInVeh  : p.killsInVeh;
-    p.spkFoot = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
-    p.spkVeh  = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.spkFoot      = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
+    p.spkVeh       = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.accuracyFoot = p.shotsOnFoot > 0 ? (p.hitsDealtOnFoot / p.shotsOnFoot) * 100 : null;
+    p.accuracyVeh  = p.shotsInVeh  > 0 ? (p.hitsDealtInVeh  / p.shotsInVeh)  * 100 : null;
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
@@ -645,11 +651,11 @@ function applyFilters() {
         name,
         missions: new Set(),
         killsOnFoot: 0, deathsOnFoot: 0, tkOnFoot: 0,
-        shotsOnFoot: 0, hitsOnFoot: 0, suicides: 0, distanceRun: 0, timePlayed: 0,
+        shotsOnFoot: 0, hitsOnFoot: 0, hitsDealtOnFoot: 0, suicides: 0, distanceRun: 0, timePlayed: 0,
         maxLongestFoot: 0, avgDistFootSum: 0, avgDistFootN: 0,
         killsInVeh: 0, deathsInVeh: 0, tkInVeh: 0,
         vehKillsFoot: 0, vehKillsVeh: 0,
-        shotsInVeh: 0, hitsInVeh: 0,
+        shotsInVeh: 0, hitsInVeh: 0, hitsDealtInVeh: 0,
         maxLongestVeh: 0, avgDistVehSum: 0, avgDistVehN: 0,
         weaponKills: {},   // weapon -> total kills across missions
         missionRows: [],   // raw per-mission rows for modal
@@ -671,6 +677,7 @@ function applyFilters() {
     const tkof = NUM(r["Teamkills (On Foot)"]);
     const sof  = NUM(r["Shots (On Foot)"]);
     const hof  = NUM(r["Hits Taken (On Foot)"]);
+    const hdof = NUM(r["Hits Dealt (On Foot)"]);
     const lof  = NUM(r["Longest Kill On Foot (m)"]);
     const aof  = NUM(r["Avg Kill Dist On Foot (m)"]);
     const kiv  = NUM(r["Kills (In Vehicle)"]);
@@ -680,11 +687,12 @@ function applyFilters() {
     const vkiv = NUM(r["Vehicle Kills (In Vehicle)"]);
     const siv  = NUM(r["Shots (In Vehicle)"]);
     const hiv  = NUM(r["Hits Taken (In Vehicle)"]);
+    const hdiv = NUM(r["Hits Dealt (In Vehicle)"]);
     const liv  = NUM(r["Longest Kill In Vehicle (m)"]);
     const aiv  = NUM(r["Avg Kill Dist In Vehicle (m)"]);
 
-    p.killsOnFoot  += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
-    p.shotsOnFoot  += sof; p.hitsOnFoot   += hof;
+    p.killsOnFoot      += kof; p.deathsOnFoot += dof; p.tkOnFoot += tkof;
+    p.shotsOnFoot      += sof; p.hitsOnFoot   += hof; p.hitsDealtOnFoot += hdof;
     p.suicides     += NUM((r["Suicides"] || r["Suicides\r"] || "0"));
     p.distanceRun  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
     p.timePlayed   += NUM(r["Time Played (s)"] || r["Time Played (s)\r"] || "0");
@@ -694,7 +702,7 @@ function applyFilters() {
 
     p.killsInVeh  += kiv; p.deathsInVeh += div2; p.tkInVeh += tkiv;
     p.vehKillsFoot+= vkof; p.vehKillsVeh += vkiv;
-    p.shotsInVeh  += siv; p.hitsInVeh   += hiv;
+    p.shotsInVeh  += siv; p.hitsInVeh += hiv; p.hitsDealtInVeh += hdiv;
     if (liv > p.maxLongestVeh) p.maxLongestVeh = liv;
     if (kiv > 0 && aiv > 0) { p.avgDistVehSum += aiv * kiv; p.avgDistVehN += kiv; }
 
@@ -712,8 +720,10 @@ function applyFilters() {
   Object.values(tempAgg).forEach(p => {
     p.kdFoot  = p.deathsOnFoot > 0 ? p.killsOnFoot / p.deathsOnFoot : p.killsOnFoot;
     p.kdVeh   = p.deathsInVeh  > 0 ? p.killsInVeh  / p.deathsInVeh  : p.killsInVeh;
-    p.spkFoot = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
-    p.spkVeh  = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.spkFoot      = p.killsOnFoot > 0 ? p.shotsOnFoot / p.killsOnFoot : null;
+    p.spkVeh       = p.killsInVeh  > 0 ? p.shotsInVeh  / p.killsInVeh  : null;
+    p.accuracyFoot = p.shotsOnFoot > 0 ? (p.hitsDealtOnFoot / p.shotsOnFoot) * 100 : null;
+    p.accuracyVeh  = p.shotsInVeh  > 0 ? (p.hitsDealtInVeh  / p.shotsInVeh)  * 100 : null;
     p.avgDistFoot = p.avgDistFootN > 0 ? p.avgDistFootSum / p.avgDistFootN : 0;
     p.avgDistVeh  = p.avgDistVehN  > 0 ? p.avgDistVehSum  / p.avgDistVehN  : 0;
     p.missionCount = p.missions.size;
@@ -1054,6 +1064,8 @@ const SHARED_INF_STAT_COLS = [
   { label: "Suicides",      aggKey: "suicides",       missionKey: "sui",  numeric: true,  fmt: v => v || "—", css: v => v > 0 ? "tk-cell" : "", canAvg: true },
   { label: "Shots",         aggKey: "shotsOnFoot",    missionKey: "sh",   numeric: true,  canAvg: true },
   { label: "Hits Taken",    aggKey: "hitsOnFoot",     missionKey: "ht",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Hits Dealt",    aggKey: "hitsDealtOnFoot",missionKey: "hd",   numeric: true,  fmt: v => v || "—", canAvg: true },
+  { label: "Accuracy",      aggKey: "accuracyFoot",   missionKey: "_acc", numeric: true,  fmt: v => v != null ? v.toFixed(1) + "%" : "—" },
   { label: "Shots/Kill",    aggKey: "spkFoot",        missionKey: "_spk", numeric: true,  fmt: v => v != null ? v.toFixed(1) : "—" },
   { label: "Avg Dist (m)",  aggKey: "avgDistFoot",    missionKey: "_ad",  numeric: true,  fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)",   aggKey: "maxLongestFoot", missionKey: "lk",   numeric: true,  fmt: v => v || "—" },
@@ -1214,7 +1226,7 @@ function buildCareerStatsHTML(p) {
     const key = r["Mission"] || r["Source File"] || '—';
     if (!missionMap[key]) missionMap[key] = {
       mission: key,
-      k: 0, vk: 0, d: 0, tk: 0, sui: 0, sh: 0, ht: 0,
+      k: 0, vk: 0, d: 0, tk: 0, sui: 0, sh: 0, ht: 0, hd: 0,
       lk: 0, _adSum: 0, _adN: 0, dr: 0, tp: 0,
       _kd: null, _spk: null, _ad: null
     };
@@ -1228,6 +1240,7 @@ function buildCareerStatsHTML(p) {
     m.sui += NUM(r["Suicides"] || r["Suicides\r"] || "0");
     m.sh  += NUM(r["Shots (On Foot)"]);
     m.ht  += NUM(r["Hits Taken (On Foot)"]);
+    m.hd  += NUM(r["Hits Dealt (On Foot)"]);
     m.lk   = Math.max(m.lk, NUM(r["Longest Kill On Foot (m)"]));
     if (kof > 0 && aof > 0) { m._adSum += aof * kof; m._adN += kof; }
     m.dr  += NUM(r["Distance Run (km)"] || r["Distance Run (km)\r"] || "0");
@@ -1238,6 +1251,7 @@ function buildCareerStatsHTML(p) {
     m._kd  = m.d > 0 ? m.k / m.d : m.k;
     m._spk = m.k > 0 ? m.sh / m.k : null;
     m._ad  = m._adN > 0 ? m._adSum / m._adN : null;
+    m._acc = m.sh > 0 ? (m.hd / m.sh) * 100 : null;
   });
   // Reset sort to default (kills desc) each time a new player's stats are opened
   missionSortCol = 1;
@@ -1420,9 +1434,11 @@ const VEH_COLS = [
   { label: "K/D (Veh)", key: "kdVeh",          numeric: true,  sortKey: "kdVeh",  fmt: v => v.toFixed(2), css: kdClass },
   { label: "TK (Veh)", key: "tkInVeh",         numeric: true,  sortKey: "tkInVeh", css: tkClass, canAvg: true },
   { label: "Veh Kills (Veh)",  key: "vehKillsVeh",   numeric: true, sortKey: "vehKillsVeh", canAvg: true },
-  { label: "Shots (Veh)", key: "shotsInVeh",   numeric: true,  sortKey: "shotsInVeh",  canAvg: true },
-  { label: "Hits Taken (Veh)", key: "hitsInVeh", numeric: true, sortKey: "hitsInVeh",  canAvg: true },
-  { label: "Shots/Kill (Veh)", key: "spkVeh",   numeric: true,  sortKey: "spkVeh", fmt: v => v != null ? v.toFixed(1) : "—" },
+  { label: "Shots (Veh)",      key: "shotsInVeh",     numeric: true, sortKey: "shotsInVeh",     canAvg: true },
+  { label: "Hits Taken (Veh)", key: "hitsInVeh",     numeric: true, sortKey: "hitsInVeh",     canAvg: true },
+  { label: "Hits Dealt (Veh)", key: "hitsDealtInVeh",numeric: true, sortKey: "hitsDealtInVeh",canAvg: true, fmt: v => v || "—" },
+  { label: "Accuracy (Veh)",   key: "accuracyVeh",   numeric: true, sortKey: "accuracyVeh",   fmt: v => v != null ? v.toFixed(1) + "%" : "—" },
+  { label: "Shots/Kill (Veh)", key: "spkVeh",        numeric: true, sortKey: "spkVeh",        fmt: v => v != null ? v.toFixed(1) : "—" },
   { label: "Avg Dist (m)", key: "avgDistVeh",   numeric: true,  sortKey: "avgDistVeh", fmt: v => v ? Math.round(v) : "—" },
   { label: "Longest (m)", key: "maxLongestVeh", numeric: true,  sortKey: "maxLongestVeh", fmt: v => v || "—" },
   { label: "Missions",  key: "missionCount",   numeric: true,  sortKey: "missionCount" },
