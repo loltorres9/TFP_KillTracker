@@ -13,7 +13,7 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 
 ### Leaderboards & Charts
 - **Unit Leaderboard** — aggregates stats by unit (2nd USC, CNTO, PXG, TFP); columns include kills, K/D, vehicle kills, kills/player, avg K/D, missions, distance run, time played; all columns sortable; right-click raw-count columns to toggle per-mission averages
-- **Mission History** — chronological table of every mission with date, world, player count, kills/deaths, K/D, TK, vehicle kills, and top killer
+- **Mission History** — chronological table of every mission with date, world, player count, kills/deaths, K/D, TK, vehicle kills, Hits/Kill, and top killer
 - **Vehicle Kills** — dedicated table listing every vehicle destruction across all (filtered) missions; columns: vehicle, killer, weapon
 - **Weapon Leaderboard** — aggregates weapon kill JSON across all filtered players; shows total kills, user count, top user, kill share %; right-click the Total Kills header to toggle kills/user mode; live search box to filter by weapon name
 - **Map Stats** — kills, deaths, K/D, TK, and mission/player counts grouped by world/map
@@ -69,25 +69,27 @@ Stats are pulled from a public Google Sheets CSV. The sheet is expected to have 
 | 10 | Teamkills (On Foot) | |
 | 11 | Shots (On Foot) | |
 | 12 | Hits Taken (On Foot) | |
-| 13 | Shots/Kill (On Foot) | Empty if 0 kills |
-| 14 | Avg Kill Dist On Foot (m) | Empty if 0 kills |
-| 15 | Longest Kill On Foot (m) | Empty if 0 kills |
-| 16 | Kills (In Vehicle) | |
-| 17 | Deaths (In Vehicle) | |
-| 18 | K/D (In Vehicle) | |
-| 19 | Teamkills (In Vehicle) | |
-| 20 | Vehicle Kills (On Foot) | Destroyed vehicles while on foot |
-| 21 | Vehicle Kills (In Vehicle) | Destroyed vehicles while mounted |
-| 22 | Shots (In Vehicle) | |
-| 23 | Hits Taken (In Vehicle) | |
-| 24 | Shots/Kill (In Vehicle) | Empty if 0 kills |
-| 25 | Avg Kill Dist In Vehicle (m) | Empty if 0 kills |
-| 26 | Longest Kill In Vehicle (m) | Empty if 0 kills |
-| 27 | Top Weapon | Weapon with most on-foot kills |
-| 28 | Weapon Kills (JSON) | `{"WeaponName": killCount, …}` sorted by kills |
-| 29 | Suicides | |
-| 30 | Time Played (s) | Seconds present in the mission |
-| 31 | Distance Run (km) | Total distance run; teleport steps (>100 m) excluded |
+| 13 | Hits Dealt (On Foot) | Outgoing hits registered on enemies/friendlies |
+| 14 | Shots/Kill (On Foot) | Empty if 0 kills |
+| 15 | Avg Kill Dist On Foot (m) | Empty if 0 kills |
+| 16 | Longest Kill On Foot (m) | Empty if 0 kills |
+| 17 | Kills (In Vehicle) | |
+| 18 | Deaths (In Vehicle) | |
+| 19 | K/D (In Vehicle) | |
+| 20 | Teamkills (In Vehicle) | |
+| 21 | Vehicle Kills (On Foot) | Destroyed vehicles while on foot |
+| 22 | Vehicle Kills (In Vehicle) | Destroyed vehicles while mounted |
+| 23 | Shots (In Vehicle) | |
+| 24 | Hits Taken (In Vehicle) | |
+| 25 | Hits Dealt (In Vehicle) | Outgoing hits while mounted |
+| 26 | Shots/Kill (In Vehicle) | Empty if 0 kills |
+| 27 | Avg Kill Dist In Vehicle (m) | Empty if 0 kills |
+| 28 | Longest Kill In Vehicle (m) | Empty if 0 kills |
+| 29 | Top Weapon | Weapon with most on-foot kills |
+| 30 | Weapon Kills (JSON) | `{"WeaponName": killCount, …}` sorted by kills |
+| 31 | Suicides | |
+| 32 | Time Played (s) | Seconds present in the mission |
+| 33 | Distance Run (km) | Total distance run; teleport steps (>100 m) excluded |
 
 To point the tracker at a different sheet, update `CSV_URL` near the top of `tracker.js`.
 

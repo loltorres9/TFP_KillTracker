@@ -4,7 +4,14 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.020 — 2026-03-22 (latest)
+## v1.021 — 2026-03-30 (latest)
+
+### Added
+- **Hits/Kill in Mission History** — new sortable column in the Mission History table showing total hits dealt divided by total kills for each mission
+
+---
+
+## v1.020 — 2026-03-22
 
 ### Added
 - **Hits Dealt tracking** — ImportScript now records outgoing hits per player (on foot and in vehicle), mirroring the existing Hits Taken columns. New sheet columns: `Hits Dealt (On Foot)`, `Hits Dealt (In Vehicle)`.
