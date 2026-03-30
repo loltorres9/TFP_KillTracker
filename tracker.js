@@ -263,14 +263,17 @@ function buildAggregates() {
   });
 }
 
+// ── ZEUS DETECTION ────────────────────────────────────────────────────────
+// True if a CSV row represents a Zeus player — checks both Group and Role
+// so players with "Co Zeus", "Zeus@Zeus", "Command@Zeus" etc. are all caught.
+function rowIsZeus(r) {
+  return (r['Group'] || '').toLowerCase().includes('zeus') ||
+         (r['Role']  || '').toLowerCase().includes('zeus');
+}
+
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 function classifyPlayerUnits(rows) {
   // Build squad co-occurrence: players in the same (sourceFile, group) pair
-  // Helper: true if a CSV row represents a Zeus player (group OR role contains "zeus")
-  function rowIsZeus(r) {
-    return (r['Group'] || '').toLowerCase().includes('zeus') ||
-           (r['Role']  || '').toLowerCase().includes('zeus');
-  }
   const squads = {};
   rows.forEach(r => {
     const src   = r['Source File'] || '';
