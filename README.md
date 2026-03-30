@@ -130,9 +130,23 @@ Teamkills that occur during end-of-mission celebrations are automatically exclud
 
 | Heuristic | Condition | Rationale |
 |-----------|-----------|-----------|
-| Time window | TK in the last **2 min** before `endMission` | Hard cutoff — mission is over |
-| Close-range extended | Distance ≤ **15 m** within last **3 min** | Grenade drops slightly before official end |
-| Burst | **3+ TKs** in any **60 s** rolling window | Group grenade / celebration volley |
+| Time window | TK in the last **5 min** (300 s) before `endMission` | Hard cutoff — mission is over |
+| Close-range extended | Distance ≤ **15 m** within last **7 min** (420 s) | Grenade drops slightly before official end |
+| Burst | **3+ TKs** in any **60 s** rolling window, within last **10 min** | Group grenade / celebration volley; time-gated to avoid suppressing mid-mission TK clusters |
+
+### Zeus detection
+
+A player is classified as Zeus if their **Group** or **Role** field (as recorded by OCAP) contains the word `zeus` (case-insensitive). This covers all known role formats:
+
+| Role string | Detected |
+|-------------|----------|
+| `Zeus` | ✓ |
+| `Co Zeus` | ✓ |
+| `Zeus@Zeus` | ✓ |
+| `Command@Zeus` | ✓ |
+| `Rifleman@Zeus` | ✓ |
+
+Zeus players have all combat stats zeroed in the sheet and are excluded from the Players filter (Hide Zeus / Zeus Only), squad co-occurrence, and shame cards.
 
 ## Deployment
 
