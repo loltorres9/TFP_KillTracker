@@ -656,7 +656,7 @@ function refreshPills() {
   const missionFiltered = selectedMissions
     ? eventRows.filter(r => selectedMissions.has(r["Mission"] || ""))
     : eventRows;
-  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))]
+  const availPlayers = [...new Set(missionFiltered.map(r => nameMap[r["Username"] || ""] || r["Username"] || "").filter(Boolean))]
     .filter(name => selectedUnit === null || (playerUnits[name] || 'Unknown') === selectedUnit)
     .sort();
 
