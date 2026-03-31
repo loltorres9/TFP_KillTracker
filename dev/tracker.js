@@ -1,6 +1,6 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
 const RELEASE_DATE = "2026-03-31";
-const VERSION      = "1.023";
+const VERSION      = "1.024";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -336,7 +336,8 @@ function buildAggregates() {
       const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
-        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+        const weapon = w.replace(/\s*\[[^\]]+\]$/, '');
+        p.weaponKills[weapon] = (p.weaponKills[weapon] || 0) + c;
       });
     } catch(e) {}
     p.missionRows.push(r);
@@ -827,7 +828,8 @@ function applyFilters() {
       const weaponJson = r["Weapon Kills (JSON)"] || r["Weapon Kills (JSON)\r"] || "{}";
       const wmap = JSON.parse(weaponJson);
       Object.entries(wmap).forEach(([w, c]) => {
-        p.weaponKills[w] = (p.weaponKills[w] || 0) + c;
+        const weapon = w.replace(/\s*\[[^\]]+\]$/, '');
+        p.weaponKills[weapon] = (p.weaponKills[weapon] || 0) + c;
       });
     } catch(e) {}
     p.missionRows.push(r);

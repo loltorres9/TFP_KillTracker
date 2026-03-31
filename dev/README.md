@@ -15,7 +15,7 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 - **Unit Leaderboard** — aggregates stats by unit (2nd USC, CNTO, PXG, TFP); columns include kills, K/D, vehicle kills, kills/player, avg K/D, missions, distance run, time played; all columns sortable; right-click raw-count columns to toggle per-mission averages
 - **Mission History** — chronological table of every mission with date, world, player count, kills/deaths, K/D, TK, vehicle kills, Hits/Kill, and top killer
 - **Vehicle Kills** — dedicated table listing every vehicle destruction across all (filtered) missions; columns: vehicle, killer, weapon
-- **Weapon Leaderboard** — aggregates weapon kill JSON across all filtered players; shows total kills, user count, top user, kill share %; right-click the Total Kills header to toggle kills/user mode; live search box to filter by weapon name
+- **Weapon Leaderboard** — aggregates weapon kill JSON across all filtered players; shows total kills, user count, top user, kill share %; right-click the Total Kills header to toggle kills/user mode; live search box to filter by weapon name; ammo variants of the same weapon are merged (e.g. `M240G [M62 Tracer]` + `M240G [M80A1 EPR]` → `M240G`)
 - **Map Stats** — kills, deaths, K/D, TK, and mission/player counts grouped by world/map
 - **Role Leaderboard** — kills, deaths, K/D, and avg K/D grouped by each player's primary role
 - **Attendance Tracker** — per-player mission count, attendance %, first seen, last seen, and avg time per mission
