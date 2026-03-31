@@ -93,12 +93,14 @@ let zeusFilter = "all";
 //   • Spaces inside brackets:   [57th MEU] → [57thmeu]
 //   • No space after bracket:   [tag]Name  → [tag] Name
 //   • Missing space after dot:  S.Fig      → S. Fig
+//   • Underscores as separators: [SR]_Gronk → [sr] gronk
 // Does NOT merge rank variants (Sgt. Deadly vs Deadly) — use player_aliases.json.
 function normalizeName(name) {
   return name
     .replace(/\[([^\]]+)\]/g, (_, tag) => '[' + tag.replace(/\s+/g, '') + ']')
     .replace(/\]\s*/g, '] ')
     .replace(/\.(?=[^\s\].])/g, '. ')
+    .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
