@@ -1,6 +1,6 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPdSKTP3NyYXXMON52HCpNv8bEmM9ElmCgKHeGbYIVAtMv9ADAwBaniA8dqIyEHyOe3q6gbA1PEdZb/pub?gid=267117435&single=true&output=csv";
-const RELEASE_DATE = "2026-03-30";
-const VERSION      = "1.022";
+const RELEASE_DATE = "2026-03-31";
+const VERSION      = "1.023";
 
 // ── UNIT CLASSIFICATION ───────────────────────────────────────────────────
 const UNIT_SEEDS = {
@@ -87,12 +87,108 @@ let showJointOps   = true;
 let showRegularEvents = true;
 let zeusFilter = "all";
 
+// ── PLAYER NAME NORMALISATION ──────────────────────────────────────────────
+// Reduces mechanical name variants to a common key so they merge into one
+// player entry. Handles:
+//   • Spaces inside brackets:   [57th MEU] → [57thmeu]
+//   • No space after bracket:   [tag]Name  → [tag] Name
+//   • Missing space after dot:  S.Fig      → S. Fig
+//   • Underscores as separators: [SR]_Gronk → [sr] gronk
+// Does NOT merge rank variants (Sgt. Deadly vs Deadly) — use player_aliases.json.
+function normalizeName(name) {
+  return name
+    .replace(/\[([^\]]+)\]/g, (_, tag) => '[' + tag.replace(/\s+/g, '') + ']')
+    .replace(/\]\s*/g, '] ')
+    .replace(/\.(?=[^\s\].])/g, '. ')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// Minimum length a callsign must have to be used as a suffix anchor.
+// Prevents merging on short common words (e.g. "sky", "dan").
+const MIN_CALLSIGN_LEN = 4;
+
+// Pre-scan all rows to build rawName → canonicalName map.
+// Three-pass strategy:
+//   1. Exact-normalisation: spacing/bracket/punctuation variants → same key.
+//   2. Suffix matching: "[2nd USC] Fre3ky", "HMC.P Fre3ky" → "Fre3ky" because
+//      the longer normalised name ends with (space or ]) + shorter name.
+//      Canonical = the bare (shortest) callsign.
+//   3. Explicit aliases from player_aliases.json override everything.
+let nameMap = {};
+function buildNameMap(rows, aliases) {
+  const freq = {};
+  rows.forEach(r => {
+    const n = (r['Username'] || '').trim();
+    if (n) freq[n] = (freq[n] || 0) + 1;
+  });
+
+  // norm key → raw names
+  const normToRaws = {};
+  Object.keys(freq).forEach(n => {
+    const key = normalizeName(n);
+    if (!normToRaws[key]) normToRaws[key] = [];
+    normToRaws[key].push(n);
+  });
+
+  // norm key → canonical raw name (most-missions, then alpha)
+  const normToCanonical = {};
+  Object.entries(normToRaws).forEach(([norm, raws]) => {
+    normToCanonical[norm] = raws.slice().sort((a, b) => (freq[b] - freq[a]) || a.localeCompare(b))[0];
+  });
+
+  // Pass 1 — exact normalisation
+  const map = {};
+  Object.entries(normToRaws).forEach(([norm, raws]) => {
+    raws.forEach(n => { map[n] = normToCanonical[norm]; });
+  });
+
+  // Pass 2 — suffix matching
+  // Sort by length ascending so shorter (= bare callsign) comes first.
+  const normKeys = Object.keys(normToCanonical).sort((a, b) => a.length - b.length);
+  for (let i = 0; i < normKeys.length; i++) {
+    const shorter = normKeys[i];
+    if (shorter.length < MIN_CALLSIGN_LEN) continue;
+    for (let j = i + 1; j < normKeys.length; j++) {
+      const longer = normKeys[j];
+      if (normToCanonical[longer] === normToCanonical[shorter]) continue; // already merged
+      const pos = longer.length - shorter.length;
+      // Suffix must be preceded by a space or ] to avoid partial-word matches
+      if (pos > 0 && (longer[pos - 1] === ' ' || longer[pos - 1] === ']') && longer.endsWith(shorter)) {
+        const shorterCanonical = normToCanonical[shorter];
+        (normToRaws[longer] || []).forEach(n => { map[n] = shorterCanonical; });
+        normToCanonical[longer] = shorterCanonical; // propagate for transitive chains
+      }
+    }
+  }
+
+  // Pass 3 — explicit aliases win over everything
+  Object.entries(aliases).forEach(([raw, canonical]) => { map[raw] = canonical; });
+
+  // Build reverse map: canonical → sorted list of other names it absorbed
+  nameAliases = {};
+  Object.entries(map).forEach(([raw, canonical]) => {
+    if (raw !== canonical) {
+      if (!nameAliases[canonical]) nameAliases[canonical] = [];
+      nameAliases[canonical].push(raw);
+    }
+  });
+  Object.values(nameAliases).forEach(arr => arr.sort());
+
+  return map;
+}
+
+let nameAliases = {}; // canonical → [alias, ...]
+
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
 Promise.all([
   fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
-  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ])
-  .then(([csv, overrides]) => {
+  .then(([csv, overrides, aliases]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -107,6 +203,7 @@ Promise.all([
       return obj;
     }).filter(r => r["Username"]);
 
+    nameMap = buildNameMap(rawRows, aliases);
     buildAggregates();
     playerUnits = classifyPlayerUnits(rawRows);
     // Apply manual overrides from unit_overrides.json on top of auto-classification
@@ -149,8 +246,9 @@ function parseCSVLine(line) {
 function buildAggregates() {
   aggPlayers = {};
   rawRows.forEach(r => {
-    const name = r["Username"] || r["Username\r"] || "";
-    if (!name) return;
+    const rawName = r["Username"] || r["Username\r"] || "";
+    if (!rawName) return;
+    const name = nameMap[rawName] || rawName;
     if (!aggPlayers[name]) {
       aggPlayers[name] = {
         name,
@@ -466,6 +564,23 @@ function buildUI() {
   });
 }
 
+function _setCareerSubtitle(p) {
+  const cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const active = cml.length > 1 ? `${missionDate(cml[0])} – ${missionDate(cml[cml.length - 1])}` : (cml[0] ? missionDate(cml[0]) : '—');
+  const aliases = nameAliases[p.name];
+  document.getElementById('careerPlayerSub').innerHTML =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${active}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '') +
+    (aliases && aliases.length
+      ? `<br><span style="font-size:0.78em;opacity:0.55;font-style:italic">Also known as: ${aliases.join('  ·  ')}</span>`
+      : '');
+}
+
 // Internal versions that update the DOM without pushing another history entry
 function _openCareerPageNoHistory(playerName) {
   selectedPlayers = new Set([playerName]);
@@ -473,16 +588,7 @@ function _openCareerPageNoHistory(playerName) {
   const p = filteredPlayers.find(x => x.name === playerName);
   if (!p) return;
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
-  const _cml = p.missions ? [...p.missions].sort((a, b) => {
-    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    return da.localeCompare(db);
-  }) : [];
-  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
-  document.getElementById('careerPlayerSub').textContent =
-    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
-    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
-    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
@@ -573,7 +679,7 @@ function refreshPills() {
   const missionFiltered = selectedMissions
     ? eventRows.filter(r => selectedMissions.has(r["Mission"] || ""))
     : eventRows;
-  const availPlayers = [...new Set(missionFiltered.map(r => r["Username"] || "").filter(Boolean))]
+  const availPlayers = [...new Set(missionFiltered.map(r => nameMap[r["Username"] || ""] || r["Username"] || "").filter(Boolean))]
     .filter(name => selectedUnit === null || (playerUnits[name] || 'Unknown') === selectedUnit)
     .sort();
 
@@ -637,7 +743,8 @@ function filterChanged() {
 
 function applyFilters() {
   const filtered = rawRows.filter(r => {
-    const name    = r["Username"] || "";
+    const rawName = r["Username"] || "";
+    const name    = nameMap[rawName] || rawName;
     const mission = r["Mission"]  || "";
     const srcFile = r["Source File"] || "";
     const isLarge = isJointOp(srcFile);
@@ -652,7 +759,8 @@ function applyFilters() {
   // Re-aggregate only for filtered rows
   const tempAgg = {};
   filtered.forEach(r => {
-    const name = r["Username"] || "";
+    const rawName = r["Username"] || "";
+    const name = nameMap[rawName] || rawName;
     if (!name) return;
     if (!tempAgg[name]) {
       tempAgg[name] = {
@@ -1331,16 +1439,7 @@ function openCareerPage(playerName) {
   if (!p) return;
 
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
-  const _cml = p.missions ? [...p.missions].sort((a, b) => {
-    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    return da.localeCompare(db);
-  }) : [];
-  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
-  document.getElementById('careerPlayerSub').textContent =
-    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
-    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
-    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display                   = 'none';
