@@ -164,8 +164,21 @@ function buildNameMap(rows, aliases) {
 
   // Pass 3 — explicit aliases win over everything
   Object.entries(aliases).forEach(([raw, canonical]) => { map[raw] = canonical; });
+
+  // Build reverse map: canonical → sorted list of other names it absorbed
+  nameAliases = {};
+  Object.entries(map).forEach(([raw, canonical]) => {
+    if (raw !== canonical) {
+      if (!nameAliases[canonical]) nameAliases[canonical] = [];
+      nameAliases[canonical].push(raw);
+    }
+  });
+  Object.values(nameAliases).forEach(arr => arr.sort());
+
   return map;
 }
+
+let nameAliases = {}; // canonical → [alias, ...]
 
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
 Promise.all([
@@ -549,6 +562,23 @@ function buildUI() {
   });
 }
 
+function _setCareerSubtitle(p) {
+  const cml = p.missions ? [...p.missions].sort((a, b) => {
+    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
+    return da.localeCompare(db);
+  }) : [];
+  const active = cml.length > 1 ? `${missionDate(cml[0])} – ${missionDate(cml[cml.length - 1])}` : (cml[0] ? missionDate(cml[0]) : '—');
+  const aliases = nameAliases[p.name];
+  document.getElementById('careerPlayerSub').innerHTML =
+    `Combat Missions: ${p.missionCount}   ·   Active: ${active}` +
+    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
+    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '') +
+    (aliases && aliases.length
+      ? `<br><span style="font-size:0.78em;opacity:0.55;font-style:italic">Also known as: ${aliases.join('  ·  ')}</span>`
+      : '');
+}
+
 // Internal versions that update the DOM without pushing another history entry
 function _openCareerPageNoHistory(playerName) {
   selectedPlayers = new Set([playerName]);
@@ -556,16 +586,7 @@ function _openCareerPageNoHistory(playerName) {
   const p = filteredPlayers.find(x => x.name === playerName);
   if (!p) return;
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
-  const _cml = p.missions ? [...p.missions].sort((a, b) => {
-    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    return da.localeCompare(db);
-  }) : [];
-  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
-  document.getElementById('careerPlayerSub').textContent =
-    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
-    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
-    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
@@ -1416,16 +1437,7 @@ function openCareerPage(playerName) {
   if (!p) return;
 
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
-  const _cml = p.missions ? [...p.missions].sort((a, b) => {
-    const da = (a.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    const db = (b.match(/\((\d{4}-\d{2}-\d{2})\)/) || [])[1] || '';
-    return da.localeCompare(db);
-  }) : [];
-  const _cActive = _cml.length > 1 ? `${missionDate(_cml[0])} – ${missionDate(_cml[_cml.length - 1])}` : (_cml[0] ? missionDate(_cml[0]) : '—');
-  document.getElementById('careerPlayerSub').textContent =
-    `Combat Missions: ${p.missionCount}   ·   Active: ${_cActive}` +
-    (p.timePlayed ? `   ·   Time Played: ${fmtTime(p.timePlayed)}` : '') +
-    (p.topRole ? `   ·   Top Role: ${p.topRole} (${p.topRoleCount})` : '');
+  _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
 
   document.getElementById('statsBar').style.display                   = 'none';
