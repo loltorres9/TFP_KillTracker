@@ -104,8 +104,17 @@ function normalizeName(name) {
     .toLowerCase();
 }
 
+// Minimum length a callsign must have to be used as a suffix anchor.
+// Prevents merging on short common words (e.g. "sky", "dan").
+const MIN_CALLSIGN_LEN = 4;
+
 // Pre-scan all rows to build rawName → canonicalName map.
-// Canonical = most-missions variant per normalised key; explicit aliases win.
+// Three-pass strategy:
+//   1. Exact-normalisation: spacing/bracket/punctuation variants → same key.
+//   2. Suffix matching: "[2nd USC] Fre3ky", "HMC.P Fre3ky" → "Fre3ky" because
+//      the longer normalised name ends with (space or ]) + shorter name.
+//      Canonical = the bare (shortest) callsign.
+//   3. Explicit aliases from player_aliases.json override everything.
 let nameMap = {};
 function buildNameMap(rows, aliases) {
   const freq = {};
@@ -113,18 +122,47 @@ function buildNameMap(rows, aliases) {
     const n = (r['Username'] || '').trim();
     if (n) freq[n] = (freq[n] || 0) + 1;
   });
-  const groups = {};
+
+  // norm key → raw names
+  const normToRaws = {};
   Object.keys(freq).forEach(n => {
     const key = normalizeName(n);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(n);
+    if (!normToRaws[key]) normToRaws[key] = [];
+    normToRaws[key].push(n);
   });
+
+  // norm key → canonical raw name (most-missions, then alpha)
+  const normToCanonical = {};
+  Object.entries(normToRaws).forEach(([norm, raws]) => {
+    normToCanonical[norm] = raws.slice().sort((a, b) => (freq[b] - freq[a]) || a.localeCompare(b))[0];
+  });
+
+  // Pass 1 — exact normalisation
   const map = {};
-  Object.values(groups).forEach(group => {
-    const canonical = group.slice().sort((a, b) => (freq[b] - freq[a]) || a.localeCompare(b))[0];
-    group.forEach(n => { map[n] = canonical; });
+  Object.entries(normToRaws).forEach(([norm, raws]) => {
+    raws.forEach(n => { map[n] = normToCanonical[norm]; });
   });
-  // Explicit aliases override auto-normalisation
+
+  // Pass 2 — suffix matching
+  // Sort by length ascending so shorter (= bare callsign) comes first.
+  const normKeys = Object.keys(normToCanonical).sort((a, b) => a.length - b.length);
+  for (let i = 0; i < normKeys.length; i++) {
+    const shorter = normKeys[i];
+    if (shorter.length < MIN_CALLSIGN_LEN) continue;
+    for (let j = i + 1; j < normKeys.length; j++) {
+      const longer = normKeys[j];
+      if (normToCanonical[longer] === normToCanonical[shorter]) continue; // already merged
+      const pos = longer.length - shorter.length;
+      // Suffix must be preceded by a space or ] to avoid partial-word matches
+      if (pos > 0 && (longer[pos - 1] === ' ' || longer[pos - 1] === ']') && longer.endsWith(shorter)) {
+        const shorterCanonical = normToCanonical[shorter];
+        (normToRaws[longer] || []).forEach(n => { map[n] = shorterCanonical; });
+        normToCanonical[longer] = shorterCanonical; // propagate for transitive chains
+      }
+    }
+  }
+
+  // Pass 3 — explicit aliases win over everything
   Object.entries(aliases).forEach(([raw, canonical]) => { map[raw] = canonical; });
   return map;
 }
