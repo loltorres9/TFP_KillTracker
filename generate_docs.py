@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.5  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.6  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -694,7 +694,10 @@ add_para(doc,
     'Merges Weapon Kills (JSON) objects across all filteredRows. '
     'Displays top-50 weapons with total kills, user count, top user, and kill share %. '
     'Right-clicking the Total Kills header toggles kills/user mode (amber ~/u prefix). '
-    'A live search input above the table filters rows by weapon name substring.',
+    'A live search input above the table filters rows by weapon name substring. '
+    'Ammo variants are merged at aggregation time: the trailing [AmmoType] bracket suffix '
+    '(e.g. "[M62 Tracer]", "[M80A1 EPR]") is stripped from weapon names before accumulation, '
+    'so M240G [M62 Tracer] and M240G [M80A1 EPR] both count as M240G.',
     space_after=6)
 
 add_heading(doc, '8.11 renderMapStats()', 2)
