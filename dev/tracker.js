@@ -87,12 +87,55 @@ let showJointOps   = true;
 let showRegularEvents = true;
 let zeusFilter = "all";
 
+// ── PLAYER NAME NORMALISATION ──────────────────────────────────────────────
+// Reduces mechanical name variants to a common key so they merge into one
+// player entry. Handles:
+//   • Spaces inside brackets:   [57th MEU] → [57thmeu]
+//   • No space after bracket:   [tag]Name  → [tag] Name
+//   • Missing space after dot:  S.Fig      → S. Fig
+// Does NOT merge rank variants (Sgt. Deadly vs Deadly) — use player_aliases.json.
+function normalizeName(name) {
+  return name
+    .replace(/\[([^\]]+)\]/g, (_, tag) => '[' + tag.replace(/\s+/g, '') + ']')
+    .replace(/\]\s*/g, '] ')
+    .replace(/\.(?=[^\s\].])/g, '. ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// Pre-scan all rows to build rawName → canonicalName map.
+// Canonical = most-missions variant per normalised key; explicit aliases win.
+let nameMap = {};
+function buildNameMap(rows, aliases) {
+  const freq = {};
+  rows.forEach(r => {
+    const n = (r['Username'] || '').trim();
+    if (n) freq[n] = (freq[n] || 0) + 1;
+  });
+  const groups = {};
+  Object.keys(freq).forEach(n => {
+    const key = normalizeName(n);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(n);
+  });
+  const map = {};
+  Object.values(groups).forEach(group => {
+    const canonical = group.slice().sort((a, b) => (freq[b] - freq[a]) || a.localeCompare(b))[0];
+    group.forEach(n => { map[n] = canonical; });
+  });
+  // Explicit aliases override auto-normalisation
+  Object.entries(aliases).forEach(([raw, canonical]) => { map[raw] = canonical; });
+  return map;
+}
+
 // ── FETCH & PARSE ────────────────────────────────────────────────────────
 Promise.all([
   fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
-  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ])
-  .then(([csv, overrides]) => {
+  .then(([csv, overrides, aliases]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -107,6 +150,7 @@ Promise.all([
       return obj;
     }).filter(r => r["Username"]);
 
+    nameMap = buildNameMap(rawRows, aliases);
     buildAggregates();
     playerUnits = classifyPlayerUnits(rawRows);
     // Apply manual overrides from unit_overrides.json on top of auto-classification
@@ -149,8 +193,9 @@ function parseCSVLine(line) {
 function buildAggregates() {
   aggPlayers = {};
   rawRows.forEach(r => {
-    const name = r["Username"] || r["Username\r"] || "";
-    if (!name) return;
+    const rawName = r["Username"] || r["Username\r"] || "";
+    if (!rawName) return;
+    const name = nameMap[rawName] || rawName;
     if (!aggPlayers[name]) {
       aggPlayers[name] = {
         name,
@@ -637,7 +682,8 @@ function filterChanged() {
 
 function applyFilters() {
   const filtered = rawRows.filter(r => {
-    const name    = r["Username"] || "";
+    const rawName = r["Username"] || "";
+    const name    = nameMap[rawName] || rawName;
     const mission = r["Mission"]  || "";
     const srcFile = r["Source File"] || "";
     const isLarge = isJointOp(srcFile);
@@ -652,7 +698,8 @@ function applyFilters() {
   // Re-aggregate only for filtered rows
   const tempAgg = {};
   filtered.forEach(r => {
-    const name = r["Username"] || "";
+    const rawName = r["Username"] || "";
+    const name = nameMap[rawName] || rawName;
     if (!name) return;
     if (!tempAgg[name]) {
       tempAgg[name] = {
