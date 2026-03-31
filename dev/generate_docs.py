@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.4  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.5  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -201,6 +201,7 @@ add_table(doc,
         ['tracker.js', 'All dashboard JavaScript — parsing, aggregation, filtering, rendering'],
         ['favicon.svg', 'Browser tab icon (SVG crosshair graphic)'],
         ['unit_overrides.json', 'Manual unit classification corrections applied on top of auto-classification'],
+        ['player_aliases.json', 'Explicit player name aliases for cases the auto-normalisation cannot resolve (rank variants, completely different names)'],
         ['ImportScript', 'Google Apps Script that imports OCAP .json.gz mission logs into Google Sheets'],
         ['generate_docs.py', 'python-docx script that regenerates this documentation file'],
         ['README.md', 'User-facing feature overview and deployment guide'],
@@ -250,6 +251,8 @@ add_table(doc,
         ['wpSortAsc', 'boolean', 'false', 'Sort direction for weapon leaderboard'],
         ['currentModalPlayer', 'string', '""', 'Player name currently shown in detail modal'],
         ['RELEASE_DATE', 'string', 'YYYY-MM-DD', 'Hardcoded release date shown in the page footer'],
+        ['nameMap', 'Object', '{}', 'Maps every raw Username value to its canonical display name; built by buildNameMap()'],
+        ['nameAliases', 'Object', '{}', 'Maps canonical name → array of all absorbed alias strings; used to show "Also known as" on career page'],
     ]
 )
 
@@ -419,12 +422,94 @@ bullet(doc, 'Removes NATO phonetic identifiers (Alpha, Bravo … Foxtrot)')
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  5. FILTER SYSTEM
+#  5. PLAYER NAME MERGING
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '5. Filter System', 1)
+add_heading(doc, '5. Player Name Merging', 1)
 
-add_heading(doc, '5.1 Filter Pipeline', 2)
+add_para(doc,
+    'Because players often appear under slightly different names across missions '
+    '(squad tags, rank prefixes, punctuation, or entirely different callsigns), '
+    'tracker.js collapses all variant names into a single canonical entry before '
+    'aggregation. The system runs at load time as part of the data pipeline.',
+    space_after=6)
+
+add_heading(doc, '5.1 normalizeName(name)', 2)
+add_para(doc,
+    'A pure string function applied to every raw Username before comparison. '
+    'Performs the following transformations in order:',
+    space_after=4)
+add_table(doc,
+    ['Step', 'Transform', 'Example'],
+    [
+        ['1', 'Remove spaces inside [brackets]', '[2nd USC] → [2ndUSC]'],
+        ['2', 'Add space after ] if missing', ']Name → ] Name'],
+        ['3', 'Add space after . if not followed by space or ]', 'S.Fig → S. Fig'],
+        ['4', 'Replace _ with space', '[SR]_Gronk → [SR] Gronk'],
+        ['5', 'Collapse multiple spaces', 'foo  bar → foo bar'],
+        ['6', 'Trim and lowercase', 'Fre3ky → fre3ky'],
+    ]
+)
+
+doc.add_paragraph()
+add_heading(doc, '5.2 buildNameMap(rows, aliases)', 2)
+add_para(doc,
+    'Called once at load with the raw CSV rows and the parsed player_aliases.json object. '
+    'Populates the module-level nameMap (raw → canonical) and nameAliases (canonical → [aliases]) '
+    'dictionaries using three passes:',
+    space_after=4)
+add_table(doc,
+    ['Pass', 'Strategy', 'What it resolves'],
+    [
+        ['1 — Exact normalisation',
+         'Each unique raw name is normalised; if two normalised forms are identical, the shorter raw name is chosen as canonical.',
+         'Tag/rank spacing, punctuation, underscore separators: "[SR]_Gronk" = "[SR] Gronk"'],
+        ['2 — Suffix matching',
+         'For each name, extract the trailing word(s) as a callsign (min 4 chars). '
+         'If any shorter name in the dataset ends with that callsign (preceded by space or ]), '
+         'the longer name merges into the shorter one.',
+         'Prefix/tag variants: "[2nd USC]Fre3ky", "HMC.P Fre3ky", "[57th] Fre3ky" → all become "Fre3ky"'],
+        ['3 — Explicit aliases',
+         'Any key in player_aliases.json is mapped to its value. '
+         'Runs after the auto passes so manual aliases always win.',
+         'Rank variants, completely different callsigns: "SGT T.Viking" → "The Viking"'],
+    ]
+)
+
+doc.add_paragraph()
+add_heading(doc, '5.3 player_aliases.json', 2)
+add_para(doc,
+    'A static JSON file fetched in parallel with the CSV. '
+    'Maps any raw name variant to a canonical display name. '
+    'Only required for cases the auto-normalisation cannot handle.',
+    space_after=4)
+add_code(doc, '{')
+add_code(doc, '  "PSGT Dusty": "[2nd USC] Trp. Dusty",')
+add_code(doc, '  "SGT T.Viking": "The Viking"')
+add_code(doc, '}')
+doc.add_paragraph()
+add_para(doc,
+    'The value must be the canonical form (the name as it should appear in the UI). '
+    'Spacing and bracket variants are handled by the normalisation pass automatically '
+    '— only add an entry here when the names are semantically different.',
+    space_after=6)
+
+add_heading(doc, '5.4 "Also known as" display', 2)
+add_para(doc,
+    'When a player has one or more absorbed aliases, the full career page displays a '
+    'dimmed italic "Also known as: alias1, alias2" line below the subtitle. '
+    'This is populated from nameAliases[canonicalName] by the _setCareerSubtitle() helper.',
+    space_after=6)
+
+doc.add_page_break()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  6. FILTER SYSTEM (renumbered)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+add_heading(doc, '6. Filter System', 1)
+
+add_heading(doc, '6.1 Filter Pipeline', 2)
 add_para(doc,
     'applyFilters() is the central function that rebuilds filteredPlayers from rawRows. '
     'Filters are applied in sequence; a row must pass all active filters to contribute to '
@@ -442,7 +527,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '5.2 Pill Availability Cascade', 2)
+add_heading(doc, '6.2 Pill Availability Cascade', 2)
 add_para(doc,
     'Available pills are recomputed by refreshPills() after every filter change to prevent '
     'showing players or missions that have no data under the current filter set.',
@@ -452,7 +537,7 @@ numbered(doc, 'Available missions = unique Mission values in those rows.')
 numbered(doc, 'Available players  = unique Username values in rows that also match the selected missions.')
 numbered(doc, 'Both pill lists are re-rendered against the search input substring filter.')
 
-add_heading(doc, '5.3 Player Pills vs Mission Pills', 2)
+add_heading(doc, '6.3 Player Pills vs Mission Pills', 2)
 add_table(doc,
     ['Aspect', 'Player Pills', 'Mission Pills'],
     [
@@ -467,7 +552,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '5.4 Zeus Filter', 2)
+add_heading(doc, '6.4 Zeus Filter', 2)
 add_para(doc,
     'The Zeus filter is applied after re-aggregation via the top-level rowIsZeus(r) helper, '
     'which returns true when either the Group or Role field of a CSV row contains the word "zeus" '
@@ -490,12 +575,12 @@ add_para(doc,
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  6. RENDERING FUNCTIONS
+#  7. RENDERING FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '6. Rendering Functions', 1)
+add_heading(doc, '7. Rendering Functions', 1)
 
-add_heading(doc, '6.1 renderStats()', 2)
+add_heading(doc, '8.1 renderStats()', 2)
 add_para(doc, 'Renders the top stats bar with aggregate totals across all filteredPlayers.', space_after=4)
 add_table(doc,
     ['Card Label', 'Value Source'],
@@ -512,14 +597,14 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '6.2 renderChart()', 2)
+add_heading(doc, '8.2 renderChart()', 2)
 add_para(doc,
     'Renders a horizontal bar chart of the top 10 infantry killers. '
     'Bar widths are proportional to the highest kill count in the visible set. '
     'Each bar shows player name and kill count as a label.',
     space_after=6)
 
-add_heading(doc, '6.3 renderLeader() — Award Cards', 2)
+add_heading(doc, '8.3 renderLeader() — Award Cards', 2)
 add_table(doc,
     ['Award', 'Icon', 'Metric', 'Eligibility', 'Display'],
     [
@@ -531,7 +616,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '6.4 renderInfantryTable()', 2)
+add_heading(doc, '8.4 renderInfantryTable()', 2)
 add_para(doc, 'Renders the Infantry Combat Stats table. Columns:', space_after=4)
 add_table(doc,
     ['#', 'Column', 'Key', 'Default Sort'],
@@ -562,14 +647,14 @@ add_para(doc,
     'The 📊 icon in the Player column opens the full career page.',
     space_after=6)
 
-add_heading(doc, '6.5 renderVehicleTable()', 2)
+add_heading(doc, '8.5 renderVehicleTable()', 2)
 add_para(doc,
     'Renders the Vehicle Combat Stats table. Only players with at least one vehicle '
     'kill or death are included. Column structure mirrors the infantry table but for '
     'vehicle metrics.',
     space_after=6)
 
-add_heading(doc, '6.6 renderTableHead()', 2)
+add_heading(doc, '8.6 renderTableHead()', 2)
 add_para(doc,
     'Renders clickable <th> elements with sort state indicators. '
     'The active sort column shows ▲ (ascending) or ▼ (descending); '
@@ -577,7 +662,7 @@ add_para(doc,
     'direction if the same column is clicked twice.',
     space_after=6)
 
-add_heading(doc, '6.7 renderUnitLeaderboard()', 2)
+add_heading(doc, '8.7 renderUnitLeaderboard()', 2)
 add_para(doc,
     'Aggregates filteredPlayers by unit (2nd USC, CNTO, PXG, TFP, Unknown). '
     'Computes per-unit totals for players, kills, deaths, K/D, TK, vehicle kills, '
@@ -585,7 +670,7 @@ add_para(doc,
     'All columns are sortable. Right-clicking raw-count headers toggles per-mission averages (~/m mode).',
     space_after=6)
 
-add_heading(doc, '6.8 renderMissionHistory()', 2)
+add_heading(doc, '8.8 renderMissionHistory()', 2)
 add_para(doc,
     'Builds a chronological table of every unique mission in filteredRows. '
     'Per-mission totals: date, world, player count, kills, deaths, K/D, TK, vehicle kills, '
@@ -593,7 +678,7 @@ add_para(doc,
     'Sorted by date descending.',
     space_after=6)
 
-add_heading(doc, '6.9 renderVehicleKillsSection()', 2)
+add_heading(doc, '8.9 renderVehicleKillsSection()', 2)
 add_para(doc,
     'Renders a flat list of every vehicle destruction across all filteredRows. '
     'Parses the Vehicle Kills (JSON) column (an array of {v: vehicle, w: weapon} objects) '
@@ -604,7 +689,7 @@ add_para(doc,
     'a prompt is shown to reimport with the updated script.',
     space_after=6)
 
-add_heading(doc, '6.10 renderWeaponLeaderboard()', 2)
+add_heading(doc, '8.10 renderWeaponLeaderboard()', 2)
 add_para(doc,
     'Merges Weapon Kills (JSON) objects across all filteredRows. '
     'Displays top-50 weapons with total kills, user count, top user, and kill share %. '
@@ -612,21 +697,21 @@ add_para(doc,
     'A live search input above the table filters rows by weapon name substring.',
     space_after=6)
 
-add_heading(doc, '6.11 renderMapStats()', 2)
+add_heading(doc, '8.11 renderMapStats()', 2)
 add_para(doc,
     'Groups filteredRows by World column. '
     'Per-map totals: kills, deaths, K/D, TK, mission count, player count. '
     'Sorted by kills descending.',
     space_after=6)
 
-add_heading(doc, '6.12 renderRoleLeaderboard()', 2)
+add_heading(doc, '8.12 renderRoleLeaderboard()', 2)
 add_para(doc,
     'Groups filteredPlayers by their topRole (normalised). '
     'Per-role aggregates: player count, total kills, deaths, K/D, avg K/D. '
     'Sorted by kills descending.',
     space_after=6)
 
-add_heading(doc, '6.13 renderAttendance()', 2)
+add_heading(doc, '8.13 renderAttendance()', 2)
 add_para(doc,
     'Builds a per-player attendance table. '
     'Columns: player, missions attended, attendance % (relative to total missions in filtered set), '
@@ -634,7 +719,7 @@ add_para(doc,
     'Sorted by mission count descending.',
     space_after=6)
 
-add_heading(doc, '6.14 renderKdTrend()', 2)
+add_heading(doc, '8.14 renderKdTrend()', 2)
 add_para(doc,
     'Renders an SVG line chart (viewBox 900x220) of K/D ratio over time. '
     'Data points are per-mission K/D values grouped by source file date. '
@@ -644,14 +729,14 @@ add_para(doc,
     'A "nice number" algorithm targets ~6 Y-axis grid lines regardless of data range.',
     space_after=6)
 
-add_heading(doc, '6.15 renderComparison()', 2)
+add_heading(doc, '8.15 renderComparison()', 2)
 add_para(doc,
     'Side-by-side stat comparison between two players selected from dropdowns. '
     'Renders a table of all infantry and vehicle metrics; the higher value in each '
     'row is highlighted in green. Draws from filteredPlayers for current filter context.',
     space_after=6)
 
-add_heading(doc, '6.16 Section Nav Bar & toggleSection()', 2)
+add_heading(doc, '8.16 Section Nav Bar & toggleSection()', 2)
 add_para(doc,
     'A sticky dark tab strip (#sectionNav) sits at the top of the page with one button per section. '
     'Clicking a button calls navTo(key), which expands the section if collapsed, '
@@ -667,9 +752,9 @@ doc.add_page_break()
 #  7. PLAYER DETAIL VIEWS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '7. Player Detail Views', 1)
+add_heading(doc, '8. Player Detail Views', 1)
 
-add_heading(doc, '7.1 Player Detail Modal', 2)
+add_heading(doc, '8.1 Player Detail Modal', 2)
 add_para(doc,
     'Triggered by clicking any row in either table. Opens a floating overlay '
     '(.modal-overlay.open) showing a full career breakdown for the selected player.',
@@ -685,7 +770,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '7.2 Full Career Page', 2)
+add_heading(doc, '8.2 Full Career Page', 2)
 add_para(doc,
     'Triggered by: right-clicking a player pill, clicking the 📊 icon on a table row, '
     'or clicking the maximize button in the modal.',
@@ -706,7 +791,7 @@ add_para(doc,
     're-shows all leaderboard elements, and calls applyFilters().',
     space_after=6)
 
-add_heading(doc, '7.3 buildCareerStatsHTML() — Content Sections', 2)
+add_heading(doc, '8.3 buildCareerStatsHTML() — Content Sections', 2)
 add_table(doc,
     ['Section', 'Content'],
     [
@@ -727,7 +812,7 @@ doc.add_page_break()
 #  8. COMPLETE FUNCTION REFERENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '8. Complete Function Reference', 1)
+add_heading(doc, '9. Complete Function Reference', 1)
 
 functions = [
     # Utilities
@@ -801,9 +886,9 @@ doc.add_page_break()
 #  9. CSS DESIGN SYSTEM
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '9. CSS Design System', 1)
+add_heading(doc, '10. CSS Design System', 1)
 
-add_heading(doc, '9.1 CSS Custom Properties (Variables)', 2)
+add_heading(doc, '10.1 CSS Custom Properties (Variables)', 2)
 add_table(doc,
     ['Variable', 'Value', 'Usage'],
     [
@@ -823,7 +908,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '9.2 Typography', 2)
+add_heading(doc, '10.2 Typography', 2)
 add_table(doc,
     ['Font Family', 'Weights', 'Usage'],
     [
@@ -834,7 +919,7 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '9.3 Key CSS Classes', 2)
+add_heading(doc, '10.3 Key CSS Classes', 2)
 add_table(doc,
     ['Class', 'Element', 'Purpose'],
     [
@@ -863,9 +948,9 @@ doc.add_page_break()
 #  10. DOM STRUCTURE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '10. DOM Structure', 1)
+add_heading(doc, '11. DOM Structure', 1)
 
-add_heading(doc, '10.1 Top-level Elements', 2)
+add_heading(doc, '11.1 Top-level Elements', 2)
 add_table(doc,
     ['ID / Selector', 'Tag', 'Purpose'],
     [
@@ -907,9 +992,9 @@ doc.add_page_break()
 #  11. DEPLOYMENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '11. Deployment', 1)
+add_heading(doc, '12. Deployment', 1)
 
-add_heading(doc, '11.1 GitHub Actions Pipeline', 2)
+add_heading(doc, '12.1 GitHub Actions Pipeline', 2)
 add_para(doc,
     'A GitHub Actions workflow deploys the application automatically on every push.',
     space_after=4)
@@ -922,13 +1007,13 @@ add_table(doc,
 )
 
 doc.add_paragraph()
-add_heading(doc, '11.2 GitHub Pages Configuration', 2)
+add_heading(doc, '12.2 GitHub Pages Configuration', 2)
 add_para(doc,
     'GitHub Pages must be configured to serve from the gh-pages branch. '
     'Navigate to repository Settings → Pages → Source and select the gh-pages branch.',
     space_after=6)
 
-add_heading(doc, '11.3 Publishing a Preview to Production', 2)
+add_heading(doc, '12.3 Publishing a Preview to Production', 2)
 numbered(doc, 'Develop on the claude/* branch.')
 numbered(doc, 'Open a pull request from the claude/* branch into main.')
 numbered(doc, 'Review and merge the pull request.')
@@ -940,27 +1025,27 @@ doc.add_page_break()
 #  12. EXTENDING THE APPLICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-add_heading(doc, '12. Extending the Application', 1)
+add_heading(doc, '13. Extending the Application', 1)
 
-add_heading(doc, '12.1 Adding a New Stat Column', 2)
+add_heading(doc, '13.1 Adding a New Stat Column', 2)
 numbered(doc, 'Add the raw column to the Google Sheet and publish the updated CSV.')
 numbered(doc, 'In buildAggregates(), add an initialiser (e.g. p.newStat = 0) and an accumulator.')
 numbered(doc, 'In applyFilters(), mirror the accumulation in the tempAgg block.')
 numbered(doc, 'Add a column definition object to INF_COLS or VEH_COLS: { label, key, numeric, sortKey, render }.')
 numbered(doc, 'The table renderers will pick up the new column automatically.')
 
-add_heading(doc, '12.2 Adding a New Award Card', 2)
+add_heading(doc, '13.2 Adding a New Award Card', 2)
 numbered(doc, 'Add an HTML award-card div in the #awardsRow section of index.html.')
 numbered(doc, 'Give it a unique ID for each data element (name, stat, sub-stat).')
 numbered(doc, 'In renderLeader(), sort/filter filteredPlayers to find the winner.')
 numbered(doc, 'Write the winner\'s stats to the new DOM elements.')
 
-add_heading(doc, '12.3 Pointing to a Different Google Sheet', 2)
+add_heading(doc, '13.3 Pointing to a Different Google Sheet', 2)
 numbered(doc, 'Publish the new sheet: File → Share → Publish to web → Select sheet → CSV → Publish.')
 numbered(doc, 'Copy the published URL.')
 numbered(doc, 'In tracker.js, update the CSV_URL constant at the top of the file.')
 
-add_heading(doc, '12.4 Adding Persistence (localStorage)', 2)
+add_heading(doc, '13.4 Adding Persistence (localStorage)', 2)
 add_para(doc,
     'The application currently holds no persistent state. To save filter preferences across page loads:',
     space_after=4)
@@ -979,7 +1064,8 @@ add_para(doc, 'The following sequence occurs on every page load:', space_after=4
 
 steps = [
     ('Page Load', 'Browser requests index.html; CSS parsed; tracker.js loaded.'),
-    ('Promise.all()', 'Parallel fetch of CSV_URL and unit_overrides.json.'),
+    ('Promise.all()', 'Parallel fetch of CSV_URL, unit_overrides.json, and player_aliases.json.'),
+    ('buildNameMap()', 'nameMap{} and nameAliases{} populated via three-pass name normalisation.'),
     ('parseCSVLine() × N', 'Each row parsed; rawRows[] populated.'),
     ('buildAggregates()', 'aggPlayers{} populated with career totals.'),
     ('classifyPlayerUnits()', 'playerUnits{} populated via co-occurrence analysis; overrides applied.'),
@@ -1083,9 +1169,9 @@ add_para(doc,
 add_table(doc,
     ['Heuristic', 'Condition', 'Rationale'],
     [
-        ['Time window',          'TK occurs in the last 2 min (120 s) before endMission',                   'Hard cutoff — mission is officially over'],
-        ['Close-range extended', 'Distance ≤ 15 m AND within last 3 min (180 s) of endMission',            'Grenade drops / pistol shots just before the end event fires'],
-        ['Burst detection',      '3 or more TKs fall within any 60-second rolling window',                 'Group grenade throw or celebration volley earlier in the timeline'],
+        ['Time window',          'TK occurs in the last 5 min (300 s) before endMission',                   'Hard cutoff — mission is officially over'],
+        ['Close-range extended', 'Distance ≤ 15 m AND within last 7 min (420 s) of endMission',            'Grenade drops / pistol shots just before the end event fires'],
+        ['Burst detection',      '3 or more TKs fall within any 60-second rolling window, within last 10 min (600 s)', 'Group grenade throw or celebration volley; time-gated to avoid suppressing mid-mission TK clusters'],
     ]
 )
 doc.add_paragraph()

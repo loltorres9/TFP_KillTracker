@@ -4,7 +4,22 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.022 — 2026-03-30 (latest)
+## v1.023 — 2026-03-31 (latest)
+
+### Added
+- **Player name merging** — variant names for the same player are now automatically collapsed into one entry throughout the site. Three-pass strategy:
+  1. **Exact normalisation** — removes spaces inside `[brackets]`, normalises `]Name` → `] Name`, `S.Fig` → `S. Fig`, and treats `_` as a space separator so `[SR]_Gronk` = `[SR] Gronk`
+  2. **Suffix matching** — if a longer name ends with ` callsign` or `]callsign` (min 4 chars), it merges into the bare callsign. Handles `[2nd USC]Fre3ky`, `HMC.P Fre3ky`, `[57th] Fre3ky` → all become `Fre3ky`
+  3. **`player_aliases.json`** — explicit overrides for cases the above can't resolve (rank variants, completely different names)
+- **"Also known as" on career page** — when a player has merged aliases, a dimmed italic line listing all absorbed name variants appears below the subtitle
+- **Player pills deduplicated** — the Players filter now shows one pill per canonical name instead of one per raw name variant
+
+### Fixed
+- **Unit overrides updated** — Salt, DAN → PXG; 1LT. Evil, WC. Picker, SPC. Jesus Juice → Unknown
+
+---
+
+## v1.022 — 2026-03-31
 
 ### Fixed
 - **Zeus detection in ImportScript: `Co Zeus` and `Zeus@Zeus` not flagged** — the old check split on `@` and used `startsWith("zeus")`, missing roles where "zeus" is not the first word. Changed to `role.includes("zeus")`. Also added fallback to read the role from the OCAP `positions` frame array (index 6) when `entity.role` is empty, covering older OCAP captures that only store role inside frame data.

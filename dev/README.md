@@ -39,6 +39,29 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
   - Mission pills support **multi-select**
   - **Unit filter** — pills for 2nd USC, CNTO, PXG, TFP; auto-classified from squad co-occurrence data; manual overrides via `unit_overrides.json`
 - **Joint Op detection** — automatically classifies events on the last Saturday/Sunday of each month as Joint Ops
+- **Player name merging** — variant names for the same player are automatically collapsed into one entry throughout the site (see below)
+
+## Player Name Merging
+
+Variant spellings of the same player name are automatically collapsed into one canonical entry using a three-pass strategy:
+
+1. **Exact normalisation** — removes spaces inside `[brackets]`, normalises `]Name` → `] Name`, `S.Fig` → `S. Fig`, and treats `_` as a space separator so `[SR]_Gronk` = `[SR] Gronk`.
+2. **Suffix matching** — if a longer name ends with ` callsign` or `]callsign` (minimum 4 characters), it merges into the bare callsign. Handles cases like `[2nd USC]Fre3ky`, `HMC.P Fre3ky`, `[57th] Fre3ky` → all become `Fre3ky`.
+3. **`player_aliases.json`** — explicit overrides for cases the above can't resolve automatically: rank differences (`PSGT Dusty` → `[2nd USC] Trp. Dusty`) or completely different names (`SGT T.Viking` → `The Viking`).
+
+When a player has merged aliases, the full career page shows a dimmed "Also known as …" line listing all absorbed name variants. The Players filter shows one pill per canonical name.
+
+### Editing `player_aliases.json`
+
+```json
+{
+  "OldOrVariantName": "CanonicalName"
+}
+```
+
+- **Key** — any raw name variant that should be absorbed.
+- **Value** — the canonical display name (should already exist in the data, or be the most recent/correct form).
+- Spacing, bracket, and punctuation variants are handled automatically — only use this file for rank differences or completely different names.
 
 ## Files
 
@@ -48,6 +71,7 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
 | `tracker.js` | All dashboard JavaScript (external file for CSP compliance) |
 | `favicon.svg` | Browser tab icon |
 | `unit_overrides.json` | Manual unit classification corrections applied on top of auto-classification |
+| `player_aliases.json` | Explicit player name aliases for cases the auto-normalisation cannot resolve (rank variants, completely different names) |
 | `ImportScript` | Google Apps Script for importing OCAP logs into Google Sheets |
 
 ## Data Source
