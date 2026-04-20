@@ -186,9 +186,10 @@ let nameAliases = {}; // canonical → [alias, ...]
 Promise.all([
   fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
   fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
-  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fetch('campaigns.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ])
-  .then(([csv, overrides, aliases]) => {
+  .then(([csv, overrides, aliases, campaigns]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -211,6 +212,7 @@ Promise.all([
       playerUnits[name] = unit;
     });
     Object.values(aggPlayers).forEach(p => { p.unit = playerUnits[p.name] || null; });
+    campaignData = campaigns;
     buildUI();
   })
   .catch(err => {
@@ -621,8 +623,10 @@ function _closeCareerPageNoHistory() {
 }
 
 // selectedPlayers / selectedMissions = null means "all", Set means explicit selection
-let selectedPlayers  = null;
-let selectedMissions = null;
+let selectedPlayers   = null;
+let selectedMissions  = null;
+let selectedCampaign  = null; // null = no campaign selected, string = campaign name
+let campaignData      = {};
 
 function buildFilters() {
   // Wire up event type toggles
@@ -632,6 +636,7 @@ function buildFilters() {
     showRegularEvents = val === "both" || val === "regular";
     selectedPlayers  = null;
     selectedMissions = null;
+    selectedCampaign = null;
     refreshPills();
     filterChanged();
   };
@@ -641,6 +646,7 @@ function buildFilters() {
     showRegularEvents = true;
     selectedPlayers   = null;
     selectedMissions  = null;
+    selectedCampaign  = null;
     selectedUnit      = null;
     document.getElementById("playerSearch").value   = "";
     document.getElementById("missionSearch").value  = "";
@@ -655,7 +661,7 @@ function buildFilters() {
   document.getElementById("missionSearch").oninput = refreshPills;
   document.getElementById("zeusFilterSelect").onchange = () => {
     zeusFilter = document.getElementById("zeusFilterSelect").value;
-    selectedPlayers = null; selectedMissions = null;
+    selectedPlayers = null; selectedMissions = null; selectedCampaign = null;
     refreshPills(); filterChanged();
   };
 
@@ -668,6 +674,20 @@ function getEventFilteredRows() {
     const isLarge = isJointOp(src);
     return isLarge ? showJointOps : showRegularEvents;
   });
+}
+
+function getCampaignMissions(campaignName) {
+  const camp = campaignData[campaignName];
+  if (!camp) return [];
+  const missions = new Set(camp.missions || []);
+  if (camp.patterns) {
+    const eventRows = getEventFilteredRows();
+    const availMissions = [...new Set(eventRows.map(r => r["Mission"] || "").filter(Boolean))];
+    camp.patterns.forEach(pattern => {
+      availMissions.filter(m => m.includes(pattern)).forEach(m => missions.add(m));
+    });
+  }
+  return Array.from(missions);
 }
 
 function refreshPills() {
@@ -697,9 +717,37 @@ function refreshPills() {
     }
     // Reset player selection when mission filter changes
     selectedPlayers = null;
+    selectedCampaign = null;
     refreshPills();
     filterChanged();
   });
+
+  // Campaign pills
+  const campaigns = Object.keys(campaignData).sort();
+  const campaignContainer = document.getElementById("campaignPills");
+  if (campaignContainer) {
+    campaignContainer.innerHTML = "";
+    campaigns.forEach(campaignName => {
+      const isActive = selectedCampaign === campaignName;
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = campaignName;
+      pill.onclick = () => {
+        if (selectedCampaign === campaignName) {
+          selectedCampaign = null;
+          selectedMissions = null;
+        } else {
+          selectedCampaign = campaignName;
+          const missions = getCampaignMissions(campaignName);
+          selectedMissions = new Set(missions);
+        }
+        selectedPlayers = null;
+        refreshPills();
+        filterChanged();
+      };
+      campaignContainer.appendChild(pill);
+    });
+  }
 
   renderCareerPills("playerPills", availPlayers, "playerSearch");
 }
@@ -865,7 +913,8 @@ function applyFilters() {
 
   const totalCount = Object.keys(aggPlayers).length;
   const parts = [];
-  if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
+  if (selectedCampaign) parts.push(`Campaign: ${selectedCampaign}`);
+  if (selectedMissions && !selectedCampaign) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
   if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
   if (selectedUnit)     parts.push(selectedUnit);
   const evVal = document.getElementById("eventTypeSelect") ? document.getElementById("eventTypeSelect").value : "both";
