@@ -1,7 +1,7 @@
 {
   "_comment": "Maps campaign names to missions. Each campaign can have explicit 'missions' list and/or 'patterns' (substring matches against mission name)",
   
-  "Vietnam Capmpaign 2025-2026": 
+  "Operation Rolling Viper": 
   {
     "missions": 
     [
@@ -12,7 +12,7 @@
     ]
   },
 
-  "Commando de Marine": 
+  "Operation Commando de Marine": 
   {
     "missions": 
     [
@@ -21,11 +21,10 @@
     "patterns": ["Commando de Marine"]
   },
   
-  "Altis Invasion": 
+  "Operation Aegis Shield": 
   {
     "missions": 
     [
-      "A Shau Valley Battle (2025-11-22)", "A show of force (2025-09-06)",
       "Invasion Day 2 (2026-04-04)",
       "Invasion Day 3 (2026-04-11)",
       "Invasion Day 4 (2026-04-18)",
@@ -36,7 +35,7 @@
     "patterns": ["Invasion Day"] 
   },
 
-  "French Indo-Pacific Campaign": 
+  "Opération Outremer Resolve": 
   {
     "missions": 
     [
@@ -48,7 +47,7 @@
     ]
   },
 
-  "ISAF Campaign": 
+  "Operation Desert Anchor": 
   {
     "missions": 
     [
