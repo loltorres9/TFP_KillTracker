@@ -40,6 +40,8 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
   - **Unit filter** — pills for 2nd USC, CNTO, PXG, TFP; auto-classified from squad co-occurrence data; manual overrides via `unit_overrides.json`
 - **Joint Op detection** — automatically classifies events on the last Saturday/Sunday of each month as Joint Ops
 - **Player name merging** — variant names for the same player are automatically collapsed into one entry throughout the site (see below)
+- **Campaign filter** — missions grouped into named campaigns via `campaigns.json`; a Campaigns pill selector below the Missions filter selects all missions in a campaign at once
+- **Campaign medals** — players earn a unique procedurally generated ribbon bar for each campaign they participated in; medals shown on the career page and player modal
 
 ## Player Name Merging
 
@@ -63,6 +65,29 @@ When a player has merged aliases, the full career page shows a dimmed "Also know
 - **Value** — the canonical display name (should already exist in the data, or be the most recent/correct form).
 - Spacing, bracket, and punctuation variants are handled automatically — only use this file for rank differences or completely different names.
 
+## Campaigns
+
+Missions can be grouped into named campaigns in `campaigns.json`. Each campaign supports:
+
+- `missions` — explicit list of mission names (exact match against the Mission column)
+- `patterns` — substring patterns; any mission name containing the string is included automatically
+
+```json
+{
+  "Altis Invasion": {
+    "missions": ["LZ Gulf Day 1 (2026-03-21)", "OP Lynx Day 0 (2026-03-07)"],
+    "patterns": ["Invasion Day"]
+  },
+  "Vietnam Campaign": {
+    "missions": ["Battle for Hué (2026-01-31)", "Operation CORONADO (2025-11-29)"]
+  }
+}
+```
+
+**Campaign filter** — a Campaigns pill selector appears below the Missions filter. Clicking a campaign pill selects all its missions at once; clicking again deselects.
+
+**Campaign medals** — players automatically earn a ribbon medal for every campaign they participated in (at least one mission played). Medals are shown at the top of the career page and player modal as procedurally generated ribbon bars. Each campaign always produces the same unique ribbon, seeded by campaign name.
+
 ## Files
 
 | File | Description |
@@ -72,6 +97,7 @@ When a player has merged aliases, the full career page shows a dimmed "Also know
 | `favicon.svg` | Browser tab icon |
 | `unit_overrides.json` | Manual unit classification corrections applied on top of auto-classification |
 | `player_aliases.json` | Explicit player name aliases for cases the auto-normalisation cannot resolve (rank variants, completely different names) |
+| `campaigns.json` | Campaign definitions — groups missions into named campaigns for filtering and medal awards |
 | `ImportScript` | Google Apps Script for importing OCAP logs into Google Sheets |
 
 ## Data Source
