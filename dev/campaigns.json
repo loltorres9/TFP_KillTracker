@@ -48,6 +48,16 @@
     ]
   },
 
+  "ISAF Campaign": 
+  {
+    "missions": 
+    [
+      "Operation Glacier 1 (2025-11-08)",
+      "Operation Panther Fang (2025-11-01)",
+      "Anker – Wirf! (2025-10-18)"
+    ]
+  },
+
   "Operation Crossguard": 
   {
     "missions": 
