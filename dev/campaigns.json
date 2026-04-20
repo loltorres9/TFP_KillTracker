@@ -1,7 +1,7 @@
 {
   "_comment": "Maps campaign names to missions. Each campaign can have explicit 'missions' list and/or 'patterns' (substring matches against mission name)",
   
-  "Operation Rolling Viper": 
+  "Operation Iron Triangle": 
   {
     "missions": 
     [
@@ -12,7 +12,7 @@
     ]
   },
 
-  "Opération Corail Vigilant": 
+  "Opération Sillage d’Azur": 
   {
     "missions": 
     [
