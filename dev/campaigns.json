@@ -1,4 +1,4 @@
- {
+{
   "_comment": "Maps campaign names to missions. Each campaign can have explicit 'missions' list and/or 'patterns' (substring matches against mission name)",
   
   "Vietnam Capmpaign 2025-2026": 
@@ -45,6 +45,15 @@
       "Fog Frog (2025-10-11)",
       "Nightcrawler (2025-09-20)",
       "Zone of Control (2025-09-13)"
+    ]
+  },
+
+  "Operation Crossguard": 
+  {
+    "missions": 
+    [
+      "Operation Crossguard Part 2 (2025-08-30)",
+      "Operation Crossguard Part 3 (2025-09-27)"
     ]
   },
 
