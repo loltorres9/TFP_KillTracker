@@ -723,7 +723,7 @@ function refreshPills() {
   });
 
   // Campaign pills
-  const campaigns = Object.keys(campaignData).sort();
+  const campaigns = Object.keys(campaignData).filter(k => !k.startsWith('_')).sort();
   const campaignContainer = document.getElementById("campaignPills");
   if (campaignContainer) {
     campaignContainer.innerHTML = "";
