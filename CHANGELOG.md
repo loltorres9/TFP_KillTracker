@@ -4,7 +4,14 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.023 — 2026-03-31 (latest)
+## v1.024 — 2026-03-31 (latest)
+
+### Added
+- **Weapon ammo merging** — weapon entries that share the same base weapon but differ only by ammunition type are now collapsed into one entry throughout the site (weapon leaderboard, career modal weapon breakdown, award cards). The `[AmmoType]` suffix (e.g. `[M62 Tracer]`, `[M80A1 EPR]`) is stripped at aggregation time, so `M240G [M62 Tracer]` and `M240G [M80A1 EPR]` both count as `M240G`. Weapons without an ammo suffix are unaffected.
+
+---
+
+## v1.023 — 2026-03-31
 
 ### Added
 - **Player name merging** — variant names for the same player are now automatically collapsed into one entry throughout the site. Three-pass strategy:
