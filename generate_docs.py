@@ -148,7 +148,7 @@ doc.add_paragraph()
 
 ver = doc.add_paragraph()
 ver.alignment = WD_ALIGN_PARAGRAPH.CENTER
-ver.add_run(f'Version 1.6  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
+ver.add_run(f'Version 1.7  ·  {datetime.date.today().strftime("%d %B %Y")}').font.size = Pt(11)
 
 doc.add_page_break()
 
@@ -202,6 +202,7 @@ add_table(doc,
         ['favicon.svg', 'Browser tab icon (SVG crosshair graphic)'],
         ['unit_overrides.json', 'Manual unit classification corrections applied on top of auto-classification'],
         ['player_aliases.json', 'Explicit player name aliases for cases the auto-normalisation cannot resolve (rank variants, completely different names)'],
+        ['campaigns.json', 'Campaign definitions — groups missions into named campaigns for the filter pill and medal awards'],
         ['ImportScript', 'Google Apps Script that imports OCAP .json.gz mission logs into Google Sheets'],
         ['generate_docs.py', 'python-docx script that regenerates this documentation file'],
         ['README.md', 'User-facing feature overview and deployment guide'],
@@ -253,6 +254,8 @@ add_table(doc,
         ['RELEASE_DATE', 'string', 'YYYY-MM-DD', 'Hardcoded release date shown in the page footer'],
         ['nameMap', 'Object', '{}', 'Maps every raw Username value to its canonical display name; built by buildNameMap()'],
         ['nameAliases', 'Object', '{}', 'Maps canonical name → array of all absorbed alias strings; used to show "Also known as" on career page'],
+        ['campaignData', 'Object', '{}', 'Parsed campaigns.json; keys are campaign names, values have missions[] and/or patterns[]'],
+        ['selectedCampaign', 'string | null', 'null', 'Active campaign filter; clicking a campaign pill sets selectedMissions to all missions in that campaign'],
     ]
 )
 
@@ -570,6 +573,53 @@ add_table(doc,
 add_para(doc,
     'rowIsZeus is also used to exclude Zeus rows from squad co-occurrence analysis '
     'and from the Passenger Princess shame card.',
+    space_after=6)
+
+add_heading(doc, '6.5 Campaign Filter', 2)
+add_para(doc,
+    'Missions can be grouped into named campaigns via campaigns.json. '
+    'Each campaign is defined by an explicit missions list and/or patterns (substring matches). '
+    'A Campaigns pill row appears in the filter panel below the Missions pills. '
+    'Clicking a campaign pill sets selectedMissions to the full set of missions in that campaign. '
+    'Clicking the active pill again deselects the campaign (selectedMissions → null). '
+    'Clicking a mission pill manually clears selectedCampaign.',
+    space_after=4)
+add_table(doc,
+    ['Field', 'Type', 'Description'],
+    [
+        ['missions', 'string[]', 'Exact mission name strings to include in this campaign'],
+        ['patterns', 'string[]', 'Substring patterns — any mission name containing the string is included automatically'],
+    ]
+)
+doc.add_paragraph()
+add_para(doc, 'Example campaigns.json entry:', space_after=2)
+add_code(doc, '"Altis Invasion": {')
+add_code(doc, '  "missions": ["LZ Gulf Day 1 (2026-03-21)", "OP Lynx Day 0 (2026-03-07)"],')
+add_code(doc, '  "patterns": ["Invasion Day"]')
+add_code(doc, '}')
+doc.add_paragraph()
+add_para(doc,
+    'Keys starting with "_" (e.g. "_comment") are silently ignored when rendering campaign pills.',
+    space_after=6)
+
+add_heading(doc, '6.6 Campaign Medal Ribbons', 2)
+add_para(doc,
+    'Players automatically earn a medal ribbon for every campaign they participated in '
+    '(at least one mission row present in aggPlayers.missionRows). '
+    'Medals are shown in a Campaign Medals section at the top of the career page and player modal.',
+    space_after=4)
+add_para(doc, 'Ribbon generation (adapted from github.com/Mchl/medal-bar-generator, MIT):', space_after=2)
+bullet(doc, 'Each campaign name is used as a seed for the Alea PRNG, producing a deterministic ribbon.')
+bullet(doc, 'A palette of 3–5 colours is drawn from a 73-colour US military medal palette.')
+bullet(doc, 'Symmetric stripe pattern (even or odd mirrored bands) is drawn on a 140×38 canvas.')
+bullet(doc, 'A horizontal grille (semi-transparent black lines) simulates fabric texture.')
+bullet(doc, 'A thin gold frame is drawn around the ribbon.')
+doc.add_paragraph()
+add_para(doc,
+    'getEarnedCampaigns(playerMissions) checks each campaign definition against the player\'s '
+    'mission set (from aggPlayers, not filteredPlayers, so active filters do not affect medal eligibility). '
+    'renderMedalRibbons(containerId, playerMissions) draws canvas elements for each earned campaign; '
+    'the entire Campaign Medals section is hidden if the player has earned no medals.',
     space_after=6)
 
 doc.add_page_break()
@@ -1067,7 +1117,7 @@ add_para(doc, 'The following sequence occurs on every page load:', space_after=4
 
 steps = [
     ('Page Load', 'Browser requests index.html; CSS parsed; tracker.js loaded.'),
-    ('Promise.all()', 'Parallel fetch of CSV_URL, unit_overrides.json, and player_aliases.json.'),
+    ('Promise.all()', 'Parallel fetch of CSV_URL, unit_overrides.json, player_aliases.json, and campaigns.json.'),
     ('buildNameMap()', 'nameMap{} and nameAliases{} populated via three-pass name normalisation.'),
     ('parseCSVLine() × N', 'Each row parsed; rawRows[] populated.'),
     ('buildAggregates()', 'aggPlayers{} populated with career totals.'),
