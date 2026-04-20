@@ -4,7 +4,18 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.024 — 2026-03-31 (latest)
+## v1.025 — 2026-04-20 (latest)
+
+### Added
+- **Campaign grouping** — missions can be grouped into named campaigns via `campaigns.json`. Each campaign supports an explicit `missions` list (manual assignment) and/or `patterns` (substring match for auto-catching future missions). A **Campaigns** pill selector appears below the Missions filter; clicking a campaign pill selects all its missions at once.
+- **Campaign medals** — players automatically earn a ribbon medal for every campaign they participated in (at least one mission played). Medals appear as procedurally generated ribbon bars in the **Campaign Medals** section at the top of the career page and player modal. Each campaign always produces the same unique ribbon (Alea PRNG seeded by campaign name, 73-colour US military palette, symmetric stripe pattern + fabric grille + gold frame). Adapted from [medal-bar-generator](https://github.com/Mchl/medal-bar-generator) (MIT).
+
+### Fixed
+- **`_comment` key visible as campaign pill** — JSON comment keys (starting with `_`) are now filtered out from the campaign pill list
+
+---
+
+## v1.024 — 2026-03-31
 
 ### Added
 - **Weapon ammo merging** — weapon entries that share the same base weapon but differ only by ammunition type are now collapsed into one entry throughout the site (weapon leaderboard, career modal weapon breakdown, award cards). The `[AmmoType]` suffix (e.g. `[M62 Tracer]`, `[M80A1 EPR]`) is stripped at aggregation time, so `M240G [M62 Tracer]` and `M240G [M80A1 EPR]` both count as `M240G`. Weapons without an ammo suffix are unaffected.
