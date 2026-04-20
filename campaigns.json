@@ -1,13 +1,62 @@
-{
+ {
   "_comment": "Maps campaign names to missions. Each campaign can have explicit 'missions' list and/or 'patterns' (substring matches against mission name)",
-  "Invasion of Huế": {
-    "missions": ["Battle for Hué (2026-01-31)"],
-    "patterns": ["Invasion Day"]
+  
+  "Vietnam Capmpaign 2025-2026": 
+  {
+    "missions": 
+    [
+      "Battle for Hué (2026-01-31)",
+      "Operation CORONADO (2025-11-29)",
+      "Operation Iron Triangle (2025-10-25)",
+      "Operation Texas Star (2026-02-28)"
+    ]
   },
-  "Commando de Marine": {
+
+  "Commando de Marine": 
+  {
+    "missions": 
+    [
+      "Commando de Marine 5 (2025-07-19)"
+    ],
     "patterns": ["Commando de Marine"]
   },
-  "A Shau Valley": {
-    "missions": ["A Shau Valley Battle (2025-11-22)", "A show of force (2025-09-06)"]
+  
+  "Altis Invasion": 
+  {
+    "missions": 
+    [
+      "A Shau Valley Battle (2025-11-22)", "A show of force (2025-09-06)",
+      "Invasion Day 2 (2026-04-04)",
+      "Invasion Day 3 (2026-04-11)",
+      "Invasion Day 4 (2026-04-18)",
+      "LZ Gulf Day 1 (2026-03-21)",
+      "LZ Gulf Day 0 + 8H (2026-03-14)",
+      "OP Lynx Day 0 (2026-03-07)"
+    ],
+    "patterns": ["Invasion Day"] 
+  },
+
+  "French Indo-Pacific Campaign": 
+  {
+    "missions": 
+    [
+      "Blunt Force Surgery (2025-10-04)",
+      "A show of force (2025-09-06)",
+      "Fog Frog (2025-10-11)",
+      "Nightcrawler (2025-09-20)",
+      "Zone of Control (2025-09-13)"
+    ]
+  },
+
+"Winter War": 
+  {
+    "missions": 
+    [
+      "The Winter War (2026-02-21)"
+    ],
+    "patterns": ["The Winter War"] 
   }
+
+
+
 }
