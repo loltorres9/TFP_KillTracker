@@ -186,9 +186,10 @@ let nameAliases = {}; // canonical → [alias, ...]
 Promise.all([
   fetch(CSV_URL).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }),
   fetch('unit_overrides.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
-  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  fetch('player_aliases.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fetch('campaigns.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ])
-  .then(([csv, overrides, aliases]) => {
+  .then(([csv, overrides, aliases, campaigns]) => {
     const lines = csv.trim().split("\n");
     const header = lines[0].split(",").map(h => h.replace(/"/g,"").replace(/\r/g,"").trim());
     rawRows = lines.slice(1).map(line => {
@@ -211,6 +212,7 @@ Promise.all([
       playerUnits[name] = unit;
     });
     Object.values(aggPlayers).forEach(p => { p.unit = playerUnits[p.name] || null; });
+    campaignData = campaigns;
     buildUI();
   })
   .catch(err => {
@@ -591,6 +593,7 @@ function _openCareerPageNoHistory(playerName) {
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
   document.getElementById('hallFameLabel').style.display              = 'none';
@@ -621,8 +624,10 @@ function _closeCareerPageNoHistory() {
 }
 
 // selectedPlayers / selectedMissions = null means "all", Set means explicit selection
-let selectedPlayers  = null;
-let selectedMissions = null;
+let selectedPlayers   = null;
+let selectedMissions  = null;
+let selectedCampaign  = null; // null = no campaign selected, string = campaign name
+let campaignData      = {};
 
 function buildFilters() {
   // Wire up event type toggles
@@ -632,6 +637,7 @@ function buildFilters() {
     showRegularEvents = val === "both" || val === "regular";
     selectedPlayers  = null;
     selectedMissions = null;
+    selectedCampaign = null;
     refreshPills();
     filterChanged();
   };
@@ -641,6 +647,7 @@ function buildFilters() {
     showRegularEvents = true;
     selectedPlayers   = null;
     selectedMissions  = null;
+    selectedCampaign  = null;
     selectedUnit      = null;
     document.getElementById("playerSearch").value   = "";
     document.getElementById("missionSearch").value  = "";
@@ -655,7 +662,7 @@ function buildFilters() {
   document.getElementById("missionSearch").oninput = refreshPills;
   document.getElementById("zeusFilterSelect").onchange = () => {
     zeusFilter = document.getElementById("zeusFilterSelect").value;
-    selectedPlayers = null; selectedMissions = null;
+    selectedPlayers = null; selectedMissions = null; selectedCampaign = null;
     refreshPills(); filterChanged();
   };
 
@@ -668,6 +675,20 @@ function getEventFilteredRows() {
     const isLarge = isJointOp(src);
     return isLarge ? showJointOps : showRegularEvents;
   });
+}
+
+function getCampaignMissions(campaignName) {
+  const camp = campaignData[campaignName];
+  if (!camp) return [];
+  const missions = new Set(camp.missions || []);
+  if (camp.patterns) {
+    const eventRows = getEventFilteredRows();
+    const availMissions = [...new Set(eventRows.map(r => r["Mission"] || "").filter(Boolean))];
+    camp.patterns.forEach(pattern => {
+      availMissions.filter(m => m.includes(pattern)).forEach(m => missions.add(m));
+    });
+  }
+  return Array.from(missions);
 }
 
 function refreshPills() {
@@ -697,9 +718,37 @@ function refreshPills() {
     }
     // Reset player selection when mission filter changes
     selectedPlayers = null;
+    selectedCampaign = null;
     refreshPills();
     filterChanged();
   });
+
+  // Campaign pills
+  const campaigns = Object.keys(campaignData).filter(k => !k.startsWith('_')).sort();
+  const campaignContainer = document.getElementById("campaignPills");
+  if (campaignContainer) {
+    campaignContainer.innerHTML = "";
+    campaigns.forEach(campaignName => {
+      const isActive = selectedCampaign === campaignName;
+      const pill = document.createElement("span");
+      pill.className = "pill" + (isActive ? " active" : "");
+      pill.textContent = campaignName;
+      pill.onclick = () => {
+        if (selectedCampaign === campaignName) {
+          selectedCampaign = null;
+          selectedMissions = null;
+        } else {
+          selectedCampaign = campaignName;
+          const missions = getCampaignMissions(campaignName);
+          selectedMissions = new Set(missions);
+        }
+        selectedPlayers = null;
+        refreshPills();
+        filterChanged();
+      };
+      campaignContainer.appendChild(pill);
+    });
+  }
 
   renderCareerPills("playerPills", availPlayers, "playerSearch");
 }
@@ -865,7 +914,8 @@ function applyFilters() {
 
   const totalCount = Object.keys(aggPlayers).length;
   const parts = [];
-  if (selectedMissions) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
+  if (selectedCampaign) parts.push(`Campaign: ${selectedCampaign}`);
+  if (selectedMissions && !selectedCampaign) parts.push(selectedMissions.size === 1 ? [...selectedMissions][0] : `${selectedMissions.size} missions`);
   if (selectedPlayers)  parts.push(selectedPlayers.size  === 1 ? [...selectedPlayers][0]  : `${selectedPlayers.size} players`);
   if (selectedUnit)     parts.push(selectedUnit);
   const evVal = document.getElementById("eventTypeSelect") ? document.getElementById("eventTypeSelect").value : "both";
@@ -1236,7 +1286,142 @@ window._sortMission = function(col) {
   document.querySelectorAll(".js-mission-tbody").forEach(el => { el.innerHTML = _buildMissionTbody(_missionData); });
 };
 
+// ── CAMPAIGN MEDAL RIBBONS ────────────────────────────────────────────────
+// Ribbon generator adapted from https://github.com/Mchl/medal-bar-generator (MIT)
+
+const RIBBON_W = 140, RIBBON_H = 38;
+
+function _mash() {
+  let n = 0xefc8249d;
+  return function(data) {
+    data = String(data);
+    for (let i = 0; i < data.length; i++) {
+      n += data.charCodeAt(i);
+      let h = 0.02519603282416938 * n;
+      n = h >>> 0; h -= n; h *= n; n = h >>> 0; h -= n; n += h * 0x100000000;
+    }
+    return (n >>> 0) * 2.3283064365386963e-10;
+  };
+}
+
+function _aleaSeed(seed) {
+  const mash = _mash();
+  let s0 = mash(' '), s1 = mash(' '), s2 = mash(' '), c = 1;
+  s0 -= mash(seed); if (s0 < 0) s0 += 1;
+  s1 -= mash(seed); if (s1 < 0) s1 += 1;
+  s2 -= mash(seed); if (s2 < 0) s2 += 1;
+  return function() {
+    const t = 2091639 * s0 + c * 2.3283064365386963e-10;
+    s0 = s1; s1 = s2;
+    return s2 = t - (c = t | 0);
+  };
+}
+
+const _RIBBON_COLORS = [
+  [255,205,0],[213,0,50],[40,71,52],[183,201,211],[12,35,64],[104,210,223],
+  [123,175,212],[17,87,64],[134,38,51],[139,111,78],[96,61,32],[185,151,91],
+  [227,82,5],[186,12,47],[242,199,92],[0,32,91],[0,45,114],[165,0,80],
+  [0,38,58],[221,203,164],[100,167,11],[4,30,66],[255,88,93],[154,219,232],
+  [111,38,61],[74,119,41],[133,113,77],[184,97,37],[255,158,27],[255,198,88],
+  [84,88,90],[33,87,50],[0,193,213],[0,61,165],[0,132,61],[253,210,110],
+  [176,170,126],[251,221,64],[91,127,149],[233,223,151],[127,48,53],[228,0,43],
+  [87,41,50],[164,214,94],[122,154,1],[0,122,51],[255,209,0],[1,33,105],
+  [132,117,78],[78,91,49],[252,76,2],[0,114,206],[229,114,0],[136,219,223],
+  [0,146,188],[0,154,68],[67,176,42],[95,37,159],[178,168,162],[0,111,98],
+  [158,162,162],[115,56,29],[197,232,108],[0,76,69],[253,218,36],[124,135,142],
+  [137,144,100],[0,62,81],[150,56,33],[155,90,26],[0,20,137],[0,75,135],
+  [0,114,206],[255,199,44]
+];
+
+function drawCampaignRibbon(canvas, campaignName) {
+  const prng = _aleaSeed(campaignName);
+  const ctx = canvas.getContext('2d');
+
+  const paletteSize = 3 + Math.floor(prng() * 3);
+  const palette = Array.from({length: paletteSize}, () =>
+    _RIBBON_COLORS[Math.floor(prng() * _RIBBON_COLORS.length)]);
+  const getColor = () => palette[Math.floor(prng() * palette.length)];
+
+  if (prng() < 0.5) {
+    // Symmetric odd: center stripe + mirrored pairs
+    const n = 2 + Math.floor(prng() * 5);
+    const w = Math.round(RIBBON_W / (1 + 2 * (n - 1)));
+    for (let i = 0; i < n; i++) {
+      const [r,g,b] = getColor();
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(i * w, 0, w, RIBBON_H);
+      ctx.fillRect(RIBBON_W - (i + 1) * w, 0, w, RIBBON_H);
+    }
+  } else {
+    // Symmetric even: mirrored pairs only
+    const n = Math.round((2 + Math.floor(prng() * 8)) / 2);
+    const w = Math.round(RIBBON_W / (n * 2) + 0.5);
+    for (let i = 0; i < n; i++) {
+      const [r,g,b] = getColor();
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(i * w, 0, w, RIBBON_H);
+      ctx.fillRect(RIBBON_W - (i + 1) * w, 0, w, RIBBON_H);
+    }
+  }
+
+  // Fabric texture (horizontal grille)
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  for (let y = Math.round(RIBBON_H / 64); y < RIBBON_H; y += Math.round(RIBBON_H / 16)) {
+    ctx.fillRect(0, y, RIBBON_W, Math.round(RIBBON_H / 32));
+  }
+
+  // Thin gold frame
+  ctx.strokeStyle = 'rgba(200,163,0,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(0.75, 0.75, RIBBON_W - 1.5, RIBBON_H - 1.5);
+}
+
+function getEarnedCampaigns(playerMissions) {
+  const allMissions = [...new Set(rawRows.map(r => r["Mission"] || "").filter(Boolean))];
+  const earned = [];
+  Object.keys(campaignData).filter(k => !k.startsWith('_')).forEach(name => {
+    const camp = campaignData[name];
+    if (!camp) return;
+    const ms = new Set(camp.missions || []);
+    (camp.patterns || []).forEach(pat => allMissions.filter(m => m.includes(pat)).forEach(m => ms.add(m)));
+    if ([...ms].some(m => playerMissions.has(m))) earned.push(name);
+  });
+  return earned.sort();
+}
+
+function renderMedalRibbons(containerId, playerMissions) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const section = container.closest('.medals-section');
+  const earned = getEarnedCampaigns(playerMissions);
+  if (earned.length === 0) {
+    if (section) section.style.display = 'none';
+    return;
+  }
+  if (section) section.style.display = '';
+  earned.forEach(campaignName => {
+    const wrap = document.createElement('div');
+    wrap.className = 'medal-wrap';
+    const canvas = document.createElement('canvas');
+    canvas.width = RIBBON_W;
+    canvas.height = RIBBON_H;
+    canvas.title = campaignName;
+    drawCampaignRibbon(canvas, campaignName);
+    const label = document.createElement('div');
+    label.className = 'medal-label';
+    label.textContent = campaignName;
+    wrap.appendChild(canvas);
+    wrap.appendChild(label);
+    container.appendChild(wrap);
+  });
+}
+
 function buildCareerStatsHTML(p) {
+  // ── Campaign medals placeholder (canvases drawn after innerHTML set) ──
+  const medalsHTML = Object.keys(campaignData).filter(k => !k.startsWith('_')).length > 0
+    ? `<div class="modal-section medals-section"><h3>Campaign Medals</h3><div class="medals-row" id="medalContainer"></div></div>`
+    : '';
+
   // ── Section 1: Overall stats summary ──
   const overallHTML = `
     <div class="modal-section">
@@ -1381,7 +1566,7 @@ function buildCareerStatsHTML(p) {
       <tbody class="js-mission-tbody">${_buildMissionTbody(_missionData)}</tbody>
     </table></div></div>`;
 
-  return overallHTML + weaponHTML + bestHTML + missionHTML;
+  return medalsHTML + overallHTML + weaponHTML + bestHTML + missionHTML;
 }
 
 function filterToPlayer(playerName) {
@@ -1421,6 +1606,7 @@ function openPlayerModal(playerName) {
 
   const body = document.getElementById('modalBody');
   body.innerHTML = unitReassignHTML(p.name) + buildCareerStatsHTML(p);
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
   document.getElementById('playerModal').classList.add('open');
 }
 
@@ -1443,6 +1629,7 @@ function openCareerPage(playerName) {
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
 
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
