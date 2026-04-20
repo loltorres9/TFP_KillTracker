@@ -593,7 +593,7 @@ function _openCareerPageNoHistory(playerName) {
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
-  renderMedalRibbons('medalContainer', new Set((p.missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
   document.getElementById('hallFameLabel').style.display              = 'none';
@@ -1392,9 +1392,13 @@ function getEarnedCampaigns(playerMissions) {
 function renderMedalRibbons(containerId, playerMissions) {
   const container = document.getElementById(containerId);
   if (!container) return;
+  const section = container.closest('.medals-section');
   const earned = getEarnedCampaigns(playerMissions);
-  if (earned.length === 0) { container.style.display = 'none'; return; }
-  container.style.display = '';
+  if (earned.length === 0) {
+    if (section) section.style.display = 'none';
+    return;
+  }
+  if (section) section.style.display = '';
   earned.forEach(campaignName => {
     const wrap = document.createElement('div');
     wrap.className = 'medal-wrap';
@@ -1602,7 +1606,7 @@ function openPlayerModal(playerName) {
 
   const body = document.getElementById('modalBody');
   body.innerHTML = unitReassignHTML(p.name) + buildCareerStatsHTML(p);
-  renderMedalRibbons('medalContainer', new Set((p.missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
   document.getElementById('playerModal').classList.add('open');
 }
 
@@ -1625,7 +1629,7 @@ function openCareerPage(playerName) {
   document.getElementById('careerPlayerName').innerHTML = p.name + unitBadgeHTML(p.name);
   _setCareerSubtitle(p);
   document.getElementById('careerStats').innerHTML = `<div id="unitReassignCareer">${unitReassignHTML(p.name)}</div>` + buildCareerStatsHTML(p);
-  renderMedalRibbons('medalContainer', new Set((p.missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
+  renderMedalRibbons('medalContainer', new Set(((aggPlayers[p.name] || p).missionRows || []).map(r => r["Mission"] || "").filter(Boolean)));
 
   document.getElementById('statsBar').style.display                   = 'none';
   document.getElementById('awardsRow').style.display                  = 'none';
