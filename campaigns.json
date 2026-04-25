@@ -66,6 +66,15 @@
     ]
   },
 
+  "Operation Tramontane": 
+  {
+    "missions": 
+    [
+      "Operation Tramontane phase 1 (2026-04-25)"
+    ],
+    "patterns": ["Operation Tramontane"]
+  },
+  
 "Winter War": 
   {
     "missions": 
@@ -74,7 +83,5 @@
     ],
     "patterns": ["The Winter War"] 
   }
-
-
 
 }
