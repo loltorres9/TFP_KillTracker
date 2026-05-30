@@ -7,7 +7,7 @@ const UNIT_SEEDS = {
   '2nd USC': ['[2nd USC] Panzerfanlol', '[2nd USC] Cpt. Eddie'],
   'CNTO':    ['Pricepole', 'Clarke', 'Fishgrit'],
   'PXG':     ['Darkling', 'Aquafox', 'Lortmil', 'glyn'],
-  'TFP':     ['Sindh', 'loltorres9', 'Dicksplash', 'Gortarius', 'Akarin', 'LucasC', 'Ocke', 'najt'],
+  'TFP':     ['Sindh', 'loltorres9', 'DickSplash', 'Gortarius', 'Akarin', 'LucasC', 'Ocke', 'najt'],
   'SKUA':    ['SPC. Green Giant', 'WC. Picker', 'PFC. Bearz'],
 };
 const UNIT_COLORS = { '2nd USC': '#1a56db', 'CNTO': '#057a55', 'PXG': '#c27803', 'TFP': '#c0392b', 'SKUA': '#6b21a8' };
