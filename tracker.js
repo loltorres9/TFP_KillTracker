@@ -8,9 +8,10 @@ const UNIT_SEEDS = {
   'CNTO':    ['Pricepole', 'Clarke', 'Fishgrit'],
   'PXG':     ['Darkling', 'Aquafox', 'Lortmil', 'glyn'],
   'TFP':     ['Sindh', 'loltorres9', 'Dicksplash', 'Gortarius', 'Akarin', 'LucasC', 'Ocke', 'najt'],
+  'SKUA':    ['SPC. Green Giant', 'WC. Picker', 'PFC. Bearz'],
 };
-const UNIT_COLORS = { '2nd USC': '#1a56db', 'CNTO': '#057a55', 'PXG': '#c27803', 'TFP': '#c0392b' };
-const UNIT_ORDER  = ['2nd USC', 'CNTO', 'PXG', 'TFP'];
+const UNIT_COLORS = { '2nd USC': '#1a56db', 'CNTO': '#057a55', 'PXG': '#c27803', 'TFP': '#c0392b', 'SKUA': '#6b21a8' };
+const UNIT_ORDER  = ['2nd USC', 'CNTO', 'PXG', 'TFP', 'SKUA'];
 
 // Column indices in the CSV (0-based after splitting)
 // Source File(0), Mission(1), World(2), Username(3), Side(4), Group(5),
