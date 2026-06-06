@@ -93,14 +93,17 @@ function reimportOCAP() {
       entities[e.id] = e;
     });
     // Helper: get a player's inVehicle status at a specific frame
-    // positions entry: [[x,y,z], bearing, alive, inVehicle(0/1), name, framesFired, role]
+    // Old OCAP (≤v4): positions entry: [[x,y,z], bearing, alive, inVehicle(0/1), name, isPlayer, role]
+    // New OCAP (v5+): positions entry: [[x,y,z], bearing, alive, vehicleId(0=foot), name, isPlayer, role, group, side]
+    // In both formats pos[3] === 0 means on foot; old format uses 1 for in-vehicle,
+    // new format uses the vehicle entity ID (always > 1).
     function isInVehicleAtFrame(entity, frame) {
       if (!entity || !Array.isArray(entity.positions)) return false;
       const start = entity.startFrameNum || 0;
       const idx = frame - start;
       if (idx < 0 || idx >= entity.positions.length) return false;
       const pos = entity.positions[idx];
-      return Array.isArray(pos) && pos[3] === 1;
+      return Array.isArray(pos) && pos[3] !== 0;
     }
     // Zeus detection
     function isZeus(entity) {
@@ -211,13 +214,28 @@ function reimportOCAP() {
       players[id].distanceRun = Math.round(dist);
     });
 
-    // Pre-compute shots fired per context
+    // Pre-compute shots fired per context.
+    // OCAP v5+ has a known bug where framesFired entries include phantom shots with
+    // target positions thousands of metres from the shooter. Filter them out by
+    // skipping any entry whose target is more than MAX_SHOT_DIST from the player.
+    const MAX_SHOT_DIST = 800;
     Object.keys(players).forEach(id => {
       const p = players[id];
       const entity = entities[id];
       if (!entity) return;
       p.framesFired.forEach(entry => {
         const frame = Array.isArray(entry) ? entry[0] : entry;
+        const target = Array.isArray(entry) && entry.length > 1 ? entry[1] : null;
+        if (target && Array.isArray(target)) {
+          const start = entity.startFrameNum || 0;
+          const idx = frame - start;
+          const pos = Array.isArray(entity.positions) ? entity.positions[idx] : null;
+          if (pos && Array.isArray(pos[0])) {
+            const dx = target[0] - pos[0][0];
+            const dy = target[1] - pos[0][1];
+            if (Math.sqrt(dx * dx + dy * dy) > MAX_SHOT_DIST) return;
+          }
+        }
         if (isInVehicleAtFrame(entity, frame)) {
           p.shotsInVehicle++;
         } else {
@@ -394,7 +412,9 @@ function reimportOCAP() {
     });
     const missionName = (() => {
       const base = data.missionName || "";
-      const m = name.match(/(\d{4})_(\d{2})_(\d{2})/);
+      // Old filename format: 2026_03_14__20_27_MissionName.json.gz  → YYYY_MM_DD
+      // New filename format: guid-MissionName_20260530_222136.json.gz → _YYYYMMDD_
+      const m = name.match(/(\d{4})_(\d{2})_(\d{2})/) || name.match(/_(\d{4})(\d{2})(\d{2})_/);
       if (!m) return base;
       return base + " (" + m[1] + "-" + m[2] + "-" + m[3] + ")";
     })();
