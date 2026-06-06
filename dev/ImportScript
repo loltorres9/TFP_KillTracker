@@ -218,7 +218,7 @@ function reimportOCAP() {
     // OCAP v5+ has a known bug where framesFired entries include phantom shots with
     // target positions thousands of metres from the shooter. Filter them out by
     // skipping any entry whose target is more than MAX_SHOT_DIST from the player.
-    const MAX_SHOT_DIST = 1500;
+    const MAX_SHOT_DIST = 800;
     Object.keys(players).forEach(id => {
       const p = players[id];
       const entity = entities[id];
