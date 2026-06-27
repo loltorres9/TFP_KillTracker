@@ -229,11 +229,17 @@ function reimportOCAP() {
       const p = players[id];
       const entity = entities[id];
       if (!entity) return;
+      const seenShots = new Set();
       p.framesFired.forEach(entry => {
         const frame = Array.isArray(entry) ? entry[0] : entry;
+        const target = Array.isArray(entry) && entry.length > 1 ? entry[1] : null;
+        const shotKey = target && Array.isArray(target)
+          ? `${frame}:${target[0]}:${target[1]}`
+          : String(frame);
+        if (seenShots.has(shotKey)) return;
+        seenShots.add(shotKey);
         const inVehicle = isInVehicleAtFrame(entity, frame);
         if (!inVehicle) {
-          const target = Array.isArray(entry) && entry.length > 1 ? entry[1] : null;
           if (target && Array.isArray(target)) {
             const start = entity.startFrameNum || 0;
             const idx = frame - start;
