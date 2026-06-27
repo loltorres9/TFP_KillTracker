@@ -64,7 +64,7 @@ let selectedUnit = null; // null = all units
 // Filename format: YYYY_MM_DD__HH_MM_MissionName_json.gz
 function isJointOp(filename) {
   // Joint Op = last Saturday of the month AND the Sunday immediately after it
-  const m = filename.match(/(\d{4})_(\d{2})_(\d{2})/);
+  const m = filename.match(/(\d{4})_(\d{2})_(\d{2})/) || filename.match(/_(\d{4})(\d{2})(\d{2})_/);
   if (!m) return false;
   const year = parseInt(m[1]), month = parseInt(m[2]) - 1, day = parseInt(m[3]);
   const d = new Date(year, month, day);
