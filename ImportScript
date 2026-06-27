@@ -127,8 +127,14 @@ function reimportOCAP() {
     const players = {};
     (data.entities || []).forEach(e => {
       if (e.isPlayer === 1 || (e.isPlayer === 0 && !e.name)) {
+        let resolvedName = e.name;
+        if (!resolvedName && Array.isArray(e.positions)) {
+          for (const pos of e.positions) {
+            if (Array.isArray(pos) && pos[4]) { resolvedName = pos[4]; break; }
+          }
+        }
         players[e.id] = {
-          name: e.name || `Unknown ${e.id}`,
+          name: resolvedName || `Unknown ${e.id}`,
           side: e.side,
           role: e.role || "",
           group: e.group || "",
