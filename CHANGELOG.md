@@ -4,7 +4,21 @@ All notable changes to TFP Kill Tracker are documented here.
 
 ---
 
-## v1.025 — 2026-04-20 (latest)
+## v1.026 — 2026-06-27 (latest)
+
+### Fixed (ImportScript — OCAP v5 compatibility)
+- **Empty player names** — OCAP v5 sometimes leaves `entity.name` empty while storing the correct name in per-frame position data (`positions[i][4]`). The ImportScript now falls back to the first non-empty frame name, so players no longer appear as "Unknown &lt;id&gt;"
+- **Duplicate shot entries** — OCAP v5 logs multiple `framesFired` entries per frame for the same shot (raycast duplicates with identical target positions, typically 2–3× inflation). Shots are now deduplicated by `(frame, targetPosition)`, preserving legitimate multi-bullet bursts on the same frame while removing duplicates
+- **Duplicate hit events** — OCAP v5 generates duplicate hit events for the same shooter–victim pair on the same frame (penetration, ricochet, splash damage artifacts — up to 49 hits from one shot). Hits are now deduplicated by `(shooter, victim, frame)`, reducing total hit counts by ~75%
+- **Vehicle shot distance filter** — the 800 m phantom-shot filter (which removes OCAP v5 raycast artifacts) was incorrectly applied to in-vehicle shots, discarding legitimate long-range vehicle weapon engagements (Bofors, 2-pounder, Vickers HMG). The filter now only applies to on-foot shots
+- **Incorrect `isUnknown` flag** — entities whose name was resolved from per-frame data were still marked as unknown (`isUnknown: !e.name` instead of `!resolvedName`), causing the group+role rename logic to incorrectly merge them with a different player sharing the same squad slot — creating duplicate rows with inflated stats (double distance, split kills)
+
+### Fixed (Dashboard)
+- **Joint Op detection for new filename format** — `isJointOp()` now also matches the new OCAP filename format `_YYYYMMDD_` (e.g. `East_Africa_20260627_213936.json.gz`), in addition to the old `YYYY_MM_DD` format. Without this fix, all missions with the new filename format were incorrectly classified as Regular Ops
+
+---
+
+## v1.025 — 2026-04-20
 
 ### Added
 - **Campaign grouping** — missions can be grouped into named campaigns via `campaigns.json`. Each campaign supports an explicit `missions` list (manual assignment) and/or `patterns` (substring match for auto-catching future missions). A **Campaigns** pill selector appears below the Missions filter; clicking a campaign pill selects all its missions at once.
