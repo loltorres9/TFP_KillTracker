@@ -164,7 +164,7 @@ function reimportOCAP() {
           vehicleKillList: [],
           // Misc
           suicides: 0,
-          isUnknown: !e.name,
+          isUnknown: !resolvedName,
           isZeus: isZeus(e),
           timePlayed: (Array.isArray(e.positions) ? e.positions.length : 0) * (data.captureDelay || 1),
           distanceRun: 0,
