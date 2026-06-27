@@ -322,6 +322,7 @@ function reimportOCAP() {
     // ──────────────────────────────────────────────────────────────────────
 
     // Process events
+    const seenHits = new Set();
     (data.events || []).forEach(event => {
       const frame = event[0];
       const type = event[1];
@@ -398,6 +399,10 @@ function reimportOCAP() {
         }
       }
       if (type === "hit") {
+        const shooterId = killerInfo ? killerInfo[0] : null;
+        const hitKey = `${shooterId}:${victimId}:${frame}`;
+        if (seenHits.has(hitKey)) return;
+        seenHits.add(hitKey);
         if (players[victimId] !== undefined) {
           const victimInVehicle = isInVehicleAtFrame(entities[victimId], frame);
           if (victimInVehicle) {
@@ -406,7 +411,6 @@ function reimportOCAP() {
             players[victimId].hitsTakenOnFoot++;
           }
         }
-        const shooterId = killerInfo ? killerInfo[0] : null;
         if (shooterId != null && players[shooterId] !== undefined) {
           const shooterInVehicle = isInVehicleAtFrame(entities[shooterId], frame);
           if (shooterInVehicle) {
