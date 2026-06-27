@@ -74,6 +74,15 @@
     ],
     "patterns": ["Operation Tramontane"]
   },
+
+    "Operation Camilla": 
+  {
+    "missions": 
+    [
+      "East Africa - Mini Joint OP (2026-06-27)"
+    ],
+    "patterns": ["East Africa"]
+  },
   
 "Winter War": 
   {
