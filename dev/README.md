@@ -38,7 +38,7 @@ A static web dashboard that pulls live kill statistics from a Google Sheets CSV 
   - Player pills support **multi-select** (left-click toggles); right-click opens the career page directly
   - Mission pills support **multi-select**
   - **Unit filter** — pills for 2nd USC, CNTO, PXG, TFP; auto-classified from squad co-occurrence data; manual overrides via `unit_overrides.json`
-- **Joint Op detection** — automatically classifies events on the last Saturday/Sunday of each month as Joint Ops
+- **Joint Op detection** — automatically classifies events on the last Saturday/Sunday of each month as Joint Ops; supports both old (`YYYY_MM_DD`) and new (`_YYYYMMDD_`) OCAP filename formats
 - **Player name merging** — variant names for the same player are automatically collapsed into one entry throughout the site (see below)
 - **Campaign filter** — missions grouped into named campaigns via `campaigns.json`; a Campaigns pill selector below the Missions filter selects all missions in a campaign at once
 - **Campaign medals** — players earn a unique procedurally generated ribbon bar for each campaign they participated in; medals shown on the career page and player modal
@@ -197,6 +197,22 @@ A player is classified as Zeus if their **Group** or **Role** field (as recorded
 | `Rifleman@Zeus` | ✓ |
 
 Zeus players have all combat stats zeroed in the sheet and are excluded from the Players filter (Hide Zeus / Zeus Only), squad co-occurrence, and shame cards.
+
+### OCAP v5 compatibility
+
+OCAP v5 (`extensionVersion: v5.0.0`) introduced several format changes that the ImportScript handles automatically:
+
+| Change | Handling |
+|--------|----------|
+| `entity.name` empty for some players | Name resolved from per-frame position data (`positions[i][4]`) |
+| `positions[3]` is vehicle entity ID (not 0/1) | `!== 0` check works for both old and new format |
+| Duplicate `framesFired` entries per frame | Deduplicated by `(frame, targetPosition)` — keeps different bullets on the same frame, removes OCAP raycast duplicates |
+| Duplicate `hit` events per frame | Deduplicated by `(shooter, victim, frame)` — removes penetration/ricochet/splash artifacts |
+| Filename format `_YYYYMMDD_HHMMSS` | Both `YYYY_MM_DD` and `_YYYYMMDD_` patterns supported for date extraction (mission name suffix, Joint Op detection) |
+
+### Shot distance filter
+
+On-foot shots from `framesFired` are filtered by a maximum distance of **800 m** between shooter and target position to remove OCAP v5 phantom shots (raycast artifacts with target positions thousands of metres away). This filter is **not applied** to in-vehicle shots, since vehicle weapons regularly engage beyond 800 m.
 
 ## Deployment
 
