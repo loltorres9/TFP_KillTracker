@@ -83,6 +83,14 @@
     ],
     "patterns": ["East Africa"]
   },
+    "The Mountain War": 
+  {
+    "missions": 
+    [
+      "The_Mountain_War (2026-07-04)"
+    ],
+    "patterns": ["The_Mountain_War"]
+  },
   
 "Winter War": 
   {
