@@ -91,7 +91,14 @@
     ],
     "patterns": ["The_Mountain_War"]
   },
-  
+      "Operation Baltic Guardian": 
+  {
+    "missions": 
+    [
+      "Baltic Showdown"
+    ],
+    "patterns": ["Baltic"]
+  },
 "Winter War": 
   {
     "missions": 
