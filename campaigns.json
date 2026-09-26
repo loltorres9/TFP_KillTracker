@@ -99,6 +99,14 @@
     ],
     "patterns": ["Baltic Showdown"]
   },
+    "Operation Grenzfest": 
+  {
+    "missions": 
+    [
+      "Operation Grenzfest 1 (2026-09-26)"
+    ],
+    "patterns": ["Operation Grenzfest"]
+  },
 "Winter War": 
   {
     "missions": 
